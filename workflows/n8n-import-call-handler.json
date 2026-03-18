@@ -1,0 +1,520 @@
+{
+  "name": "Voice Agent — Call Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice/incoming",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ch-001",
+      "name": "Incoming Call Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            { "name": "session_id", "value": "={{$json.body.CallSid || $json.CallSid || 'sess_' + Date.now()}}" },
+            { "name": "caller_number", "value": "={{$json.body.From || $json.From || ''}}" },
+            { "name": "business_number", "value": "={{$json.body.To || $json.To || ''}}" },
+            { "name": "business_id", "value": "={{$json.body.business_id || 'default'}}" },
+            { "name": "call_direction", "value": "inbound" },
+            { "name": "detected_language", "value": "auto" },
+            { "name": "caller_name", "value": "" },
+            { "name": "emotion_state", "value": "neutral" },
+            { "name": "recording_url", "value": "" },
+            { "name": "call_status", "value": "in_progress" }
+          ],
+          "number": [
+            { "name": "turn_count", "value": 0 },
+            { "name": "silence_count", "value": 0 }
+          ],
+          "boolean": [
+            { "name": "is_first_turn", "value": true },
+            { "name": "needs_escalation", "value": false }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ch-002",
+      "name": "Init Session Variables",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate time-aware greeting\nconst hour = new Date().getHours();\nconst name = $input.first().json.caller_name || '';\nconst bizId = $input.first().json.business_id || 'default';\n\nlet timeGreet = 'Good evening';\nif (hour < 12) timeGreet = 'Good morning';\nelse if (hour < 17) timeGreet = 'Good afternoon';\n\nlet greeting;\nif (name) {\n  greeting = `${timeGreet}! Welcome back ${name}! This is Priya. How can I help you today?`;\n} else {\n  greeting = `${timeGreet}! Thank you for calling. My name is Priya. How may I assist you?`;\n}\n\nreturn [{ json: { ...$input.first().json, greeting_text: greeting } }];\n"
+      },
+      "id": "ch-003",
+      "name": "Generate Greeting",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/VOICE_ID/stream",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "xi-api-key", "value": "={{$env.ELEVENLABS_API_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": "={\n  \"text\": \"{{$json.greeting_text}}\",\n  \"model_id\": \"eleven_multilingual_v2\",\n  \"voice_settings\": { \"stability\": 0.5, \"similarity_boost\": 0.75 }\n}",
+        "options": { "timeout": 8000, "fullResponse": false }
+      },
+      "id": "ch-004",
+      "name": "TTS Greeting",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build TwiML response for greeting + start recording\nconst s = $input.first().json;\nconst sid = s.session_id;\nconst base = 'https://YOUR_N8N_URL';\nconst msg = (s.greeting_text || 'Welcome! How can I help?').replace(/[&<>\"]/g, '');\n\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${msg}</Say>\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice/turn?sid=${sid}&biz=${s.business_id}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice/turn?sid=${sid}&biz=${s.business_id}\" />\n</Response>`;\n\nreturn [{ json: { ...s, twiml_response: twiml } }];\n"
+      },
+      "id": "ch-005",
+      "name": "Build Greeting TwiML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{$json.twiml_response}}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Content-Type", "value": "application/xml" }
+            ]
+          }
+        }
+      },
+      "id": "ch-006",
+      "name": "Respond Greeting",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice/turn",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ch-010",
+      "name": "Conversation Turn Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 700]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            { "name": "session_id", "value": "={{$json.query.sid || $json.body.CallSid || ''}}" },
+            { "name": "business_id", "value": "={{$json.query.biz || 'default'}}" },
+            { "name": "caller_number", "value": "={{$json.body.From || ''}}" },
+            { "name": "business_number", "value": "={{$json.body.To || ''}}" },
+            { "name": "recording_url", "value": "={{$json.body.RecordingUrl || ''}}" },
+            { "name": "call_status", "value": "={{$json.body.CallStatus || ''}}" }
+          ],
+          "number": [],
+          "boolean": [
+            { "name": "has_recording", "value": "={{($json.body.RecordingUrl || '') !== ''}}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ch-011",
+      "name": "Extract Turn Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [220, 700]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.has_recording}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "ch-012",
+      "name": "Has Recording?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 700]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Silence handler — progressive responses\nconst s = $input.first().json;\nconst base = 'https://YOUR_N8N_URL';\nconst sid = s.session_id;\n\nconst msg = \"I didn't quite catch that. Could you please go ahead? I'm listening.\";\n\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${msg}</Say>\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice/turn?sid=${sid}&biz=${s.business_id}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">Hello? I am still here.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice/turn?sid=${sid}&biz=${s.business_id}\" />\n</Response>`;\n\nreturn [{ json: { ...s, twiml_response: twiml } }];\n"
+      },
+      "id": "ch-013",
+      "name": "Handle Silence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 880]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{$json.twiml_response}}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Content-Type", "value": "application/xml" }
+            ]
+          }
+        }
+      },
+      "id": "ch-014",
+      "name": "Respond Silence",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [880, 880]
+    },
+    {
+      "parameters": {
+        "url": "https://api.deepgram.com/v1/listen?model=nova-2&language=multi&detect_language=true&smart_format=true&punctuate=true",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Token {{$env.DEEPGRAM_API_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": "={\"url\": \"{{$json.recording_url}}.wav\"}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "ch-020",
+      "name": "Deepgram STT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [660, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Deepgram response\nconst input = $input.first().json;\nlet transcript = '', lang = 'en', confidence = 0;\ntry {\n  const ch = input.results.channels[0];\n  transcript = ch.alternatives[0].transcript || '';\n  confidence = ch.alternatives[0].confidence || 0;\n  lang = ch.detected_language || 'en';\n} catch(e) { transcript = ''; }\n\nconst norm = {'ta':'ta','ta-IN':'ta','te':'te','te-IN':'te','kn':'kn','kn-IN':'kn','ml':'ml','ml-IN':'ml','en':'en','en-IN':'en','en-US':'en'};\nconst names = {ta:'Tamil',te:'Telugu',kn:'Kannada',ml:'Malayalam',en:'English'};\nconst nl = norm[lang] || 'en';\n\nreturn [{ json: {\n  session_id: input.session_id || '',\n  business_id: input.business_id || 'default',\n  caller_number: input.caller_number || '',\n  business_number: input.business_number || '',\n  caller_transcript: transcript,\n  detected_language: nl,\n  language_name: names[nl] || 'English',\n  stt_confidence: confidence,\n  is_empty: transcript.trim() === ''\n}}];\n"
+      },
+      "id": "ch-021",
+      "name": "Parse STT Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 600]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.is_empty}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "ch-022",
+      "name": "Transcript Empty?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1100, 600]
+    },
+    {
+      "parameters": {
+        "url": "=https://YOUR_N8N_URL/webhook/ai-brain",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": "={\n  \"session_id\": \"{{$json.session_id}}\",\n  \"business_id\": \"{{$json.business_id}}\",\n  \"caller_number\": \"{{$json.caller_number}}\",\n  \"caller_transcript\": {{JSON.stringify($json.caller_transcript)}},\n  \"detected_language\": \"{{$json.detected_language}}\",\n  \"language_name\": \"{{$json.language_name}}\"\n}",
+        "options": { "timeout": 15000 }
+      },
+      "id": "ch-030",
+      "name": "Call AI Brain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1320, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// AI Brain timeout fallback\nconst s = $input.first().json;\nconst fallback = {\n  reply_text: 'I am sorry, could you repeat that? I missed what you said.',\n  intent: 'unknown',\n  emotion: 'neutral',\n  action: {},\n  booking_data: {}\n};\n\n// Use AI response if available, else fallback\nconst resp = s.reply_text ? s : fallback;\n\nreturn [{ json: { ...s, ...resp } }];\n"
+      },
+      "id": "ch-031",
+      "name": "AI Response Fallback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══ HUMANIZATION ENGINE ═══\nconst s = $input.first().json;\nconst resp = s.reply_text || 'Could you repeat that?';\nconst emo = s.emotion || 'neutral';\n\nconst fills = {\n  neutral: ['Sure!','Absolutely.','Of course.','Right.','Got it.'],\n  thinking: ['Let me check...','One moment...','Hmm, let me see...'],\n  empathy: ['I understand.','I hear you.','That makes sense.']\n};\n\nlet h = resp;\nif (Math.random() < 0.55) {\n  let set;\n  if (emo === 'angry' || emo === 'frustrated') set = fills.empathy;\n  else if (resp.length > 100) set = fills.thinking;\n  else set = fills.neutral;\n  h = set[Math.floor(Math.random() * set.length)] + ' ' + h;\n}\n\nreturn [{ json: { ...s, humanized_response: h } }];\n"
+      },
+      "id": "ch-032",
+      "name": "Humanization Engine",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 500]
+    },
+    {
+      "parameters": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/VOICE_ID/stream",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "xi-api-key", "value": "={{$env.ELEVENLABS_API_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": "={\n  \"text\": {{JSON.stringify($json.humanized_response)}},\n  \"model_id\": \"eleven_multilingual_v2\",\n  \"voice_settings\": { \"stability\": 0.45, \"similarity_boost\": 0.78, \"style\": 0.35 }\n}",
+        "options": { "timeout": 8000 }
+      },
+      "id": "ch-033",
+      "name": "TTS Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1980, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build TwiML: speak response + record next turn\nconst s = $input.first().json;\nconst sid = s.session_id;\nconst base = 'https://YOUR_N8N_URL';\nconst spoken = (s.humanized_response || s.reply_text || 'Could you repeat that?').replace(/[&<>\"]/g, '');\nconst endCall = s.action && s.action.type === 'end_call';\n\nlet twiml;\nif (endCall) {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spoken}</Say>\n  <Hangup/>\n</Response>`;\n} else if (s.action && s.action.type === 'transfer') {\n  const escNum = s.action.number || '+919876543210';\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spoken}</Say>\n  <Dial timeout=\"30\"><Number>${escNum}</Number></Dial>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">Sorry, our team is unavailable. We will call you back shortly.</Say>\n</Response>`;\n} else {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spoken}</Say>\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice/turn?sid=${sid}&biz=${s.business_id}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice/turn?sid=${sid}&biz=${s.business_id}\" />\n</Response>`;\n}\n\nreturn [{ json: { ...s, twiml_response: twiml } }];\n"
+      },
+      "id": "ch-034",
+      "name": "Build Response TwiML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2200, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{$json.twiml_response}}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Content-Type", "value": "application/xml" }
+            ]
+          }
+        }
+      },
+      "id": "ch-035",
+      "name": "Respond to Twilio",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2420, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.intent}}",
+              "value2": "booking",
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "ch-040",
+      "name": "Is Booking Action?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2420, 720]
+    },
+    {
+      "parameters": {
+        "url": "=https://YOUR_N8N_URL/webhook/crm-action",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": "={\n  \"action\": \"CONFIRM_BOOKING\",\n  \"business_id\": \"{{$json.business_id}}\",\n  \"session_id\": \"{{$json.session_id}}\",\n  \"caller_number\": \"{{$json.caller_number}}\",\n  \"booking_data\": {{JSON.stringify($json.booking_data || {})}},\n  \"detected_language\": \"{{$json.detected_language}}\"\n}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "ch-041",
+      "name": "Trigger CRM Booking",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2640, 640]
+    }
+  ],
+  "connections": {
+    "Incoming Call Webhook": {
+      "main": [
+        [
+          { "node": "Init Session Variables", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Init Session Variables": {
+      "main": [
+        [
+          { "node": "Generate Greeting", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Generate Greeting": {
+      "main": [
+        [
+          { "node": "TTS Greeting", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "TTS Greeting": {
+      "main": [
+        [
+          { "node": "Build Greeting TwiML", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Build Greeting TwiML": {
+      "main": [
+        [
+          { "node": "Respond Greeting", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Conversation Turn Webhook": {
+      "main": [
+        [
+          { "node": "Extract Turn Data", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Extract Turn Data": {
+      "main": [
+        [
+          { "node": "Has Recording?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Has Recording?": {
+      "main": [
+        [
+          { "node": "Deepgram STT", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Handle Silence", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Deepgram STT": {
+      "main": [
+        [
+          { "node": "Parse STT Result", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Parse STT Result": {
+      "main": [
+        [
+          { "node": "Transcript Empty?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Transcript Empty?": {
+      "main": [
+        [
+          { "node": "Handle Silence", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Call AI Brain", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Handle Silence": {
+      "main": [
+        [
+          { "node": "Respond Silence", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Call AI Brain": {
+      "main": [
+        [
+          { "node": "AI Response Fallback", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "AI Response Fallback": {
+      "main": [
+        [
+          { "node": "Humanization Engine", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Humanization Engine": {
+      "main": [
+        [
+          { "node": "TTS Response", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "TTS Response": {
+      "main": [
+        [
+          { "node": "Build Response TwiML", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Build Response TwiML": {
+      "main": [
+        [
+          { "node": "Respond to Twilio", "type": "main", "index": 0 },
+          { "node": "Is Booking Action?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Is Booking Action?": {
+      "main": [
+        [
+          { "node": "Trigger CRM Booking", "type": "main", "index": 0 }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "Asia/Kolkata"
+  },
+  "tags": [
+    { "name": "voice-agent", "id": "tag-1" },
+    { "name": "call-handler", "id": "tag-2" }
+  ],
+  "triggerCount": 2
+}
