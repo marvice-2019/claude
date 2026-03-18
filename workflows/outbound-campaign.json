@@ -1,0 +1,129 @@
+{
+  "name": "AI Voice Agent — Outbound Campaign Workflow",
+  "nodes": [
+    {
+      "id": "trigger-schedule",
+      "name": "Campaign Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [250, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 1 }]
+        }
+      },
+      "notes": "Runs hourly to check for pending outbound calls. Can also be triggered manually or via webhook."
+    },
+    {
+      "id": "fetch-call-queue",
+      "name": "Fetch Pending Outbound Calls",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [450, 300],
+      "parameters": {
+        "operation": "read",
+        "sheetId": "={{$env.GSHEET_ID}}",
+        "range": "OutboundQueue!A:H",
+        "options": {
+          "filters": {
+            "column": "status",
+            "value": "pending"
+          }
+        }
+      },
+      "notes": "Fetches pending outbound calls from the queue sheet. Columns: phone, name, purpose, language_pref, scheduled_time, business_id, template, status."
+    },
+    {
+      "id": "filter-ready-calls",
+      "name": "Filter Calls Ready to Execute",
+      "type": "n8n-nodes-base.code",
+      "position": [650, 300],
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst hour = now.getHours();\n\n// Only call between 10 AM and 8 PM IST\nif (hour < 10 || hour > 20) {\n  return []; // No calls outside business hours\n}\n\nconst items = $input.all();\nreturn items.filter(item => {\n  const scheduled = new Date(item.json.scheduled_time);\n  return scheduled <= now && item.json.status === 'pending';\n});\n"
+      },
+      "notes": "Filters to only calls scheduled for now or past, and only during business hours (10 AM - 8 PM IST)."
+    },
+    {
+      "id": "initiate-outbound-call",
+      "name": "Initiate Outbound Call via Twilio",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [850, 300],
+      "parameters": {
+        "url": "https://api.twilio.com/2010-04-01/Accounts/{{$env.TWILIO_ACCOUNT_SID}}/Calls.json",
+        "method": "POST",
+        "authentication": "basicAuth",
+        "body": {
+          "contentType": "form-urlencoded",
+          "form": {
+            "parameter": [
+              { "name": "To", "value": "={{$json.phone}}" },
+              { "name": "From", "value": "={{$env.TWILIO_PHONE_NUMBER}}" },
+              { "name": "Url", "value": "={{$env.N8N_BASE_URL}}/webhook/voice-agent/outbound-greeting?name={{encodeURIComponent($json.name)}}&purpose={{$json.purpose}}&lang={{$json.language_pref}}" },
+              { "name": "StatusCallback", "value": "={{$env.N8N_BASE_URL}}/webhook/voice-agent/call-status" },
+              { "name": "MachineDetection", "value": "DetectMessageEnd" },
+              { "name": "Timeout", "value": "30" }
+            ]
+          }
+        }
+      },
+      "notes": "Initiates outbound call via Twilio. Includes answering machine detection. Webhook URL passes caller context."
+    },
+    {
+      "id": "outbound-greeting-webhook",
+      "name": "Outbound Greeting Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 600],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-agent/outbound-greeting",
+        "responseMode": "responseNode"
+      },
+      "notes": "Twilio hits this when the outbound call connects. Generates a purpose-specific greeting."
+    },
+    {
+      "id": "generate-outbound-greeting",
+      "name": "Generate Outbound Greeting",
+      "type": "n8n-nodes-base.code",
+      "position": [450, 600],
+      "parameters": {
+        "jsCode": "const name = $input.first().json.query.name || '';\nconst purpose = $input.first().json.query.purpose || 'follow_up';\nconst lang = $input.first().json.query.lang || 'en';\nconst machineDetected = $input.first().json.body.AnsweredBy;\n\n// If voicemail detected, leave a short message\nif (machineDetected === 'machine_end_other' || machineDetected === 'machine_end_beep') {\n  return [{ json: {\n    greeting: `Hi ${name}, this is Priya calling from the venue. We have a special offer for you this weekend. Please call us back at your convenience. Thank you!`,\n    is_voicemail: true\n  }}];\n}\n\nconst templates = {\n  booking_reminder: `Hi ${name}! This is Priya from the venue. I'm calling to confirm your reservation for tomorrow. Do you have a quick moment?`,\n  follow_up: `Hello ${name}! This is Priya calling from the venue. We noticed you enquired about our services recently. I just wanted to check if you'd like to go ahead with a booking?`,\n  event_promo: `Hi ${name}! This is Priya from the venue. We have an exciting event coming up this weekend and I thought of you. Do you have a minute?`,\n  feedback: `Hi ${name}! This is Priya from the venue. You visited us recently and we'd love your quick feedback. Do you have 2 minutes?`,\n  offer: `Hello ${name}! This is Priya from the venue. We have an exclusive offer just for our valued customers. Can I share the details with you?`\n};\n\nconst greeting = templates[purpose] || templates.follow_up;\n\nreturn [{ json: { greeting, is_voicemail: false, purpose, caller_name: name, detected_language: lang } }];\n"
+      },
+      "notes": "Generates context-specific greeting for outbound calls. Handles voicemail detection — leaves a short message instead of running the full agent."
+    },
+    {
+      "id": "update-call-status",
+      "name": "Call Status Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 900],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-agent/call-status"
+      },
+      "notes": "Receives call status updates from Twilio (completed, failed, busy, no-answer). Updates the queue sheet."
+    },
+    {
+      "id": "update-queue-status",
+      "name": "Update Queue Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [450, 900],
+      "parameters": {
+        "operation": "update",
+        "sheetId": "={{$env.GSHEET_ID}}",
+        "range": "OutboundQueue!A:H",
+        "options": {
+          "valueInputOption": "RAW"
+        }
+      },
+      "notes": "Updates the outbound queue with call result: completed, failed, busy, voicemail, no-answer, etc."
+    }
+  ],
+  "connections": {
+    "Campaign Schedule Trigger": { "main": [["Fetch Pending Outbound Calls"]] },
+    "Fetch Pending Outbound Calls": { "main": [["Filter Calls Ready to Execute"]] },
+    "Filter Calls Ready to Execute": { "main": [["Initiate Outbound Call via Twilio"]] },
+    "Outbound Greeting Webhook": { "main": [["Generate Outbound Greeting"]] },
+    "Call Status Webhook": { "main": [["Update Queue Status"]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata"
+  }
+}

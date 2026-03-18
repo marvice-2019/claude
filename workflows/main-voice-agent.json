@@ -1,0 +1,560 @@
+{
+  "name": "AI Voice Agent — Main Workflow",
+  "nodes": [
+    {
+      "id": "trigger-incoming-call",
+      "name": "Incoming Call Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-agent/incoming",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "notes": "Twilio/Exotel sends POST when call arrives. Contains: CallSid, From, To, CallStatus, caller number."
+    },
+    {
+      "id": "init-session",
+      "name": "Initialize Session",
+      "type": "n8n-nodes-base.set",
+      "position": [450, 300],
+      "parameters": {
+        "values": {
+          "string": [
+            { "name": "session_id", "value": "={{$json.CallSid}}" },
+            { "name": "caller_number", "value": "={{$json.From}}" },
+            { "name": "business_number", "value": "={{$json.To}}" },
+            { "name": "detected_language", "value": "auto" },
+            { "name": "call_direction", "value": "inbound" },
+            { "name": "turn_count", "value": "0" },
+            { "name": "detected_intent", "value": "unknown" },
+            { "name": "caller_name", "value": "" },
+            { "name": "emotion_state", "value": "neutral" }
+          ],
+          "object": [
+            { "name": "conversation_history", "value": "[]" },
+            { "name": "collected_data", "value": "{}" }
+          ]
+        }
+      },
+      "notes": "Creates session variables that persist across the entire call. These travel with every node."
+    },
+    {
+      "id": "lookup-caller",
+      "name": "Lookup Caller in CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [650, 200],
+      "parameters": {
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/{{$env.GSHEET_ID}}/values/Customers!A:F",
+        "method": "GET",
+        "authentication": "oAuth2",
+        "options": {},
+        "queryParameters": {
+          "parameter": [
+            { "name": "key", "value": "={{$env.GOOGLE_API_KEY}}" }
+          ]
+        }
+      },
+      "notes": "Check if caller exists in CRM/Google Sheets. If found, pre-populate name and preferences."
+    },
+    {
+      "id": "lookup-business-config",
+      "name": "Fetch Business Config",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [650, 400],
+      "parameters": {
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/{{$env.GSHEET_ID}}/values/BusinessConfig!A:J",
+        "method": "GET",
+        "authentication": "oAuth2"
+      },
+      "notes": "Loads business-specific config: name, timings, menu, pricing, offers, language preferences."
+    },
+    {
+      "id": "merge-context",
+      "name": "Merge Caller + Business Data",
+      "type": "n8n-nodes-base.merge",
+      "position": [850, 300],
+      "parameters": {
+        "mode": "append"
+      },
+      "notes": "Combines caller history and business config into a single context object for the AI."
+    },
+    {
+      "id": "generate-greeting",
+      "name": "Generate Time-Aware Greeting",
+      "type": "n8n-nodes-base.code",
+      "position": [1050, 300],
+      "parameters": {
+        "jsCode": "// Time-aware, language-aware greeting generator\nconst hour = new Date().getHours();\nconst callerName = $input.first().json.caller_name || '';\nconst isReturning = callerName !== '';\nconst lang = $input.first().json.detected_language || 'en';\nconst businessName = $input.first().json.business_name || 'our venue';\n\nconst greetings = {\n  en: {\n    morning: 'Good morning',\n    afternoon: 'Good afternoon',\n    evening: 'Good evening'\n  },\n  ta: {\n    morning: 'காலை வணக்கம்',\n    afternoon: 'மதிய வணக்கம்',\n    evening: 'மாலை வணக்கம்'\n  },\n  te: {\n    morning: 'శుభోదయం',\n    afternoon: 'శుభ మధ్యాహ్నం',\n    evening: 'శుభ సాయంత్రం'\n  },\n  kn: {\n    morning: 'ಶುಭೋದಯ',\n    afternoon: 'ಶುಭ ಮಧ್ಯಾಹ್ನ',\n    evening: 'ಶುಭ ಸಂಜೆ'\n  },\n  ml: {\n    morning: 'സുപ്രഭാതം',\n    afternoon: 'ശുഭ ഉച്ചയ്ക്ക്',\n    evening: 'ശുഭ സന്ധ്യ'\n  }\n};\n\nlet timeSlot = 'morning';\nif (hour >= 12 && hour < 17) timeSlot = 'afternoon';\nif (hour >= 17) timeSlot = 'evening';\n\nconst greeting = (greetings[lang] || greetings.en)[timeSlot];\n\nlet message;\nif (isReturning) {\n  message = `${greeting}! Welcome back ${callerName}! This is ${businessName}. How can I help you today?`;\n} else {\n  message = `${greeting}! Thank you for calling ${businessName}. My name is Priya. How may I assist you?`;\n}\n\nreturn [{ json: { ...$input.first().json, greeting_message: message, greeting_lang: lang } }];\n"
+      },
+      "notes": "Generates a natural greeting based on time of day, caller language, and whether they're a returning customer."
+    },
+    {
+      "id": "tts-greeting",
+      "name": "Text-to-Speech: Greeting",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1250, 300],
+      "parameters": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/{{$env.ELEVENLABS_VOICE_ID}}/stream",
+        "method": "POST",
+        "headers": {
+          "parameter": [
+            { "name": "xi-api-key", "value": "={{$env.ELEVENLABS_API_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "body": {
+          "json": {
+            "text": "={{$json.greeting_message}}",
+            "model_id": "eleven_multilingual_v2",
+            "voice_settings": {
+              "stability": 0.5,
+              "similarity_boost": 0.75,
+              "style": 0.4,
+              "use_speaker_boost": true
+            }
+          }
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "notes": "Converts greeting text to human-like speech using ElevenLabs multilingual model. Returns audio stream."
+    },
+    {
+      "id": "stream-greeting-to-caller",
+      "name": "Stream Greeting Audio to Caller",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1450, 300],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{$self.generateTwiML($json.audio_url)}}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Content-Type", "value": "application/xml" }
+            ]
+          }
+        }
+      },
+      "notes": "Returns TwiML response to Twilio that plays greeting audio and then opens a <Gather> for caller input."
+    },
+    {
+      "id": "conversation-loop-webhook",
+      "name": "Conversation Turn Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 600],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-agent/conversation-turn",
+        "responseMode": "responseNode"
+      },
+      "notes": "Each subsequent caller utterance hits this webhook. Twilio sends the recorded speech or DTMF input."
+    },
+    {
+      "id": "stt-processing",
+      "name": "Speech-to-Text (Deepgram)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 600],
+      "parameters": {
+        "url": "https://api.deepgram.com/v1/listen",
+        "method": "POST",
+        "headers": {
+          "parameter": [
+            { "name": "Authorization", "value": "Token {{$env.DEEPGRAM_API_KEY}}" },
+            { "name": "Content-Type", "value": "audio/wav" }
+          ]
+        },
+        "queryParameters": {
+          "parameter": [
+            { "name": "model", "value": "nova-2" },
+            { "name": "language", "value": "multi" },
+            { "name": "detect_language", "value": "true" },
+            { "name": "smart_format", "value": "true" },
+            { "name": "diarize", "value": "false" },
+            { "name": "punctuate", "value": "true" }
+          ]
+        },
+        "body": {
+          "contentType": "binaryData",
+          "binaryData": "={{$json.RecordingUrl}}"
+        }
+      },
+      "notes": "Sends caller audio to Deepgram Nova-2 with multi-language detection. Returns transcript + detected language + confidence."
+    },
+    {
+      "id": "check-silence",
+      "name": "Check for Silence/Empty Input",
+      "type": "n8n-nodes-base.if",
+      "position": [650, 600],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.results.channels[0].alternatives[0].transcript}}",
+              "operation": "isEmpty"
+            }
+          ]
+        }
+      },
+      "notes": "If Deepgram returns empty transcript → silence detected. Route to silence handler."
+    },
+    {
+      "id": "silence-handler",
+      "name": "Handle Silence",
+      "type": "n8n-nodes-base.code",
+      "position": [850, 500],
+      "parameters": {
+        "jsCode": "const turnCount = parseInt($input.first().json.turn_count) || 0;\nconst silenceCount = parseInt($input.first().json.silence_count) || 0;\nconst newSilenceCount = silenceCount + 1;\n\nlet response;\nif (newSilenceCount === 1) {\n  response = \"I didn't quite catch that. Could you please repeat?\";\n} else if (newSilenceCount === 2) {\n  response = \"Hello? Are you still there? I'm here to help whenever you're ready.\";\n} else {\n  response = \"It seems like we're having trouble hearing each other. I'll send you a WhatsApp message so you can reach us easily. Thank you for calling!\";\n}\n\nreturn [{ json: { \n  ...($input.first().json), \n  ai_response: response, \n  silence_count: newSilenceCount,\n  should_end_call: newSilenceCount >= 3\n}}];\n"
+      },
+      "notes": "Handles silence progressively: gentle prompt → 'are you there?' → graceful end with WhatsApp fallback."
+    },
+    {
+      "id": "language-detection",
+      "name": "Detect & Lock Language",
+      "type": "n8n-nodes-base.code",
+      "position": [850, 700],
+      "parameters": {
+        "jsCode": "const transcript = $input.first().json.results.channels[0].alternatives[0].transcript;\nconst detectedLang = $input.first().json.results.channels[0].detected_language;\nconst confidence = $input.first().json.results.channels[0].alternatives[0].confidence;\nconst sessionLang = $input.first().json.detected_language;\nconst turnCount = parseInt($input.first().json.turn_count) || 0;\n\n// Language mapping\nconst langMap = {\n  'ta': 'tamil', 'ta-IN': 'tamil',\n  'te': 'telugu', 'te-IN': 'telugu',\n  'kn': 'kannada', 'kn-IN': 'kannada',\n  'ml': 'malayalam', 'ml-IN': 'malayalam',\n  'en': 'english', 'en-IN': 'english', 'en-US': 'english'\n};\n\nlet finalLang = sessionLang;\n\n// Only update language in first 2 turns or if session is still 'auto'\nif (turnCount <= 2 || sessionLang === 'auto') {\n  if (confidence > 0.7 && langMap[detectedLang]) {\n    finalLang = detectedLang.split('-')[0]; // normalize to 2-char code\n  } else {\n    finalLang = 'en'; // default to English\n  }\n}\n\nreturn [{ json: {\n  ...($input.first().json),\n  caller_transcript: transcript,\n  detected_language: finalLang,\n  language_name: langMap[finalLang] || 'english',\n  stt_confidence: confidence,\n  turn_count: turnCount + 1\n}}];\n"
+      },
+      "notes": "Detects language from Deepgram output. Locks language after 2 turns to prevent mid-call confusion. Supports code-switching."
+    },
+    {
+      "id": "emotion-detection",
+      "name": "Detect Caller Emotion",
+      "type": "n8n-nodes-base.code",
+      "position": [1050, 700],
+      "parameters": {
+        "jsCode": "const transcript = $input.first().json.caller_transcript;\nconst lower = transcript.toLowerCase();\n\n// Keyword-based emotion signals\nconst angerKeywords = ['worst', 'terrible', 'disgusting', 'pathetic', 'waste', 'cheat', 'fraud', 'angry', 'disappointed', 'unacceptable', 'ridiculous', 'horrible', 'damn', 'hell'];\nconst urgencyKeywords = ['urgent', 'immediately', 'right now', 'emergency', 'asap', 'hurry', 'quickly', 'fast', 'tonight', 'today only'];\nconst confusionKeywords = ['confused', 'don\\'t understand', 'what do you mean', 'unclear', 'not sure', 'which one', 'huh', 'sorry what'];\nconst happyKeywords = ['great', 'awesome', 'perfect', 'wonderful', 'amazing', 'excellent', 'fantastic', 'love it', 'thank you so much'];\nconst escalationKeywords = ['manager', 'supervisor', 'human', 'real person', 'transfer', 'speak to someone', 'complaint'];\n\nlet emotion = 'neutral';\nlet escalate = false;\nlet confidence = 0.5;\n\nif (angerKeywords.some(k => lower.includes(k))) { emotion = 'angry'; confidence = 0.8; }\nif (urgencyKeywords.some(k => lower.includes(k))) { emotion = 'urgent'; confidence = 0.8; }\nif (confusionKeywords.some(k => lower.includes(k))) { emotion = 'confused'; confidence = 0.7; }\nif (happyKeywords.some(k => lower.includes(k))) { emotion = 'happy'; confidence = 0.7; }\nif (escalationKeywords.some(k => lower.includes(k))) { escalate = true; emotion = 'wants_escalation'; confidence = 0.9; }\n\n// Exclamation marks and ALL CAPS boost anger/urgency detection\nif ((transcript.match(/!/g) || []).length > 2) {\n  if (emotion === 'neutral') emotion = 'frustrated';\n  confidence = Math.min(confidence + 0.1, 1.0);\n}\n\nreturn [{ json: {\n  ...($input.first().json),\n  emotion_state: emotion,\n  emotion_confidence: confidence,\n  needs_escalation: escalate\n}}];\n"
+      },
+      "notes": "Rule-based emotion detection from transcript. Detects: anger, urgency, confusion, happiness, escalation requests."
+    },
+    {
+      "id": "check-escalation",
+      "name": "Needs Human Escalation?",
+      "type": "n8n-nodes-base.if",
+      "position": [1250, 700],
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.needs_escalation}}",
+              "value2": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "escalate-to-human",
+      "name": "Transfer to Human Agent",
+      "type": "n8n-nodes-base.code",
+      "position": [1450, 600],
+      "parameters": {
+        "jsCode": "// Generate TwiML to transfer call to human agent\nconst humanNumber = $input.first().json.business_config?.escalation_number || '+919876543210';\nconst callerName = $input.first().json.caller_name || 'A customer';\n\nconst transferMessage = \"I completely understand. Let me connect you with my colleague right away. Please hold for just a moment.\";\n\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\">${transferMessage}</Say>\n  <Dial timeout=\"30\" callerId=\"${$input.first().json.business_number}\">\n    <Number>${humanNumber}</Number>\n  </Dial>\n  <Say>I'm sorry, our team member is unavailable right now. We'll call you back within 15 minutes. Thank you for your patience.</Say>\n</Response>`;\n\nreturn [{ json: {\n  ...($input.first().json),\n  twiml_response: twiml,\n  escalation_triggered: true,\n  escalation_reason: $input.first().json.emotion_state\n}}];\n"
+      },
+      "notes": "Generates TwiML to warm-transfer the call to a human agent. Includes a fallback message if human is unavailable."
+    },
+    {
+      "id": "ai-brain",
+      "name": "AI Conversational Brain (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1450, 800],
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "method": "POST",
+        "headers": {
+          "parameter": [
+            { "name": "x-api-key", "value": "={{$env.ANTHROPIC_API_KEY}}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "body": {
+          "json": {
+            "model": "claude-sonnet-4-6",
+            "max_tokens": 300,
+            "system": "={{$node['Build AI Prompt'].json.system_prompt}}",
+            "messages": "={{$node['Build AI Prompt'].json.messages}}"
+          }
+        }
+      },
+      "notes": "Core AI brain. Claude processes intent, generates response, handles multi-turn dialogue. System prompt contains full persona + business context."
+    },
+    {
+      "id": "build-ai-prompt",
+      "name": "Build AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "position": [1250, 800],
+      "parameters": {
+        "jsCode": "// See prompts/system-prompt.md for the full system prompt\n// This node assembles the complete prompt with dynamic context\n\nconst session = $input.first().json;\nconst history = session.conversation_history || [];\nconst businessConfig = session.business_config || {};\n\n// Add current user message to history\nhistory.push({\n  role: 'user',\n  content: session.caller_transcript\n});\n\nconst systemPrompt = `You are Priya, a warm, professional customer care executive at ${businessConfig.business_name || 'the venue'}.\n\nCRITICAL RULES:\n- Respond in ${session.language_name || 'English'}. If the caller code-switches (e.g., Tanglish), mirror their style.\n- Keep responses under 40 words for simple acknowledgments, under 80 words for detailed answers.\n- Sound HUMAN. Use natural fillers: \"Sure thing...\", \"Let me check that for you...\", \"Absolutely!\"\n- NEVER say \"As an AI\" or anything revealing you are not human.\n- Current emotion detected: ${session.emotion_state}. Adapt your tone accordingly:\n  - angry → empathetic, calm, apologetic\n  - urgent → quick, efficient, reassuring\n  - confused → patient, clear, step-by-step\n  - happy → energetic, matching enthusiasm\n  - neutral → warm, professional\n\nBUSINESS CONTEXT:\n- Name: ${businessConfig.business_name || 'N/A'}\n- Type: ${businessConfig.business_type || 'restaurant/club'}\n- Timings: ${businessConfig.timings || 'N/A'}\n- Menu highlights: ${businessConfig.menu_highlights || 'N/A'}\n- Current offers: ${businessConfig.current_offers || 'N/A'}\n- VIP options: ${businessConfig.vip_options || 'N/A'}\n- Address: ${businessConfig.address || 'N/A'}\n\nCALLER CONTEXT:\n- Name: ${session.caller_name || 'Unknown'}\n- Returning customer: ${session.caller_name ? 'Yes' : 'No'}\n- Current intent: ${session.detected_intent}\n- Data collected so far: ${JSON.stringify(session.collected_data || {})}\n\nINTENT HANDLING:\n1. BOOKING: Collect date, time, number of guests, name, phone. Confirm and recap.\n2. ENQUIRY: Answer from business context. If unknown, say \"Let me check and get back to you.\"\n3. COMPLAINT: Empathize first. Apologize. Offer resolution. Escalate if needed.\n4. UPSELL OPPORTUNITIES: When booking, naturally suggest VIP tables, special events, or current offers. Do NOT be pushy.\n\nDATA EXTRACTION:\nAfter each response, output a JSON block with extracted data:\n<data>{\"intent\": \"...\", \"date\": \"...\", \"time\": \"...\", \"guests\": ..., \"name\": \"...\", \"special_requests\": \"...\"}</data>\nOnly include fields that were mentioned. Use null for unknown fields.\n\nCONVERSATION STAGE: Turn ${session.turn_count || 1}\n`;\n\nconst messages = history.map(h => ({\n  role: h.role,\n  content: h.content\n}));\n\nreturn [{ json: {\n  ...session,\n  system_prompt: systemPrompt,\n  messages: messages,\n  conversation_history: history\n}}];\n"
+      },
+      "notes": "Assembles the full AI prompt with system instructions, business context, caller data, and conversation history."
+    },
+    {
+      "id": "parse-ai-response",
+      "name": "Parse AI Response + Extract Data",
+      "type": "n8n-nodes-base.code",
+      "position": [1650, 800],
+      "parameters": {
+        "jsCode": "const aiOutput = $input.first().json.content[0].text;\nconst session = $input.first().json;\n\n// Extract data block if present\nlet extractedData = {};\nconst dataMatch = aiOutput.match(/<data>(.*?)<\\/data>/s);\nif (dataMatch) {\n  try {\n    extractedData = JSON.parse(dataMatch[1]);\n  } catch (e) {\n    extractedData = {};\n  }\n}\n\n// Remove data block from spoken response\nconst spokenResponse = aiOutput.replace(/<data>.*?<\\/data>/s, '').trim();\n\n// Merge extracted data with existing collected data\nconst existingData = session.collected_data || {};\nconst mergedData = { ...existingData };\nfor (const [key, value] of Object.entries(extractedData)) {\n  if (value !== null && value !== undefined && value !== '') {\n    mergedData[key] = value;\n  }\n}\n\n// Detect if booking is complete\nconst bookingComplete = mergedData.intent === 'booking' &&\n  mergedData.date && mergedData.time && mergedData.guests && mergedData.name;\n\n// Update conversation history\nconst history = session.conversation_history || [];\nhistory.push({ role: 'assistant', content: spokenResponse });\n\nreturn [{ json: {\n  ...session,\n  ai_response: spokenResponse,\n  collected_data: mergedData,\n  detected_intent: mergedData.intent || session.detected_intent,\n  booking_complete: bookingComplete,\n  conversation_history: history\n}}];\n"
+      },
+      "notes": "Extracts the spoken response and structured data from AI output. Merges data progressively across turns."
+    },
+    {
+      "id": "humanization-engine",
+      "name": "Humanization Engine",
+      "type": "n8n-nodes-base.code",
+      "position": [1850, 800],
+      "parameters": {
+        "jsCode": "const response = $input.first().json.ai_response;\nconst emotion = $input.first().json.emotion_state;\nconst turnCount = parseInt($input.first().json.turn_count) || 1;\n\n// --- FILLER INJECTION ---\nconst fillers = {\n  neutral: ['Sure!', 'Absolutely.', 'Of course.', 'Right.', 'Got it.'],\n  thinking: ['Let me check...', 'One moment...', 'Let me see...', 'Hmm, let me look into that...'],\n  empathy: ['I understand.', 'I hear you.', 'That makes sense.', 'I completely get it.']\n};\n\nlet humanized = response;\n\n// Add filler at the beginning occasionally (60% chance, not on first turn)\nif (turnCount > 1 && Math.random() < 0.6) {\n  let fillerSet;\n  if (emotion === 'angry' || emotion === 'frustrated') {\n    fillerSet = fillers.empathy;\n  } else if (response.length > 100) {\n    fillerSet = fillers.thinking;\n  } else {\n    fillerSet = fillers.neutral;\n  }\n  const filler = fillerSet[Math.floor(Math.random() * fillerSet.length)];\n  humanized = filler + ' ' + humanized;\n}\n\n// --- SENTENCE VARIATION ---\n// Avoid starting consecutive responses the same way\n// (tracked via conversation history in actual deployment)\n\n// --- PAUSE MARKERS ---\n// Insert SSML pauses for natural speech rhythm\nhumanized = humanized.replace(/\\. /g, '. <break time=\"300ms\"/> ');\nhumanized = humanized.replace(/\\? /g, '? <break time=\"400ms\"/> ');\nhumanized = humanized.replace(/! /g, '! <break time=\"200ms\"/> ');\n\n// --- SPEED ADAPTATION ---\nlet speakRate = '1.0';\nif (emotion === 'urgent') speakRate = '1.15';\nif (emotion === 'angry' || emotion === 'frustrated') speakRate = '0.9';\nif (emotion === 'confused') speakRate = '0.85';\n\n// --- CALCULATE RESPONSE DELAY ---\n// Simulate human thinking time (varies by response complexity)\nconst wordCount = response.split(' ').length;\nlet delayMs = Math.min(400 + (wordCount * 30), 1500); // 400ms-1500ms\nif (emotion === 'urgent') delayMs = Math.max(delayMs - 300, 200);\n\nreturn [{ json: {\n  ...($input.first().json),\n  ai_response_humanized: humanized,\n  speak_rate: speakRate,\n  response_delay_ms: delayMs\n}}];\n"
+      },
+      "notes": "Makes AI responses feel human: adds fillers, SSML pauses, speed adaptation based on emotion, and natural thinking delays."
+    },
+    {
+      "id": "tts-response",
+      "name": "Text-to-Speech: Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2050, 800],
+      "parameters": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/{{$env.ELEVENLABS_VOICE_ID}}/stream",
+        "method": "POST",
+        "headers": {
+          "parameter": [
+            { "name": "xi-api-key", "value": "={{$env.ELEVENLABS_API_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "body": {
+          "json": {
+            "text": "={{$json.ai_response_humanized}}",
+            "model_id": "eleven_multilingual_v2",
+            "voice_settings": {
+              "stability": 0.45,
+              "similarity_boost": 0.78,
+              "style": 0.35,
+              "use_speaker_boost": true
+            }
+          }
+        },
+        "options": {
+          "response": {
+            "response": { "responseFormat": "file" }
+          }
+        }
+      },
+      "notes": "Converts humanized response to speech. Uses ElevenLabs multilingual v2 for natural-sounding Indian English + regional languages."
+    },
+    {
+      "id": "build-twiml-response",
+      "name": "Build TwiML Continue Response",
+      "type": "n8n-nodes-base.code",
+      "position": [2250, 800],
+      "parameters": {
+        "jsCode": "const audioUrl = $input.first().json.audio_url;\nconst shouldEndCall = $input.first().json.should_end_call || false;\nconst bookingComplete = $input.first().json.booking_complete || false;\nconst sessionId = $input.first().json.session_id;\n\nlet twiml;\n\nif (shouldEndCall) {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Play>${audioUrl}</Play>\n  <Hangup/>\n</Response>`;\n} else {\n  // Continue conversation: play response, then gather next input\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Play>${audioUrl}</Play>\n  <Record\n    maxLength=\"15\"\n    timeout=\"3\"\n    playBeep=\"false\"\n    action=\"/webhook/voice-agent/conversation-turn?session_id=${sessionId}\"\n    recordingStatusCallback=\"/webhook/voice-agent/recording-status\"\n  />\n  <Say voice=\"Polly.Aditi\">I'm still here if you need anything.</Say>\n  <Record\n    maxLength=\"15\"\n    timeout=\"5\"\n    playBeep=\"false\"\n    action=\"/webhook/voice-agent/conversation-turn?session_id=${sessionId}\"\n  />\n</Response>`;\n}\n\nreturn [{ json: {\n  ...($input.first().json),\n  twiml_response: twiml,\n  call_continuing: !shouldEndCall\n}}];\n"
+      },
+      "notes": "Generates TwiML that plays AI audio response, then opens recording for next caller utterance. Creates the conversation loop."
+    },
+    {
+      "id": "respond-to-caller",
+      "name": "Send TwiML to Twilio",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [2450, 800],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{$json.twiml_response}}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Content-Type", "value": "application/xml" }
+            ]
+          }
+        }
+      },
+      "notes": "Returns TwiML response to Twilio, which executes the voice instructions (play audio, record, etc.)."
+    },
+    {
+      "id": "check-booking-complete",
+      "name": "Booking Complete?",
+      "type": "n8n-nodes-base.if",
+      "position": [2250, 1000],
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.booking_complete}}",
+              "value2": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "save-to-sheets",
+      "name": "Save Booking to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [2450, 1000],
+      "parameters": {
+        "operation": "append",
+        "sheetId": "={{$env.GSHEET_ID}}",
+        "range": "Bookings!A:K",
+        "options": {},
+        "values": {
+          "value": [
+            { "column": "A", "fieldValue": "={{new Date().toISOString()}}" },
+            { "column": "B", "fieldValue": "={{$json.session_id}}" },
+            { "column": "C", "fieldValue": "={{$json.caller_number}}" },
+            { "column": "D", "fieldValue": "={{$json.collected_data.name}}" },
+            { "column": "E", "fieldValue": "={{$json.collected_data.date}}" },
+            { "column": "F", "fieldValue": "={{$json.collected_data.time}}" },
+            { "column": "G", "fieldValue": "={{$json.collected_data.guests}}" },
+            { "column": "H", "fieldValue": "={{$json.collected_data.special_requests || ''}}" },
+            { "column": "I", "fieldValue": "={{$json.detected_intent}}" },
+            { "column": "J", "fieldValue": "={{$json.detected_language}}" },
+            { "column": "K", "fieldValue": "confirmed" }
+          ]
+        }
+      },
+      "notes": "Saves confirmed booking to Google Sheets with all collected details."
+    },
+    {
+      "id": "send-whatsapp-confirmation",
+      "name": "Send WhatsApp Confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2650, 1000],
+      "parameters": {
+        "url": "https://live-server-108478.wati.io/api/v1/sendTemplateMessage",
+        "method": "POST",
+        "headers": {
+          "parameter": [
+            { "name": "Authorization", "value": "Bearer {{$env.WATI_API_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "body": {
+          "json": {
+            "template_name": "booking_confirmation",
+            "broadcast_name": "voice_agent_booking",
+            "parameters": [
+              { "name": "customer_name", "value": "={{$json.collected_data.name}}" },
+              { "name": "date", "value": "={{$json.collected_data.date}}" },
+              { "name": "time", "value": "={{$json.collected_data.time}}" },
+              { "name": "guests", "value": "={{$json.collected_data.guests}}" },
+              { "name": "venue", "value": "={{$json.business_config.business_name}}" }
+            ],
+            "phone": "={{$json.caller_number.replace('+', '')}}"
+          }
+        }
+      },
+      "notes": "Sends WhatsApp booking confirmation via WATI API using pre-approved template."
+    },
+    {
+      "id": "log-conversation",
+      "name": "Log Full Conversation",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [2450, 1200],
+      "parameters": {
+        "operation": "append",
+        "sheetId": "={{$env.GSHEET_ID}}",
+        "range": "ConversationLogs!A:H",
+        "values": {
+          "value": [
+            { "column": "A", "fieldValue": "={{new Date().toISOString()}}" },
+            { "column": "B", "fieldValue": "={{$json.session_id}}" },
+            { "column": "C", "fieldValue": "={{$json.caller_number}}" },
+            { "column": "D", "fieldValue": "={{$json.detected_intent}}" },
+            { "column": "E", "fieldValue": "={{$json.detected_language}}" },
+            { "column": "F", "fieldValue": "={{$json.emotion_state}}" },
+            { "column": "G", "fieldValue": "={{JSON.stringify($json.conversation_history)}}" },
+            { "column": "H", "fieldValue": "={{$json.turn_count}}" }
+          ]
+        }
+      },
+      "notes": "Logs the complete conversation for analytics, training data, and continuous improvement."
+    }
+  ],
+  "connections": {
+    "Incoming Call Webhook": {
+      "main": [["Initialize Session"]]
+    },
+    "Initialize Session": {
+      "main": [["Lookup Caller in CRM", "Fetch Business Config"]]
+    },
+    "Lookup Caller in CRM": {
+      "main": [["Merge Caller + Business Data"]]
+    },
+    "Fetch Business Config": {
+      "main": [["Merge Caller + Business Data"]]
+    },
+    "Merge Caller + Business Data": {
+      "main": [["Generate Time-Aware Greeting"]]
+    },
+    "Generate Time-Aware Greeting": {
+      "main": [["Text-to-Speech: Greeting"]]
+    },
+    "Text-to-Speech: Greeting": {
+      "main": [["Stream Greeting Audio to Caller"]]
+    },
+    "Conversation Turn Webhook": {
+      "main": [["Speech-to-Text (Deepgram)"]]
+    },
+    "Speech-to-Text (Deepgram)": {
+      "main": [["Check for Silence/Empty Input"]]
+    },
+    "Check for Silence/Empty Input": {
+      "true": [["Handle Silence"]],
+      "false": [["Detect & Lock Language"]]
+    },
+    "Handle Silence": {
+      "main": [["Text-to-Speech: Response"]]
+    },
+    "Detect & Lock Language": {
+      "main": [["Detect Caller Emotion"]]
+    },
+    "Detect Caller Emotion": {
+      "main": [["Needs Human Escalation?"]]
+    },
+    "Needs Human Escalation?": {
+      "true": [["Transfer to Human Agent"]],
+      "false": [["Build AI Prompt"]]
+    },
+    "Build AI Prompt": {
+      "main": [["AI Conversational Brain (Claude)"]]
+    },
+    "AI Conversational Brain (Claude)": {
+      "main": [["Parse AI Response + Extract Data"]]
+    },
+    "Parse AI Response + Extract Data": {
+      "main": [["Humanization Engine"]]
+    },
+    "Humanization Engine": {
+      "main": [["Text-to-Speech: Response"]]
+    },
+    "Text-to-Speech: Response": {
+      "main": [["Build TwiML Continue Response"]]
+    },
+    "Build TwiML Continue Response": {
+      "main": [["Send TwiML to Twilio", "Booking Complete?"]]
+    },
+    "Send TwiML to Twilio": {},
+    "Booking Complete?": {
+      "true": [["Save Booking to Google Sheets"]],
+      "false": [["Log Full Conversation"]]
+    },
+    "Save Booking to Google Sheets": {
+      "main": [["Send WhatsApp Confirmation", "Log Full Conversation"]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "Asia/Kolkata"
+  }
+}
