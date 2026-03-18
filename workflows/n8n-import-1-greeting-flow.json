@@ -1,0 +1,318 @@
+{
+  "name": "AI Voice Agent — Inbound Call (Greeting Flow)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-agent/incoming",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "a1b2c3d4-1111-4000-8000-000000000001",
+      "name": "Incoming Call Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "voice-agent-incoming"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"session_id\": \"{{ $json.body.CallSid }}\",\n  \"caller_number\": \"{{ $json.body.From }}\",\n  \"business_number\": \"{{ $json.body.To }}\",\n  \"call_status\": \"{{ $json.body.CallStatus }}\",\n  \"detected_language\": \"auto\",\n  \"call_direction\": \"inbound\",\n  \"turn_count\": 0,\n  \"silence_count\": 0,\n  \"detected_intent\": \"unknown\",\n  \"caller_name\": \"\",\n  \"emotion_state\": \"neutral\",\n  \"conversation_history\": [],\n  \"collected_data\": {},\n  \"business_config\": {}\n}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-1111-4000-8000-000000000002",
+      "name": "Initialize Session",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $env.GSHEET_ID }}/values/Customers!A:F",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "a1b2c3d4-1111-4000-8000-000000000003",
+      "name": "Lookup Caller in CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 200],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $env.GSHEET_ID }}/values/BusinessConfig!A:J",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "a1b2c3d4-1111-4000-8000-000000000004",
+      "name": "Fetch Business Config",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 400],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "a1b2c3d4-1111-4000-8000-000000000005",
+      "name": "Merge Caller + Business Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Time-aware, language-aware greeting generator\nconst hour = new Date().getHours();\nconst session = $input.first().json;\n\n// Try to find caller in CRM data\nlet callerName = '';\nlet callerPrefs = {};\ntry {\n  const crmData = session.values || [];\n  const callerRow = crmData.find(row => row[0] === session.caller_number);\n  if (callerRow) {\n    callerName = callerRow[1] || '';\n    callerPrefs = {\n      language_pref: callerRow[2] || 'en',\n      total_visits: parseInt(callerRow[3]) || 0,\n      last_visit: callerRow[4] || '',\n      notes: callerRow[5] || ''\n    };\n  }\n} catch (e) { /* CRM lookup failed, continue without */ }\n\n// Parse business config\nlet businessConfig = {};\ntry {\n  const bizData = session.values || [];\n  if (bizData.length > 1) {\n    const headers = bizData[0];\n    const row = bizData[1];\n    headers.forEach((h, i) => { businessConfig[h.toLowerCase().replace(/\\s/g, '_')] = row[i] || ''; });\n  }\n} catch (e) { /* Config parse failed, use defaults */ }\n\nconst isReturning = callerName !== '';\nconst lang = callerPrefs.language_pref || 'en';\nconst businessName = businessConfig.business_name || 'our venue';\n\nconst greetings = {\n  en: { morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening' },\n  ta: { morning: 'காலை வணக்கம்', afternoon: 'மதிய வணக்கம்', evening: 'மாலை வணக்கம்' },\n  te: { morning: 'శుభోదయం', afternoon: 'శుభ మధ్యాహ్నం', evening: 'శుభ సాయంత్రం' },\n  kn: { morning: 'ಶುಭೋದಯ', afternoon: 'ಶುಭ ಮಧ್ಯಾಹ್ನ', evening: 'ಶುಭ ಸಂಜೆ' },\n  ml: { morning: 'സുപ്രഭാതം', afternoon: 'ശുഭ ഉച്ചയ്ക്ക്', evening: 'ശുഭ സന്ധ്യ' }\n};\n\nlet timeSlot = 'morning';\nif (hour >= 12 && hour < 17) timeSlot = 'afternoon';\nif (hour >= 17) timeSlot = 'evening';\n\nconst greeting = (greetings[lang] || greetings.en)[timeSlot];\n\nlet message;\nif (isReturning) {\n  message = `${greeting}! Welcome back ${callerName}! This is ${businessName}. How can I help you today?`;\n} else {\n  message = `${greeting}! Thank you for calling ${businessName}. My name is Priya. How may I assist you?`;\n}\n\nreturn [{\n  json: {\n    session_id: session.session_id,\n    caller_number: session.caller_number,\n    business_number: session.business_number,\n    detected_language: lang,\n    call_direction: 'inbound',\n    turn_count: 0,\n    silence_count: 0,\n    detected_intent: 'unknown',\n    caller_name: callerName,\n    emotion_state: 'neutral',\n    conversation_history: [],\n    collected_data: {},\n    business_config: businessConfig,\n    caller_preferences: callerPrefs,\n    greeting_message: message,\n    greeting_lang: lang\n  }\n}];\n"
+      },
+      "id": "a1b2c3d4-1111-4000-8000-000000000006",
+      "name": "Generate Time-Aware Greeting",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.elevenlabs.io/v1/text-to-speech/{{ $env.ELEVENLABS_VOICE_ID }}/stream",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xi-api-key",
+              "value": "={{ $env.ELEVENLABS_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": \"{{ $json.greeting_message }}\",\n  \"model_id\": \"eleven_multilingual_v2\",\n  \"voice_settings\": {\n    \"stability\": 0.5,\n    \"similarity_boost\": 0.75,\n    \"style\": 0.4,\n    \"use_speaker_boost\": true\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 8000
+        }
+      },
+      "id": "a1b2c3d4-1111-4000-8000-000000000007",
+      "name": "TTS Greeting (ElevenLabs)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 300],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const session = $input.first().json;\nconst sessionId = session.session_id;\nconst n8nBaseUrl = $env.N8N_BASE_URL || 'https://your-n8n.com';\n\n// Check if we got audio back from ElevenLabs\nconst hasBinaryData = Object.keys($input.first().binary || {}).length > 0;\n\nlet twiml;\nif (hasBinaryData) {\n  // ElevenLabs returned audio — host it and play\n  // In production, upload to S3/GCS and get public URL\n  // For now, use TwiML <Say> as a working fallback\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${session.greeting_message}</Say>\n  <Record\n    maxLength=\"15\"\n    timeout=\"3\"\n    playBeep=\"false\"\n    transcribe=\"false\"\n    action=\"${n8nBaseUrl}/webhook/voice-agent/conversation-turn?session_id=${sessionId}\"\n    recordingStatusCallback=\"${n8nBaseUrl}/webhook/voice-agent/recording-ready\"\n  />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record\n    maxLength=\"15\"\n    timeout=\"5\"\n    playBeep=\"false\"\n    transcribe=\"false\"\n    action=\"${n8nBaseUrl}/webhook/voice-agent/conversation-turn?session_id=${sessionId}\"\n  />\n</Response>`;\n} else {\n  // Fallback: Use Twilio's built-in TTS\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${session.greeting_message}</Say>\n  <Record\n    maxLength=\"15\"\n    timeout=\"3\"\n    playBeep=\"false\"\n    transcribe=\"false\"\n    action=\"${n8nBaseUrl}/webhook/voice-agent/conversation-turn?session_id=${sessionId}\"\n    recordingStatusCallback=\"${n8nBaseUrl}/webhook/voice-agent/recording-ready\"\n  />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">Hello? I am here to help whenever you are ready.</Say>\n  <Record\n    maxLength=\"15\"\n    timeout=\"5\"\n    playBeep=\"false\"\n    transcribe=\"false\"\n    action=\"${n8nBaseUrl}/webhook/voice-agent/conversation-turn?session_id=${sessionId}\"\n  />\n</Response>`;\n}\n\nreturn [{ json: { ...session, twiml_response: twiml } }];\n"
+      },
+      "id": "a1b2c3d4-1111-4000-8000-000000000008",
+      "name": "Build Greeting TwiML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.twiml_response }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/xml"
+              }
+            ]
+          }
+        }
+      },
+      "id": "a1b2c3d4-1111-4000-8000-000000000009",
+      "name": "Respond to Twilio (Greeting)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.GSHEET_ID }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "ConversationLogs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ new Date().toISOString() }}",
+            "session_id": "={{ $json.session_id }}",
+            "phone": "={{ $json.caller_number }}",
+            "intent": "greeting",
+            "language": "={{ $json.detected_language }}",
+            "emotion": "neutral",
+            "event": "call_started",
+            "turns": "0"
+          }
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-1111-4000-8000-000000000010",
+      "name": "Log Call Start",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1780, 500]
+    }
+  ],
+  "connections": {
+    "Incoming Call Webhook": {
+      "main": [
+        [
+          {
+            "node": "Initialize Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize Session": {
+      "main": [
+        [
+          {
+            "node": "Lookup Caller in CRM",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Business Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Caller in CRM": {
+      "main": [
+        [
+          {
+            "node": "Merge Caller + Business Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Business Config": {
+      "main": [
+        [
+          {
+            "node": "Merge Caller + Business Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Caller + Business Data": {
+      "main": [
+        [
+          {
+            "node": "Generate Time-Aware Greeting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Time-Aware Greeting": {
+      "main": [
+        [
+          {
+            "node": "TTS Greeting (ElevenLabs)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TTS Greeting (ElevenLabs)": {
+      "main": [
+        [
+          {
+            "node": "Build Greeting TwiML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Greeting TwiML": {
+      "main": [
+        [
+          {
+            "node": "Respond to Twilio (Greeting)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Call Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "",
+    "timezone": "Asia/Kolkata"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "voice-agent",
+      "id": "tag-voice-agent"
+    },
+    {
+      "name": "production",
+      "id": "tag-production"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-03-18T00:00:00.000Z",
+  "versionId": "1"
+}

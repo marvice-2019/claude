@@ -1,0 +1,738 @@
+{
+  "name": "AI Voice Agent — Conversation Loop",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-agent/conversation-turn",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000001",
+      "name": "Conversation Turn Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 500],
+      "webhookId": "voice-agent-turn"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract session_id from query string and recording URL from body\nconst query = $input.first().json.query || {};\nconst body = $input.first().json.body || {};\n\nreturn [{\n  json: {\n    session_id: query.session_id || body.CallSid || '',\n    caller_number: body.From || '',\n    business_number: body.To || '',\n    recording_url: body.RecordingUrl || '',\n    recording_sid: body.RecordingSid || '',\n    call_status: body.CallStatus || '',\n    digits: body.Digits || '',\n    speech_result: body.SpeechResult || ''\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000002",
+      "name": "Parse Twilio Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-recording-exists",
+              "leftValue": "={{ $json.recording_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000003",
+      "name": "Has Recording?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 500]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.deepgram.com/v1/listen?model=nova-2&language=multi&detect_language=true&smart_format=true&punctuate=true",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Token {{ $env.DEEPGRAM_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"url\": \"{{ $json.recording_url }}.wav\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000004",
+      "name": "Deepgram STT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 400],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle case where there's no recording (silence / timeout)\nconst session = $input.first().json;\nconst n8nBaseUrl = $env.N8N_BASE_URL || 'https://your-n8n.com';\nconst sessionId = session.session_id;\n\n// Count silence occurrences (would come from session store in production)\nconst silenceCount = 1; // Increment from session in production\n\nlet responseText;\nlet shouldEnd = false;\n\nif (silenceCount === 1) {\n  responseText = \"I didn't quite catch that. Could you please repeat?\";\n} else if (silenceCount === 2) {\n  responseText = \"Hello? Are you still there? I'm here to help whenever you're ready.\";\n} else {\n  responseText = \"It seems like we're having trouble hearing each other. I'll send you a WhatsApp message so you can reach us easily. Thank you for calling!\";\n  shouldEnd = true;\n}\n\nlet twiml;\nif (shouldEnd) {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${responseText}</Say>\n  <Hangup/>\n</Response>`;\n} else {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${responseText}</Say>\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${n8nBaseUrl}/webhook/voice-agent/conversation-turn?session_id=${sessionId}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${n8nBaseUrl}/webhook/voice-agent/conversation-turn?session_id=${sessionId}\" />\n</Response>`;\n}\n\nreturn [{\n  json: {\n    ...session,\n    twiml_response: twiml,\n    silence_detected: true,\n    should_end_call: shouldEnd\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000005",
+      "name": "Handle Silence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 620]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst results = input.results;\n\n// Extract transcript\nlet transcript = '';\nlet detectedLang = 'en';\nlet confidence = 0;\n\ntry {\n  const channel = results.channels[0];\n  const alt = channel.alternatives[0];\n  transcript = alt.transcript || '';\n  confidence = alt.confidence || 0;\n  detectedLang = channel.detected_language || 'en';\n} catch (e) {\n  transcript = '';\n  confidence = 0;\n}\n\n// Normalize language code\nconst langNormalize = {\n  'ta': 'ta', 'ta-IN': 'ta',\n  'te': 'te', 'te-IN': 'te',\n  'kn': 'kn', 'kn-IN': 'kn',\n  'ml': 'ml', 'ml-IN': 'ml',\n  'en': 'en', 'en-IN': 'en', 'en-US': 'en',\n  'hi': 'hi', 'hi-IN': 'hi'\n};\n\nconst langMap = {\n  'ta': 'Tamil', 'te': 'Telugu', 'kn': 'Kannada',\n  'ml': 'Malayalam', 'en': 'English', 'hi': 'Hindi'\n};\n\nconst normalizedLang = langNormalize[detectedLang] || 'en';\n\nreturn [{\n  json: {\n    caller_transcript: transcript,\n    detected_language: normalizedLang,\n    language_name: langMap[normalizedLang] || 'English',\n    stt_confidence: confidence,\n    is_empty: transcript.trim() === '',\n    session_id: input.session_id || '',\n    caller_number: input.caller_number || '',\n    business_number: input.business_number || '',\n    recording_url: input.recording_url || ''\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000006",
+      "name": "Parse STT + Detect Language",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-empty-transcript",
+              "leftValue": "={{ $json.is_empty }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000007",
+      "name": "Transcript Empty?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1340, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const transcript = $input.first().json.caller_transcript;\nconst lower = transcript.toLowerCase();\n\n// ─── Keyword-based emotion detection ───\nconst angerWords = ['worst','terrible','disgusting','pathetic','waste','cheat','fraud','angry','disappointed','unacceptable','ridiculous','horrible','damn','hell','useless'];\nconst urgencyWords = ['urgent','immediately','right now','emergency','asap','hurry','quickly','fast','tonight','today only','need now'];\nconst confusionWords = ['confused','don\\'t understand','what do you mean','unclear','not sure','which one','huh','sorry what','come again'];\nconst happyWords = ['great','awesome','perfect','wonderful','amazing','excellent','fantastic','love it','thank you so much','brilliant'];\nconst escalationWords = ['manager','supervisor','human','real person','transfer','speak to someone','complaint','higher authority','your boss'];\n\nlet emotion = 'neutral';\nlet escalate = false;\nlet emotionConfidence = 0.5;\n\nif (escalationWords.some(k => lower.includes(k))) {\n  escalate = true;\n  emotion = 'wants_escalation';\n  emotionConfidence = 0.95;\n} else if (angerWords.some(k => lower.includes(k))) {\n  emotion = 'angry';\n  emotionConfidence = 0.8;\n} else if (urgencyWords.some(k => lower.includes(k))) {\n  emotion = 'urgent';\n  emotionConfidence = 0.8;\n} else if (confusionWords.some(k => lower.includes(k))) {\n  emotion = 'confused';\n  emotionConfidence = 0.7;\n} else if (happyWords.some(k => lower.includes(k))) {\n  emotion = 'happy';\n  emotionConfidence = 0.7;\n}\n\n// Boost anger detection for CAPS and exclamation marks\nconst exclamationCount = (transcript.match(/!/g) || []).length;\nconst capsRatio = (transcript.replace(/[^A-Z]/g, '').length) / Math.max(transcript.length, 1);\nif (exclamationCount > 2 || capsRatio > 0.5) {\n  if (emotion === 'neutral') emotion = 'frustrated';\n  emotionConfidence = Math.min(emotionConfidence + 0.15, 1.0);\n}\n\nreturn [{\n  json: {\n    ...$input.first().json,\n    emotion_state: emotion,\n    emotion_confidence: emotionConfidence,\n    needs_escalation: escalate\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000008",
+      "name": "Detect Emotion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-needs-escalation",
+              "leftValue": "={{ $json.needs_escalation }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000009",
+      "name": "Needs Escalation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Transfer call to human agent\nconst session = $input.first().json;\nconst escalationNumber = $env.ESCALATION_PHONE || '+919876543210';\n\nconst transferMessage = \"I completely understand. Let me connect you with my colleague right away. Please hold for just a moment.\";\nconst fallbackMessage = \"I'm sorry, our team member is unavailable right now. We'll call you back within 15 minutes. Thank you for your patience.\";\n\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${transferMessage}</Say>\n  <Dial timeout=\"30\" callerId=\"${session.business_number}\">\n    <Number>${escalationNumber}</Number>\n  </Dial>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${fallbackMessage}</Say>\n</Response>`;\n\nreturn [{\n  json: {\n    ...session,\n    twiml_response: twiml,\n    escalation_triggered: true\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000010",
+      "name": "Transfer to Human",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══ BUILD THE FULL AI PROMPT ═══\n// This is the heart of the agent — assembles system prompt + conversation history\n\nconst session = $input.first().json;\n\n// Build system prompt with all dynamic context\nconst systemPrompt = `You are Priya, a warm, professional customer care executive at a hospitality venue.\n\nCRITICAL IDENTITY RULES:\n- You are a HUMAN call center agent. NEVER mention AI, language models, or being artificial.\n- Your name is Priya. If asked: \"I'm Priya from the venue.\"\n- You have worked here for 3 years. You know the menu, timings, and events.\n\nLANGUAGE:\n- Respond in ${session.language_name || 'English'} (code: ${session.detected_language || 'en'}).\n- If the caller code-switches (Tanglish, Tenglish, Kanglish), mirror their style.\n- Use informal, spoken style — NOT formal/literary.\n- Mix English naturally for: dates, times, numbers, \"booking\", \"table\", \"VIP\".\n\nCURRENT EMOTION: ${session.emotion_state || 'neutral'}\n- angry → Be calm, empathetic, apologetic. \"I'm sorry about that, let me fix this.\"\n- urgent → Be quick, efficient. Skip pleasantries.\n- confused → Be patient, clear, step-by-step.\n- happy → Match energy, be enthusiastic. Good time for upselling.\n- neutral → Warm and professional.\n\nSTYLE RULES:\n- Keep responses SHORT: 1-3 sentences for simple exchanges.\n- Ask ONE question at a time — never stack questions.\n- Use natural fillers: \"Sure thing...\", \"Got it...\", \"Let me check...\"\n- Use contractions: \"I'll\", \"we've\", \"that's\".\n- Use caller's name when known.\n- NEVER use bullet points or numbered lists (this is a phone call).\n- NEVER start two consecutive responses the same way.\n\nINTENT HANDLING:\n1. BOOKING: Collect date → time → guests → name. ONE field at a time. Confirm with recap.\n   Upsell naturally: VIP tables, events, offers. Only once. If declined, drop it.\n2. ENQUIRY: Answer from context. If unknown: \"Let me check and get back to you.\"\n   Suggest booking: \"Would you like me to reserve a table?\"\n3. COMPLAINT: Listen → Empathize → Acknowledge → Resolve → Escalate if needed.\n   \"I'm really sorry about that. That shouldn't have happened.\"\n4. GENERAL: Be friendly, brief. Steer to business.\n\nDATA EXTRACTION:\nAfter EVERY response, append exactly this block:\n<data>{\"intent\":\"booking|enquiry|complaint|general\",\"date\":\"YYYY-MM-DD or null\",\"time\":\"HH:MM or null\",\"guests\":null,\"name\":\"string or null\",\"special_requests\":\"string or null\"}</data>\nOnly include fields explicitly mentioned. Use null for unknowns.\nThis block is NOT spoken — it is parsed by the system.`;\n\n// Build messages array (simplified for first turn — in production, load from session store)\nconst messages = [\n  {\n    role: 'user',\n    content: session.caller_transcript\n  }\n];\n\nreturn [{\n  json: {\n    ...session,\n    system_prompt: systemPrompt,\n    ai_messages: messages\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000011",
+      "name": "Build AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 300,\n  \"system\": {{ JSON.stringify($json.system_prompt) }},\n  \"messages\": {{ JSON.stringify($json.ai_messages) }}\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000012",
+      "name": "Claude AI Brain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2220, 400],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst prevSession = input;\n\n// Extract AI response text\nlet aiText = '';\ntry {\n  aiText = input.content[0].text || '';\n} catch (e) {\n  aiText = 'I\\'m sorry, I\\'m having a brief moment. Could you repeat that?';\n}\n\n// Extract <data> block\nlet extractedData = {};\nconst dataMatch = aiText.match(/<data>([\\s\\S]*?)<\\/data>/);\nif (dataMatch) {\n  try {\n    extractedData = JSON.parse(dataMatch[1]);\n  } catch (e) { /* parse failed, continue */ }\n}\n\n// Remove <data> block from spoken response\nconst spokenResponse = aiText.replace(/<data>[\\s\\S]*?<\\/data>/g, '').trim();\n\n// Check if booking is complete\nconst d = extractedData;\nconst bookingComplete = d.intent === 'booking' &&\n  d.date && d.time && d.guests && d.name;\n\nreturn [{\n  json: {\n    session_id: prevSession.session_id,\n    caller_number: prevSession.caller_number,\n    business_number: prevSession.business_number,\n    detected_language: prevSession.detected_language,\n    language_name: prevSession.language_name,\n    emotion_state: prevSession.emotion_state,\n    caller_transcript: prevSession.caller_transcript,\n    ai_response: spokenResponse,\n    extracted_data: extractedData,\n    detected_intent: extractedData.intent || 'unknown',\n    booking_complete: bookingComplete || false\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000013",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2440, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══ HUMANIZATION ENGINE ═══\n// Makes AI responses sound natural and human-like\n\nconst session = $input.first().json;\nconst response = session.ai_response;\nconst emotion = session.emotion_state;\n\n// ── Filler injection (60% chance, context-aware) ──\nconst fillers = {\n  neutral: ['Sure!', 'Absolutely.', 'Of course.', 'Right.', 'Got it.'],\n  thinking: ['Let me check...', 'One moment...', 'Let me see...', 'Hmm, let me look into that...'],\n  empathy: ['I understand.', 'I hear you.', 'That makes sense.', 'I completely get it.']\n};\n\nlet humanized = response;\n\nif (Math.random() < 0.6) {\n  let fillerSet;\n  if (emotion === 'angry' || emotion === 'frustrated') {\n    fillerSet = fillers.empathy;\n  } else if (response.length > 120) {\n    fillerSet = fillers.thinking;\n  } else {\n    fillerSet = fillers.neutral;\n  }\n  const filler = fillerSet[Math.floor(Math.random() * fillerSet.length)];\n  humanized = filler + ' ' + humanized;\n}\n\n// ── SSML pause markers for natural rhythm ──\nhumanized = humanized.replace(/\\. /g, '. <break time=\"300ms\"/> ');\nhumanized = humanized.replace(/\\? /g, '? <break time=\"400ms\"/> ');\nhumanized = humanized.replace(/! /g, '! <break time=\"200ms\"/> ');\n\n// ── Speaking rate based on emotion ──\nlet speakRate = '100%';\nif (emotion === 'urgent') speakRate = '115%';\nif (emotion === 'angry' || emotion === 'frustrated') speakRate = '90%';\nif (emotion === 'confused') speakRate = '85%';\n\n// ── Response delay (simulates thinking) ──\nconst wordCount = response.split(' ').length;\nlet delayMs = Math.min(400 + (wordCount * 30), 1500);\nif (emotion === 'urgent') delayMs = Math.max(delayMs - 300, 200);\n\nreturn [{\n  json: {\n    ...session,\n    ai_response_humanized: humanized,\n    speak_rate: speakRate,\n    response_delay_ms: delayMs\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000014",
+      "name": "Humanization Engine",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2660, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.elevenlabs.io/v1/text-to-speech/{{ $env.ELEVENLABS_VOICE_ID }}/stream",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xi-api-key",
+              "value": "={{ $env.ELEVENLABS_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": \"{{ $json.ai_response_humanized }}\",\n  \"model_id\": \"eleven_multilingual_v2\",\n  \"voice_settings\": {\n    \"stability\": 0.45,\n    \"similarity_boost\": 0.78,\n    \"style\": 0.35,\n    \"use_speaker_boost\": true\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 8000
+        }
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000015",
+      "name": "TTS Response (ElevenLabs)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2880, 400],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const session = $input.first().json;\nconst sessionId = session.session_id;\nconst n8nBaseUrl = $env.N8N_BASE_URL || 'https://your-n8n.com';\nconst shouldEndCall = session.should_end_call || false;\n\n// Plain text fallback for TTS response\nconst spokenText = (session.ai_response || 'Sorry, could you repeat that?')\n  .replace(/<[^>]*>/g, ''); // Strip any SSML tags for Polly fallback\n\nlet twiml;\nif (shouldEndCall) {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spokenText}</Say>\n  <Hangup/>\n</Response>`;\n} else {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spokenText}</Say>\n  <Record\n    maxLength=\"15\"\n    timeout=\"3\"\n    playBeep=\"false\"\n    transcribe=\"false\"\n    action=\"${n8nBaseUrl}/webhook/voice-agent/conversation-turn?session_id=${sessionId}\"\n    recordingStatusCallback=\"${n8nBaseUrl}/webhook/voice-agent/recording-ready\"\n  />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record\n    maxLength=\"15\"\n    timeout=\"5\"\n    playBeep=\"false\"\n    transcribe=\"false\"\n    action=\"${n8nBaseUrl}/webhook/voice-agent/conversation-turn?session_id=${sessionId}\"\n  />\n</Response>`;\n}\n\nreturn [{\n  json: {\n    ...session,\n    twiml_response: twiml\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000016",
+      "name": "Build Response TwiML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3100, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.twiml_response }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/xml"
+              }
+            ]
+          }
+        }
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000017",
+      "name": "Respond to Twilio",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3320, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-booking-done",
+              "leftValue": "={{ $json.booking_complete }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000018",
+      "name": "Booking Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3320, 620]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.GSHEET_ID }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Bookings"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ new Date().toISOString() }}",
+            "session_id": "={{ $json.session_id }}",
+            "phone": "={{ $json.caller_number }}",
+            "name": "={{ $json.extracted_data.name }}",
+            "date": "={{ $json.extracted_data.date }}",
+            "time": "={{ $json.extracted_data.time }}",
+            "guests": "={{ $json.extracted_data.guests }}",
+            "special_requests": "={{ $json.extracted_data.special_requests || '' }}",
+            "intent": "={{ $json.detected_intent }}",
+            "language": "={{ $json.detected_language }}",
+            "status": "confirmed"
+          }
+        },
+        "options": {}
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000019",
+      "name": "Save Booking",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [3540, 540]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://live-server-108478.wati.io/api/v1/sendTemplateMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WATI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"template_name\": \"booking_confirmation\",\n  \"broadcast_name\": \"voice_agent_booking\",\n  \"parameters\": [\n    { \"name\": \"customer_name\", \"value\": \"{{ $json.extracted_data.name }}\" },\n    { \"name\": \"date\", \"value\": \"{{ $json.extracted_data.date }}\" },\n    { \"name\": \"time\", \"value\": \"{{ $json.extracted_data.time }}\" },\n    { \"name\": \"guests\", \"value\": \"{{ $json.extracted_data.guests }}\" },\n    { \"name\": \"venue\", \"value\": \"The Venue\" }\n  ],\n  \"phone\": \"{{ $json.caller_number.replace('+', '') }}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000020",
+      "name": "WhatsApp Confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3760, 540],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.GSHEET_ID }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "ConversationLogs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ new Date().toISOString() }}",
+            "session_id": "={{ $json.session_id }}",
+            "phone": "={{ $json.caller_number }}",
+            "intent": "={{ $json.detected_intent }}",
+            "language": "={{ $json.detected_language }}",
+            "emotion": "={{ $json.emotion_state }}",
+            "caller_said": "={{ $json.caller_transcript }}",
+            "agent_said": "={{ $json.ai_response }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000021",
+      "name": "Log Conversation Turn",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [3540, 740]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.twiml_response }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/xml"
+              }
+            ]
+          }
+        }
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000022",
+      "name": "Respond Silence TwiML",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 620]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.twiml_response }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/xml"
+              }
+            ]
+          }
+        }
+      },
+      "id": "b1b2c3d4-2222-4000-8000-000000000023",
+      "name": "Respond Escalation TwiML",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2220, 180]
+    }
+  ],
+  "connections": {
+    "Conversation Turn Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Twilio Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Twilio Payload": {
+      "main": [
+        [
+          {
+            "node": "Has Recording?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Recording?": {
+      "main": [
+        [
+          {
+            "node": "Deepgram STT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Silence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deepgram STT": {
+      "main": [
+        [
+          {
+            "node": "Parse STT + Detect Language",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Silence": {
+      "main": [
+        [
+          {
+            "node": "Respond Silence TwiML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse STT + Detect Language": {
+      "main": [
+        [
+          {
+            "node": "Transcript Empty?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcript Empty?": {
+      "main": [
+        [
+          {
+            "node": "Handle Silence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Detect Emotion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Emotion": {
+      "main": [
+        [
+          {
+            "node": "Needs Escalation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Escalation?": {
+      "main": [
+        [
+          {
+            "node": "Transfer to Human",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transfer to Human": {
+      "main": [
+        [
+          {
+            "node": "Respond Escalation TwiML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Claude AI Brain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude AI Brain": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Humanization Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Humanization Engine": {
+      "main": [
+        [
+          {
+            "node": "TTS Response (ElevenLabs)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TTS Response (ElevenLabs)": {
+      "main": [
+        [
+          {
+            "node": "Build Response TwiML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Response TwiML": {
+      "main": [
+        [
+          {
+            "node": "Respond to Twilio",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Booking Complete?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Conversation Turn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Booking Complete?": {
+      "main": [
+        [
+          {
+            "node": "Save Booking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Save Booking": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "Asia/Kolkata"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "voice-agent",
+      "id": "tag-voice-agent"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-03-18T00:00:00.000Z",
+  "versionId": "1"
+}
