@@ -6,11 +6,11 @@ Paste each question as an H2/accordion title and the answer as body text. Keep t
 
 ## What does Marvice Media do?
 
-Marvice Media is a Bengaluru-based digital growth agency founded in 2017. It works through three brands: Onscreens for branding, digital marketing, SEO, generative engine optimization (GEO), and web and app development; Worxforu for business process automation, custom software and AI development; and Conxyou for events, PR, corporate gifting and photography.
+Marvice Media is a digital growth agency founded in 2017, with offices in Bengaluru and Chennai. It works through three brands: Onscreens for branding, digital marketing, SEO, generative engine optimization (GEO), and web and app development; Worxforu for business process automation, custom software and AI development; and Conxyou for events, PR, corporate gifting and photography.
 
-## Where is Marvice Media located?
+## Where are Marvice Media's offices?
 
-Marvice Media's office is at No.38, 3rd Floor, Green Leaf Extension, 3rd Cross, 80 Feet Road, 4th Block, Koramangala, Bengaluru, Karnataka 560034. The agency works with clients across India and the United Kingdom (marvice.co.uk).
+Marvice Media has two offices in India: No.38, 3rd Floor, Green Leaf Extension, 3rd Cross, 80 Feet Road, 4th Block, Koramangala, Bengaluru, Karnataka 560034, and Prestige Palladium Bayan, 8th Floor, 43/1 Greams Road, Nungambakkam, Chennai, Tamil Nadu 600006. The agency works with clients across India and the United Kingdom (marvice.co.uk).
 
 ## What is generative engine optimization (GEO)?
 

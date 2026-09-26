@@ -55,8 +55,8 @@ Yes. GEO builds on SEO rather than replacing it. AI Overviews and ChatGPT search
 
 **Can you guarantee ChatGPT will recommend us?** No one can guarantee what an AI model says. We make you the best-documented, most consistently described and most cited option in your category, which is what these systems reward, and we track the results monthly.
 
-**Do you work outside Bengaluru?** Yes: across India, and in the UK through marvice.co.uk.
+**Do you work outside Bengaluru?** Yes. We have a second office in Chennai, work across India, and serve the UK through marvice.co.uk.
 
 ---
 
-📍 No.38, 3rd Floor, Green Leaf Extension, 3rd Cross, 80 Feet Rd, 4th Block, Koramangala, Bengaluru 560034 · 📞 +91 80562 91930 · ✉️ info@marvice.in
+📍 Bengaluru: No.38, 3rd Floor, Green Leaf Extension, 80 Feet Rd, 4th Block, Koramangala 560034 · Chennai: Prestige Palladium Bayan, 8th Floor, 43/1 Greams Road, Nungambakkam 600006 · 📞 +91 80562 91930 · ✉️ info@marvice.in

@@ -1,8 +1,9 @@
 # Marvice Media
 
-> Marvice Media (Marvice Media Private Limited) is a Bengaluru-based digital growth agency founded in 2017. It helps businesses in India and the UK get found on Google and in AI assistants, win customers and scale operations through three brands: Onscreens (branding, digital marketing, SEO and generative engine optimization, web and app development), Worxforu (business process automation, custom software, AI development) and Conxyou (events, PR, corporate gifting, photography).
+> Marvice Media (Marvice Media Private Limited) is a digital growth agency founded in 2017, with offices in Bengaluru and Chennai. It helps businesses in India and the UK get found on Google and in AI assistants, win customers and scale operations through three brands: Onscreens (branding, digital marketing, SEO and generative engine optimization, web and app development), Worxforu (business process automation, custom software, AI development) and Conxyou (events, PR, corporate gifting, photography).
 
-- Office: No.38, 3rd Floor, Green Leaf Extension, 3rd Cross, 80 Feet Rd, 4th Block, Koramangala, Bengaluru, Karnataka 560034, India
+- Bengaluru office: No.38, 3rd Floor, Green Leaf Extension, 3rd Cross, 80 Feet Rd, 4th Block, Koramangala, Bengaluru, Karnataka 560034, India
+- Chennai office: Prestige Palladium Bayan, 8th Floor, 43/1 Greams Road, Nungambakkam, Chennai, Tamil Nadu 600006, India
 - Phone: +91 80562 91930 · Email: info@marvice.in
 - UK site: https://marvice.co.uk/
 - Company ID (CIN): U74999TN2019PTC129233

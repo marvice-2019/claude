@@ -6,15 +6,27 @@
   "phone": "+91 80562 91930",
   "email": "yuvarajgs@marvice.in",
   "contact_name": "Yuvaraj GS",
-  "location": "Bengaluru, Karnataka, India",
-  "address": {
-    "street": "No.38, 3rd Floor, Green Leaf Extension, 3rd Cross, 80 Feet Rd, 4th Block",
-    "locality": "Koramangala",
-    "city": "Bengaluru",
-    "region": "Karnataka",
-    "postal_code": "560034",
-    "country": "IN"
-  },
+  "location": "Bengaluru & Chennai, India",
+  "offices": [
+    {
+      "label": "Bengaluru (primary)",
+      "street": "No.38, 3rd Floor, Green Leaf Extension, 3rd Cross, 80 Feet Rd, 4th Block",
+      "locality": "Koramangala",
+      "city": "Bengaluru",
+      "region": "Karnataka",
+      "postal_code": "560034",
+      "country": "IN"
+    },
+    {
+      "label": "Chennai",
+      "street": "Prestige Palladium Bayan, 8th Floor, 43/1 Greams Road",
+      "locality": "Nungambakkam",
+      "city": "Chennai",
+      "region": "Tamil Nadu",
+      "postal_code": "600006",
+      "country": "IN"
+    }
+  ],
   "colors": {
     "primary": "#BD8A53",
     "primary_bright": "#D4A36E",

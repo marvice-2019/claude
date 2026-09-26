@@ -24,7 +24,7 @@
       "image": {
         "@id": "https://marvice.in/#logo"
       },
-      "description": "Marvice Media is a Bengaluru-based digital growth agency founded in 2017. Through three brands — Onscreens (branding, digital marketing, SEO and generative engine optimization, web and app development), Worxforu (business automation, custom software and AI development) and Conxyou (events, PR, corporate gifting and photography) — it helps businesses in India and the UK get found, chosen and scaled.",
+      "description": "Marvice Media is a digital growth agency with offices in Bengaluru and Chennai, founded in 2017. Through three brands — Onscreens (branding, digital marketing, SEO and generative engine optimization, web and app development), Worxforu (business automation, custom software and AI development) and Conxyou (events, PR, corporate gifting and photography) — it helps businesses in India and the UK get found, chosen and scaled.",
       "foundingDate": "2017",
       "address": {
         "@type": "PostalAddress",
@@ -231,7 +231,38 @@
         "https://www.instagram.com/marvice.in/",
         "https://www.facebook.com/marviceindia",
         "https://marvice.co.uk/"
+      ],
+      "department": [
+        {
+          "@id": "https://marvice.in/#chennai-office"
+        }
       ]
+    },
+    {
+      "@type": "ProfessionalService",
+      "@id": "https://marvice.in/#chennai-office",
+      "name": "Marvice Media – Chennai",
+      "parentOrganization": {
+        "@id": "https://marvice.in/#organization"
+      },
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Prestige Palladium Bayan, 8th Floor, 43/1 Greams Road, Nungambakkam",
+        "addressLocality": "Chennai",
+        "addressRegion": "Tamil Nadu",
+        "postalCode": "600006",
+        "addressCountry": "IN"
+      },
+      "telephone": "+91-8056291930",
+      "email": "info@marvice.in",
+      "url": "https://marvice.in/contact-us/",
+      "image": {
+        "@id": "https://marvice.in/#logo"
+      },
+      "areaServed": {
+        "@type": "City",
+        "name": "Chennai"
+      }
     },
     {
       "@type": "Brand",

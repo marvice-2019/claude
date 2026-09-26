@@ -25,6 +25,10 @@
           "name": "Bengaluru"
         },
         {
+          "@type": "City",
+          "name": "Chennai"
+        },
+        {
           "@type": "Country",
           "name": "India"
         },

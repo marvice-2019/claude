@@ -3,7 +3,7 @@
 **Domain:** marvice.in
 **Audit Date:** 2026-09-26
 **Business Type:** Digital marketing, software & events agency
-**Locations:** Bengaluru (Koramangala), India · UK (marvice.co.uk)
+**Locations:** Bengaluru (Koramangala) · Chennai (Nungambakkam) · UK (marvice.co.uk)
 **CMS:** WordPress 7.0.6 + Elementor 4.1.1 + WooCommerce 10.8.1
 
 ## Overall GEO Score: 26 / 100 Critical
@@ -47,14 +47,15 @@ No JSON-LD at all: no Organization, LocalBusiness, WebSite, Service or FAQPage s
 
 | Source | Address shown |
 |---|---|
-| Contact page | 17, Purasawalkam High Rd, Chennai 600007 |
+| Contact page | 17, Purasawalkam High Rd, Chennai 600007 (old office) |
 | About page | "Bangalore & Hyderabad branches" (2019) |
 | MCA registration | Thiruvallur, Tamil Nadu (registered office) |
-| Target (per management) | No.38, Green Leaf Extension, 80 Feet Rd, 4th Block, Koramangala, Bengaluru 560034 |
+| Target: primary office | No.38, Green Leaf Extension, 80 Feet Rd, 4th Block, Koramangala, Bengaluru 560034 |
+| Target: Chennai office | Prestige Palladium Bayan, 8th Floor, 43/1 Greams Road, Nungambakkam, Chennai 600006 |
 
 Local rankings and AI entity resolution both depend on one consistent name, address and phone everywhere.
 
-**Fix:** make Bengaluru primary on the site, Google Business Profile and all directories. Keep the registered office for legal pages only.
+**Fix:** list exactly two offices (Bengaluru primary, Chennai Nungambakkam) identically on the site, both Google Business Profiles and all directories; remove Purasawalkam everywhere. Keep the registered office for legal pages only.
 
 ## High Priority Issues
 
@@ -66,7 +67,7 @@ Every audited page is missing a meta description. The homepage has no H1 and 13 
 
 ### High: Homepage copy errors and missing location
 
-"We Provide a Digital Solutions", "Promiss", "Specific Timelinel Guarantee", "A innovative Brands", "four sector of brands" (three are listed), and two lorem-ipsum blocks. The words Bengaluru and Bangalore don't appear on the homepage at all.
+"We Provide a Digital Solutions", "Promiss", "Specific Timelinel Guarantee", "A innovative Brands", "four sector of brands" (three are listed), and two lorem-ipsum blocks. Neither office city (Bengaluru, Chennai) appears on the homepage at all.
 
 ### High: No llms.txt
 
@@ -114,7 +115,7 @@ Bengaluru "digital marketing agency" searches are dominated by directories (Just
 1. Delete, redirect or noindex demo content (`cleanup-urls.csv`); disable WooCommerce if nothing is sold.
 2. Install Rank Math; apply titles, meta and H1s (`meta-tags.csv`); enable Local SEO and paste the sitewide schema.
 3. Upload `llms.txt` and the new `robots.txt`; submit `sitemap_index.xml` in Google Search Console and Bing Webmaster Tools.
-4. Unify the address to Bengaluru on the Contact page and footer; claim and verify Google Business Profile at the Koramangala address.
+4. Put both offices on the Contact page and footer; claim and verify Google Business Profiles for Koramangala and Nungambakkam, and retire the Purasawalkam listing.
 5. Replace the FAQ lorem ipsum (`faq-content.md` plus FAQ schema); fix homepage copy and add the "who we are" block.
 
 ### Week 3–6: Content & entity
