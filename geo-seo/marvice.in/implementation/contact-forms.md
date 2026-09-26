@@ -29,7 +29,7 @@ The CF7 REST API on marvice.in accepts updates but does not persist them, so app
 ```
 
 ### Mail tab
-- **To:** `marvice2019@gmail.com`
+- **To:** `yuvarajgs@marvice.in`
 - **From:** `Marvice Media Website <info@marvice.in>` (replaces the stranger's `wabidullahsharif@gmail.com`)
 - **Subject:** `New enquiry: [service] – [first-name] [last-name]`
 - **Additional headers:** `Reply-To: [first-name] [last-name] <[your-email]>`
@@ -64,7 +64,7 @@ Submitted: [_date] [_time]
 [email* email-592 class:gly-form-1-input autocomplete:email placeholder "Email Address"]<button class="gly-form-1-button" aria-label="Subscribe" type="submit">subscribe</button>
 ```
 ### Mail tab
-- **To:** `marvice2019@gmail.com` · **From:** `Marvice Media Website <info@marvice.in>`
+- **To:** `yuvarajgs@marvice.in` · **From:** `Marvice Media Website <info@marvice.in>`
 - **Subject:** `New newsletter subscriber: [email-592]` · **Additional headers:** `Reply-To: [email-592]`
 - **Body:** `New newsletter subscriber on marvice.in  Email: [email-592]  Page: [_url]`
 
@@ -72,7 +72,7 @@ Submitted: [_date] [_time]
 
 Install **FluentSMTP** (free) → Settings → choose one:
 - **Microsoft 365 / Outlook** with `info@marvice.in` (best — matches your SPF). Needs SMTP AUTH enabled for that mailbox in Microsoft 365 admin, or use FluentSMTP's Outlook OAuth connection.
-- **Gmail** with `marvice2019@gmail.com` + a Google App Password (quickest; From becomes the Gmail address).
+- **Gmail** with `yuvarajgs@marvice.in` + a Google App Password (quickest; From becomes the Gmail address).
 
-Then FluentSMTP → Email Test → send to marvice2019@gmail.com, and submit the website form once.
-Also add a DMARC record at your DNS: `_dmarc.marvice.in TXT "v=DMARC1; p=none; rua=mailto:marvice2019@gmail.com"`.
+Then FluentSMTP → Email Test → send to yuvarajgs@marvice.in, and submit the website form once.
+Also add a DMARC record at your DNS: `_dmarc.marvice.in TXT "v=DMARC1; p=none; rua=mailto:yuvarajgs@marvice.in"`.
