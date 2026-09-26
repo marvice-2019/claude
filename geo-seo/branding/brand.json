@@ -1,23 +1,30 @@
 {
-  "_comment": "Marvice Media white-label config for geo-seo-claude (white-label/brand_config.py) and the ai-marketing-claude /market deliverables. Colors are sampled from the Marvice logo and marvice.in theme. Fill phone/contact_name before sending client deliverables.",
-
+  "_comment": "Marvice Media white-label config for geo-seo-claude (white-label/brand_config.py) and the ai-marketing-claude /market deliverables. Colors are sampled from the Marvice logo and marvice.in theme.",
   "name": "Marvice Media Pvt Ltd",
   "cover_tag": "Generative Engine Optimization Audit",
   "website": "marvice.in",
-  "phone": "",
-  "contact_name": "",
-  "location": "Chennai, Tamil Nadu, India",
-
+  "phone": "+91 80562 91930",
+  "email": "yuvarajgs@marvice.in",
+  "contact_name": "Yuvaraj GS",
+  "location": "Bengaluru, Karnataka, India",
+  "address": {
+    "street": "No.38, 3rd Floor, Green Leaf Extension, 3rd Cross, 80 Feet Rd, 4th Block",
+    "locality": "Koramangala",
+    "city": "Bengaluru",
+    "region": "Karnataka",
+    "postal_code": "560034",
+    "country": "IN"
+  },
   "colors": {
-    "primary":        "#BD8A53",
+    "primary": "#BD8A53",
     "primary_bright": "#D4A36E",
-    "secondary":      "#F28541",
-    "bg_deep":        "#1E2625",
-    "bg_dark":        "#2D3836",
-    "bg_card":        "#3A4745",
-    "border":         "#4A5654",
-    "text_primary":   "#FFF8ED",
+    "secondary": "#F28541",
+    "bg_deep": "#1E2625",
+    "bg_dark": "#2D3836",
+    "bg_card": "#3A4745",
+    "border": "#4A5654",
+    "text_primary": "#FFF8ED",
     "text_secondary": "#B8B2A7",
-    "text_accent":    "#BD8A53"
+    "text_accent": "#BD8A53"
   }
 }

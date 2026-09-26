@@ -1,0 +1,20 @@
+url,action,reason
+/sample-page/,Delete → 410,WordPress default page
+/hello-world/,Delete → 410,WordPress default post
+/home-02/ /home-03/ /home-01-onepage/ /home-02-onepage/ /home-03-onepage/ /home-04-onepage/,Delete → 301 to /,Theme demo homepages compete with the real homepage
+/about-two/ /about-three/,Delete → 301 to /about-us/,Theme demo duplicates
+/price-one/ /price-two/ /price-three/,Delete → 410 (or 301 to /contact-us/),Theme demo pricing
+/projects-2/ /project-four/ /our-portfolio/,Delete → 301 to /our-projects/ (keep one portfolio URL),Duplicate project listings
+/testimonial/ /process/ /clients/,Keep only if real content; otherwise noindex,Theme demo sections
+/shop/ /shop-2/ /cart/ /cart-2/ /checkout/ /checkout-2/ /my-account/ /my-account-2/,Delete (or noindex) + disable WooCommerce if not selling,Demo WooCommerce store
+"/product/* (17 URLs: hoodie, beanie, canon-camera …)",Delete all → 410,Demo products indexed as Marvice pages
+/product-category/* /product-tag/*,Delete → 410,Demo taxonomy
+/tf-header/* /tf-footer/* (14 URLs),Exclude from sitemap + noindex (theme builder CPT),Template parts exposed as public pages
+/services/proven-marketing/ /services/proven-marketing-2/,Delete → 301 to /our-services/,Theme demo service CPT
+/careers/3d-animation-designer/ /careers/3d-animation-designer-2/,"Delete, or replace with real openings",Demo job posts (JobPosting risk if fake)
+/teams/eleanor-pena/ /teams/eleanor-pena-2/ + /our-teams/ demo members,"Replace with real team (name, role, photo, LinkedIn) or delete",Fake team members hurt E-E-A-T and confuse AI entity data
+/social-media-marketing-strategies-for-small-business/ /influencer-marketing-trends-2023-what-you-need-know/ /seo-which-digital-advertis-ing-strategy-is-right-for-you/ /get-the-most-out-og-the-creativity/,Rewrite with real content or delete → 410,Demo blog posts containing lorem ipsum
+/category/clock-fly-strategy/ + empty demo categories; /tag/*,Delete unused; noindex tag archives,Thin archive pages
+/privacy-policy-2/,Rename slug to /privacy-policy/ + 301,Clean URL
+/wp-file-download-search/,noindex + remove from sitemap,Plugin utility page
+/wp-sitemap-users-1.xml (author archives),Disable author archives / noindex,"Exposes admin usernames, thin content"

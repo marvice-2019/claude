@@ -1,0 +1,71 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Service",
+      "@id": "https://marvice.in/our-services/onscreens/generative-engine-optimization/#service",
+      "name": "Generative Engine Optimization (GEO)",
+      "alternateName": [
+        "AI search optimization",
+        "Answer engine optimization",
+        "AI SEO"
+      ],
+      "serviceType": "Generative Engine Optimization",
+      "url": "https://marvice.in/our-services/onscreens/generative-engine-optimization/",
+      "description": "GEO audits, AI crawler access, llms.txt, entity schema, citable content and brand-mention building so businesses are cited by ChatGPT, Google AI Overviews, Gemini, Perplexity, Claude and Copilot.",
+      "provider": {
+        "@id": "https://marvice.in/#organization"
+      },
+      "brand": {
+        "@id": "https://marvice.in/our-services/onscreens/#brand"
+      },
+      "areaServed": [
+        {
+          "@type": "City",
+          "name": "Bengaluru"
+        },
+        {
+          "@type": "Country",
+          "name": "India"
+        },
+        {
+          "@type": "Country",
+          "name": "United Kingdom"
+        }
+      ],
+      "audience": {
+        "@type": "BusinessAudience",
+        "audienceType": "Restaurants, hospitality, professional services, SaaS, B2B and e-commerce businesses"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://marvice.in/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Our Services",
+          "item": "https://marvice.in/our-services/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Onscreens",
+          "item": "https://marvice.in/our-services/onscreens/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "name": "Generative Engine Optimization",
+          "item": "https://marvice.in/our-services/onscreens/generative-engine-optimization/"
+        }
+      ]
+    }
+  ]
+}

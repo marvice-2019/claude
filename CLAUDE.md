@@ -4,8 +4,8 @@
 
 Any proposal, report, audit, deck or PDF produced for a client (including output of the `/geo *` and `/market *` skills) is issued by **Marvice Media Pvt Ltd**. Brand details live in `geo-seo/branding/brand.json` — read it, don't hard-code.
 
-- Fill every agency placeholder (`[YOUR AGENCY NAME]`, "Your Agency", "Prepared by", sign-off blocks) with the `brand.json` values: Marvice Media Pvt Ltd · marvice.in · Chennai, Tamil Nadu, India.
-- `phone` / `contact_name` are blank on purpose: leave the line out rather than inventing one, and tell the user it's missing.
+- Fill every agency placeholder (`[YOUR AGENCY NAME]`, "Your Agency", "Prepared by", sign-off blocks) with the `brand.json` values: Marvice Media Pvt Ltd · marvice.in · Bengaluru, Karnataka, India.
+- Contact: Yuvaraj GS · +91 80562 91930 · yuvarajgs@marvice.in. Address is in `brand.json`.
 - Never leave "GEO-SEO Claude", "AI Marketing Suite" or another agency's name as the author/analyst — use "Marvice Media".
 - Pricing in `/geo proposal` and `/market proposal` defaults to USD; for Indian clients quote INR (+18% GST line) unless told otherwise.
 - Brand palette: slate `#2D3836`, bronze `#BD8A53`, orange `#F28541`, cream `#FFF8ED`. Logo: `geo-seo/branding/marvice-logo.png`.

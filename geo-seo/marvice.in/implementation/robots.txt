@@ -1,0 +1,40 @@
+# marvice.in: replaces the WordPress default.
+# AI search/answer crawlers are explicitly welcome; demo/theme and shop leftovers are kept out.
+
+User-agent: *
+Disallow: /wp-admin/
+Allow: /wp-admin/admin-ajax.php
+Disallow: /wp-content/uploads/wc-logs/
+Disallow: /wp-content/uploads/woocommerce_transient_files/
+Disallow: /wp-content/uploads/woocommerce_uploads/
+Disallow: /*?add-to-cart=
+Disallow: /*?*add-to-cart=
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /my-account/
+Disallow: /tf-header/
+Disallow: /tf-footer/
+Disallow: /wp-file-download-search/
+Disallow: /?s=
+
+# AI search & assistant crawlers: allowed (these drive citations in ChatGPT, Perplexity, Claude, Gemini, Copilot)
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: Bingbot
+User-agent: DuckAssistBot
+User-agent: meta-externalagent
+Allow: /
+Disallow: /wp-admin/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /my-account/
+
+Sitemap: https://marvice.in/sitemap_index.xml

@@ -33,26 +33,41 @@ score_line="$(grep -m1 -E '^## .*GEO Score' "$MD" || true)"
 geo_score="$(sed -nE 's/.*Score:?[[:space:]]*([0-9]+).*/\1/p' <<<"$score_line")"
 score_label="$(sed -nE 's/.*[0-9]+[[:space:]]*\/[[:space:]]*100[^A-Za-z]*([A-Za-z][A-Za-z ]*).*/\1/p' <<<"$score_line")"
 
-meta=()
-add() { [ -n "$2" ] && meta+=(--metadata "$1=$2"); return 0; }
-add title         "GEO Audit Report — ${brand_name:-Client}"
-add brand_name    "$brand_name"
-add prepared_for  "$brand_name"
-add domain        "$(field Domain)"
-add geo_score     "$geo_score"
-add score_label   "$score_label"
+# Metadata goes through a UTF-8 JSON/YAML file: pandoc decodes CLI args with the
+# system locale, which mangles "·", "—" etc. under C/POSIX locales.
+META_FILE="$(mktemp "${TMPDIR:-/tmp}/geo-meta.XXXXXX.yaml")"
+trap 'rm -f "$META_FILE"' EXIT
+prepared_for="$brand_name"
+case "$brand_name" in *[Mm]arvice*) prepared_for="" ;; esac
 audit_date="$(field 'Audit Date')"; [ -n "$audit_date" ] || audit_date="$(field Date)"
-add date          "$audit_date"
-add business_type "$(field 'Business Type')"
-add locations     "$(field Locations)"
-add platform      "$(field CMS)"
-add agency_logo   "$BRAND/marvice-logo.png"
+
+python3 - "$META_FILE" \
+  title="GEO Audit Report — ${brand_name:-Client}" \
+  brand_name="$brand_name" \
+  prepared_for="$prepared_for" \
+  domain="$(field Domain)" \
+  geo_score="$geo_score" \
+  score_label="$score_label" \
+  date="$audit_date" \
+  business_type="$(field 'Business Type')" \
+  locations="$(field Locations)" \
+  platform="$(field CMS)" \
+  agency_logo="$BRAND/marvice-logo.png" <<'PY'
+import json, sys
+meta = {}
+for arg in sys.argv[2:]:
+    key, _, value = arg.partition("=")
+    if value.strip():
+        meta[key] = value.strip()
+with open(sys.argv[1], "w", encoding="utf-8") as f:
+    json.dump(meta, f, ensure_ascii=False)
+PY
 
 pandoc "$MD" --to html5 --standalone --embed-resources \
   --resource-path=".:$BRAND" \
   --template "$BRAND/marvice-report-template.html" \
   --css "$BASE_CSS" --css "$BRAND/marvice-report.css" \
-  "${meta[@]}" -o "$HTML"
+  --metadata-file "$META_FILE" -o "$HTML"
 
 "$CHROME" --headless=new --disable-gpu --no-sandbox \
   --print-to-pdf="$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")" \
