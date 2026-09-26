@@ -57,6 +57,8 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 | 2026-09-26 | Replaced 22 images/links still loading from themexriver.com demo server (home, about, conxyou, our-projects, SaaS page, Global Footer shapes) with local media-library copies / real marvice.in pages | backup JSON |
 | 2026-09-26 | Site-wide Custom CSS (Elementor kit #11): breadcrumb current page bronze, hero "Get Started" readable, feature icons bronze, phone no-wrap, footer links + testimonial name contrast | clear kit Custom CSS |
 | 2026-09-26 | Footer Links menu: Help → /faqs/, Support → /contact-us/, Clients → /our-projects/ (were all Brand Consultancy) | edit menu "Links" |
+| 2026-09-26 | **SEOmator audit follow-up (Rank Math API, no theme/design change):** knowledge graph → ProfessionalService "Marvice Media" (address, phone, email, logo, 4 sameAs, description); default OG image (office photo) — fixes og:image FAIL; pages no longer typed Article/Person; About/Contact pages → AboutPage/ContactPage; theme CPTs (tf-header/footer, services, projects, careers, teams, products, floating buttons) noindex + removed from sitemap; author archives off; Local SEO module on | Rank Math settings |
+| 2026-09-26 | Keyword titles / descriptions / focus keywords on 32 pages & posts (`implementation/keyword-map.md`); FAQPage schema on /faqs/; Service schema on 21 service pages; Rank Math llms.txt module configured (served once the stale physical file is deleted) | Rank Math per-page SEO box |
 
 ### Still to do by hand (blocked or needs wp-admin UI)
 
@@ -72,4 +74,8 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 10. **WhatsApp button** — after removing WPChat: Plugins → Add New → *Joinchat* → Settings → phone `+918056291930` → Save (or update Elementor Pro with a licence to use Elementor Floating Buttons; draft 4298 is ready).
 11. **Contact + newsletter forms and email delivery** — see `implementation/contact-forms.md` (CF7 REST doesn't persist; site cannot send mail until SMTP is configured).
 12. **Instagram Posts in footer (auto-update)** — keep *Smash Balloon Instagram Feed* (only that one), connect the @marvice.in account, then edit Global Footer in Elementor and replace the 4 static images with the Instagram Feed widget (4 posts, 1 row).
-13. **Image alt text** — theme widgets don't read media-library alt text; set alt fields in each Elementor image/logo widget.
+13. **Delete `public_html/llms.txt`** (hPanel → File Manager) — a stale static file overrides Rank Math's new llms.txt.
+14. **HSTS + security headers** (audit FAIL) — hPanel → Security, or add to .htaccess: `Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"` plus X-Content-Type-Options, X-Frame-Options, Referrer-Policy.
+15. **Homepage H1** (audit FAIL) — theme widgets hard-code h2; add one Elementor Heading (H1) styled like the section title, e.g. "Digital Marketing, SEO & Software Company in Bengaluru & Chennai".
+16. **Header/footer links** — logo + copyright link use http://marvice.in; footer LinkedIn icon points to the admin URL …/mycompany/ → use https://www.linkedin.com/company/marvice-media-pvt-ltd/.
+17. **Image alt text** — theme widgets don't read media-library alt text; set alt fields in each Elementor image/logo widget.
