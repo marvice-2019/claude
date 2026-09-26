@@ -59,6 +59,7 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 | 2026-09-26 | Footer Links menu: Help → /faqs/, Support → /contact-us/, Clients → /our-projects/ (were all Brand Consultancy) | edit menu "Links" |
 | 2026-09-26 | **SEOmator audit follow-up (Rank Math API, no theme/design change):** knowledge graph → ProfessionalService "Marvice Media" (address, phone, email, logo, 4 sameAs, description); default OG image (office photo) — fixes og:image FAIL; pages no longer typed Article/Person; About/Contact pages → AboutPage/ContactPage; theme CPTs (tf-header/footer, services, projects, careers, teams, products, floating buttons) noindex + removed from sitemap; author archives off; Local SEO module on | Rank Math settings |
 | 2026-09-26 | Keyword titles / descriptions / focus keywords on 32 pages & posts (`implementation/keyword-map.md`); FAQPage schema on /faqs/; Service schema on 21 service pages; Rank Math llms.txt module configured (served once the stale physical file is deleted) | Rank Math per-page SEO box |
+| 2026-09-26 | Re-audit: GEO 26 → 57/100 (`GEO-REAUDIT-2026-09-26.md`, `marvice-geo-reaudit.pdf`). Fixed missing schema on /our-services/ (Service) and /our-projects/ (CollectionPage) — Rank Math output no JSON-LD there | Rank Math schema tab |
 
 ### Still to do by hand (blocked or needs wp-admin UI)
 
