@@ -51,6 +51,8 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 | 2026-09-26 | **New page** /our-services/onscreens/generative-engine-optimization/ (Digital Marketing layout) + link in Primary menu and in the Onscreens sidebar on 6 service pages | Trash page 4265 / menu item 4266 |
 | 2026-09-26 | 4 demo blog posts rewritten as real articles (GEO guide, GEO vs SEO, getting recommended by AI assistants, social media for SMBs); "Hello world" → draft; old slugs 301 automatically | backup JSON |
 | 2026-09-26 | **Incident + fix:** clearing Elementor's CSS cache after edits let LiteSpeed rebuild its optimized stylesheet (UCSS) while Elementor CSS files were missing, so dark section backgrounds (brands, testimonial, footer, "Our Journey") disappeared for visitors. Fixed with a full LiteSpeed purge (via the WordPress MCP adapter; the REST ability crashes). For future edits: after `DELETE /elementor/v1/cache`, always purge all LiteSpeed caches too. | — |
+| 2026-09-26 | Testimonial carousel (home widget 9701105): scoped Custom CSS restoring overflow clipping and full-width slides (Elementor Pro 3.22 `.swiper-container` markup vs Elementor 4.1 Swiper). In `post-2169.css`; reaches visitors once LiteSpeed UCSS regenerates or UCSS is turned off | remove widget Custom CSS |
+| 2026-09-26 | Tried Elementor Floating Buttons for WhatsApp (post 4298) — not rendered because Elementor Pro 3.22 takes over floating-button rendering and predates the feature; left as **draft** | trash post 4298 |
 
 ### Still to do by hand (blocked or needs wp-admin UI)
 
@@ -61,4 +63,7 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 5. **Google Search Console + Bing Webmaster** — submit `https://marvice.in/sitemap_index.xml`; Rank Math's sitemap cache refreshes on its own.
 6. **Google Business Profiles** for Koramangala and Nungambakkam.
 7. **Homepage H1** — the theme's hero slider has no H1 option; add an H1 in Elementor only if it can be styled to match.
-8. **Image alt text** — theme widgets don't read media-library alt text; set alt fields in each Elementor image/logo widget.
+8. **Remove Smash Balloon + WPChat** (deactivate/delete was blocked for me): Plugins → select Smash Balloon Facebook/Instagram/Reviews/TikTok/X/YouTube Feed, Social Wall, WPChat → Deactivate → Delete. None are used in any page.
+9. **LiteSpeed UCSS** — homepage only loads a stale UCSS file, so CSS fixes (carousel) don't reach visitors: LiteSpeed Cache → Page Optimization → CSS Settings → *Generate UCSS* OFF → Save → Toolbox → Purge All.
+10. **WhatsApp button** — after removing WPChat: Plugins → Add New → *Joinchat* → Settings → phone `+918056291930` → Save (or update Elementor Pro with a licence to use Elementor Floating Buttons; draft 4298 is ready).
+11. **Image alt text** — theme widgets don't read media-library alt text; set alt fields in each Elementor image/logo widget.
