@@ -41,4 +41,23 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 | 2026-09-26 | Full content backup via REST (pages, posts, products, Elementor templates incl. `_elementor_data`) | `backups/content-backup-2026-09-26.json.gz` |
 | 2026-09-26 | Installed + activated **Rank Math SEO 1.0.279**. Live: `sitemap_index.xml` (200), robots.txt now points to it, meta description / Open Graph / JSON-LD output on every page | Plugins → Rank Math → Deactivate |
 
-Rank Math still needs its setup wizard (wp-admin → Rank Math → Setup Wizard) to replace its auto-generated defaults: the homepage description currently reads "Have Any Question?" and the homepage is typed as Article/Person.
+| 2026-09-26 | Unpublished (→ draft) 30 demo pages incl. home-02/03, onepage variants, about-two/three, price-*, shop/cart/checkout/my-account (+ "-2" copies), sample-page, our-teams, career, job-apply, testimonial, process, clients, our-portfolio, wp-file-download-search | Pages → Drafts → Publish |
+| 2026-09-26 | Unpublished 18 demo WooCommerce products and 8 demo theme CPT entries (teams/eleanor-pena, careers/3d-animation-designer, services/proven-marketing, projects/experience-design + "-2" copies) | Products / CPT → Drafts → Publish |
+| 2026-09-26 | Contact page: Purasawalkam → Bengaluru + Chennai offices (info list + map address) | backup JSON |
+| 2026-09-26 | Homepage text: hero "We Provide a" → "We Provide"; about paragraphs with both cities; "Transparent Pricing" / "On-Time Delivery"; "Our Innovative Brands" cards → Onscreens/Worxforu/Conxyou pages; "Explore Our Wide Range of Services"; blog cards retitled | backup JSON |
+| 2026-09-26 | FAQ page: 8 lorem items → 9 real Q&As (`faq-content.md`) | backup JSON |
+| 2026-09-26 | Meta descriptions (page excerpts, read by Rank Math) on 27 pages | clear excerpt |
+| 2026-09-26 | Brand pages: featured image set (2031/2032/2033) so homepage brand cards keep their logos; verified no visual change | set featured image to none |
+| 2026-09-26 | **New page** /our-services/onscreens/generative-engine-optimization/ (Digital Marketing layout) + link in Primary menu and in the Onscreens sidebar on 6 service pages | Trash page 4265 / menu item 4266 |
+| 2026-09-26 | 4 demo blog posts rewritten as real articles (GEO guide, GEO vs SEO, getting recommended by AI assistants, social media for SMBs); "Hello world" → draft; old slugs 301 automatically | backup JSON |
+
+### Still to do by hand (blocked or needs wp-admin UI)
+
+1. **llms.txt** — a stale physical file in `public_html/llms.txt` lists the old lorem posts. hPanel → File Manager → replace it with `implementation/llms.txt`.
+2. **Rank Math → Setup Wizard** — Company, Marvice Media, logo, Local SEO (Bengaluru address, phone). Fixes the Article/Person schema on every page and the site-wide Organization data.
+3. **Rank Math → Titles & Meta → Post Types** — set tf-header / tf-footer to noindex and exclude from sitemap (theme template parts; can't be unpublished without breaking the header/footer).
+4. **Legal pages** — review `implementation/legal-pages-draft.md` and publish (Privacy Policy still names themexriver.com).
+5. **Google Search Console + Bing Webmaster** — submit `https://marvice.in/sitemap_index.xml`; Rank Math's sitemap cache refreshes on its own.
+6. **Google Business Profiles** for Koramangala and Nungambakkam.
+7. **Homepage H1** — the theme's hero slider has no H1 option; add an H1 in Elementor only if it can be styled to match.
+8. **Image alt text** — theme widgets don't read media-library alt text; set alt fields in each Elementor image/logo widget.
