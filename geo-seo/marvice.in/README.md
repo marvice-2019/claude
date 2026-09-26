@@ -33,3 +33,12 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 - **Public email:** schema, llms.txt and page copy use `info@marvice.in` (already on the site). `yuvarajgs@marvice.in` is in the proposal/report branding. Swap if you'd rather publish the personal address.
 - **Founder/leadership:** add Person schema (name, role, LinkedIn) once the team page has real people.
 - **FAQ claims:** check the industries list and the "free initial GEO and SEO visibility check" offer in `faq-content.md` before publishing.
+
+## Live changes log
+
+| Date | Change | Rollback |
+|---|---|---|
+| 2026-09-26 | Full content backup via REST (pages, posts, products, Elementor templates incl. `_elementor_data`) | `backups/content-backup-2026-09-26.json.gz` |
+| 2026-09-26 | Installed + activated **Rank Math SEO 1.0.279**. Live: `sitemap_index.xml` (200), robots.txt now points to it, meta description / Open Graph / JSON-LD output on every page | Plugins → Rank Math → Deactivate |
+
+Rank Math still needs its setup wizard (wp-admin → Rank Math → Setup Wizard) to replace its auto-generated defaults: the homepage description currently reads "Have Any Question?" and the homepage is typed as Article/Person.
