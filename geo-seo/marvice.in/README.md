@@ -53,6 +53,10 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 | 2026-09-26 | **Incident + fix:** clearing Elementor's CSS cache after edits let LiteSpeed rebuild its optimized stylesheet (UCSS) while Elementor CSS files were missing, so dark section backgrounds (brands, testimonial, footer, "Our Journey") disappeared for visitors. Fixed with a full LiteSpeed purge (via the WordPress MCP adapter; the REST ability crashes). For future edits: after `DELETE /elementor/v1/cache`, always purge all LiteSpeed caches too. | — |
 | 2026-09-26 | Testimonial carousel (home widget 9701105): scoped Custom CSS restoring overflow clipping and full-width slides (Elementor Pro 3.22 `.swiper-container` markup vs Elementor 4.1 Swiper). In `post-2169.css`; reaches visitors once LiteSpeed UCSS regenerates or UCSS is turned off | remove widget Custom CSS |
 | 2026-09-26 | Tried Elementor Floating Buttons for WhatsApp (post 4298) — not rendered because Elementor Pro 3.22 takes over floating-button rendering and predates the feature; left as **draft** | trash post 4298 |
+| 2026-09-26 | Homepage: "View All More" → "View All Services" linking /our-services/ (was themexriver demo contact page); blog button → /blog/; phone "+91 80562 91930" (fixes tel: link) | backup JSON |
+| 2026-09-26 | Replaced 22 images/links still loading from themexriver.com demo server (home, about, conxyou, our-projects, SaaS page, Global Footer shapes) with local media-library copies / real marvice.in pages | backup JSON |
+| 2026-09-26 | Site-wide Custom CSS (Elementor kit #11): breadcrumb current page bronze, hero "Get Started" readable, feature icons bronze, phone no-wrap, footer links + testimonial name contrast | clear kit Custom CSS |
+| 2026-09-26 | Footer Links menu: Help → /faqs/, Support → /contact-us/, Clients → /our-projects/ (were all Brand Consultancy) | edit menu "Links" |
 
 ### Still to do by hand (blocked or needs wp-admin UI)
 
@@ -66,4 +70,6 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 8. **Remove Smash Balloon + WPChat** (deactivate/delete was blocked for me): Plugins → select Smash Balloon Facebook/Instagram/Reviews/TikTok/X/YouTube Feed, Social Wall, WPChat → Deactivate → Delete. None are used in any page.
 9. **LiteSpeed UCSS** — homepage only loads a stale UCSS file, so CSS fixes (carousel) don't reach visitors: LiteSpeed Cache → Page Optimization → CSS Settings → *Generate UCSS* OFF → Save → Toolbox → Purge All.
 10. **WhatsApp button** — after removing WPChat: Plugins → Add New → *Joinchat* → Settings → phone `+918056291930` → Save (or update Elementor Pro with a licence to use Elementor Floating Buttons; draft 4298 is ready).
-11. **Image alt text** — theme widgets don't read media-library alt text; set alt fields in each Elementor image/logo widget.
+11. **Contact + newsletter forms and email delivery** — see `implementation/contact-forms.md` (CF7 REST doesn't persist; site cannot send mail until SMTP is configured).
+12. **Instagram Posts in footer (auto-update)** — keep *Smash Balloon Instagram Feed* (only that one), connect the @marvice.in account, then edit Global Footer in Elementor and replace the 4 static images with the Instagram Feed widget (4 posts, 1 row).
+13. **Image alt text** — theme widgets don't read media-library alt text; set alt fields in each Elementor image/logo widget.
