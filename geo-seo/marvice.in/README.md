@@ -50,6 +50,7 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 | 2026-09-26 | Brand pages: featured image set (2031/2032/2033) so homepage brand cards keep their logos; verified no visual change | set featured image to none |
 | 2026-09-26 | **New page** /our-services/onscreens/generative-engine-optimization/ (Digital Marketing layout) + link in Primary menu and in the Onscreens sidebar on 6 service pages | Trash page 4265 / menu item 4266 |
 | 2026-09-26 | 4 demo blog posts rewritten as real articles (GEO guide, GEO vs SEO, getting recommended by AI assistants, social media for SMBs); "Hello world" → draft; old slugs 301 automatically | backup JSON |
+| 2026-09-26 | **Incident + fix:** clearing Elementor's CSS cache after edits let LiteSpeed rebuild its optimized stylesheet (UCSS) while Elementor CSS files were missing, so dark section backgrounds (brands, testimonial, footer, "Our Journey") disappeared for visitors. Fixed with a full LiteSpeed purge (via the WordPress MCP adapter; the REST ability crashes). For future edits: after `DELETE /elementor/v1/cache`, always purge all LiteSpeed caches too. | — |
 
 ### Still to do by hand (blocked or needs wp-admin UI)
 
