@@ -77,6 +77,10 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 | 2026-09-27 | **Sitemap 404 fixed:** /sitemap_index.xml and all child sitemaps returned 404 (rewrite rules lost after today's plugin activations/deactivations; LiteSpeed then cached the 404). Scheduled a Rank Math rewrite flush, triggered it via admin-ajax, purged LiteSpeed → all 200 | Settings → Permalinks → Save |
 | 2026-09-27 | Homepage meta description now carries the page's top on-page words (services, solutions, development, software) — SEOptimer "keywords across HTML tags" | Rank Math SEO box |
 | 2026-09-27 | `implementation/link-building-plan.md` — 90-day plan, paste-ready NAP + descriptions, 40+ targets | — |
+| 2026-09-27 | **GEO/AEO:** IndexNow submission of all 38 sitemap URLs (api.indexnow.org + Bing → Copilot / ChatGPT search), key file live | — |
+| 2026-09-27 | Author entity: user "yuvarajgs" → **Yuvaraj GS** with bio (Article schema author was the username) | Users → Profile |
+| 2026-09-27 | Entity schema: Chennai office (ProfessionalService, parentOrganization → #organization) on home; Onscreens / Worxforu / Conxyou as Organization nodes with knowsAbout + parentOrganization on their brand pages | Rank Math schema tab |
+| 2026-09-27 | Answer-first opening sentence (who / what / Bengaluru & Chennai) on 17 service pages, replacing fluff openers; rest of each paragraph and layout unchanged | `backups/service-intros-before-2026-09-27.json` |
 
 ### Still to do by hand (blocked or needs wp-admin UI)
 
@@ -101,3 +105,6 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 19. **Rank Math "Post Titles Missing Focus Keywords"** — false positive: it checks the on-page page name (e.g. "Digital Marketing"), which is part of the design; SEO titles already carry the keywords. Leave as is.
 20. **Hero empty until first interaction** — LiteSpeed delays all JS until the visitor moves/scrolls/taps, so the hero slider paints blank at first load (hurts LCP/first impression, esp. mobile). LiteSpeed Cache → Page Optimization → JS Settings → *Load JS Deferred*: set to **Deferred** instead of **Delayed**, or add the Swiper/theme scripts to *JS Delayed Excludes*. Console also shows `wp is not defined` / `moment is not defined` from the same delay.
 21. **Page weight** (SEOptimer) — WPChat is still active and loads ~0.6 MB JS + fonts on every page; deactivate + delete it (item 8). Theme + gilroy-core both load Font Awesome Pro (~1.5 MB of icon fonts, fa-solid loaded twice) — theme-level, leave unless the theme vendor offers a toggle.
+22. **GPTBot rate-limited** — ChatGPT's crawler got an HTTP 429 in testing (others 200). hPanel → Security / bot protection: make sure AI crawlers (GPTBot, OAI-SearchBot, PerplexityBot, ClaudeBot) aren't throttled.
+23. **Bing Webmaster Tools** — verify (import from Search Console) and submit the sitemap; Bing's index feeds ChatGPT search and Copilot.
+24. **Service-page FAQs** — each service page needs 4–6 visible Q&As (price range, timeline, process, cities) for AI answer extraction; add in Elementor using the existing accordion style ("What We Provide" block).
