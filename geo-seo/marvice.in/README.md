@@ -87,6 +87,7 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 | 2026-09-27 | LiteSpeed **Advanced** preset applied (auto-backup created by LiteSpeed): repeat page views now get full CSS + deferred JS (testimonial carousel fix finally reaches visitors); first-view guests still get Guest Optimization (UCSS + delayed JS). Live Smash Balloon Instagram feed now renders above the footer | LiteSpeed Cache → Presets → restore backup |
 | 2026-09-27 | Alt text: 48 media items + image settings on 25 pages (client logos KIA/Hyundai/Drava, portfolio screenshots, team photos, service banners, testimonials, blog cards) → site alt coverage 52% → 66%; rest are theme-hardcoded or decorative | `backups/pages-before-alt-2026-09-27.json.gz` |
 | 2026-09-27 | News Sitemap module off → blog guides now BlogPosting (were forced to NewsArticle) and news-sitemap removed; sitemap cache cleared; IndexNow resubmitted 34 URLs; Rank Math audit 100/100 | Rank Math → Modules |
+| 2026-09-27 | **Content corrections brief** applied: 39 scoped text fixes (web design, digital marketing, GEO, FAQs, projects, homepage, SaaS naming, GEO article), blog category widget fixed, FAQ schema synced in place; S01/S02/S04 blocked (CF7 / footer template), owner-confirmation items listed — `content-corrections-2026-09-27.md` | `backups/content-corrections-before-2026-09-27.json.gz` |
 
 ### Still to do by hand (blocked or needs wp-admin UI)
 
