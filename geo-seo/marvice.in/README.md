@@ -74,6 +74,9 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 | 2026-09-27 | Per-post noindex on the 18 tf-header / tf-footer templates (Rank Math "Focus Keywords" test only skips posts with per-post noindex) | Rank Math meta `rank_math_robots` |
 | 2026-09-27 | Primary focus keyword on 32 pages/posts set to the topic phrase contained in each page name (e.g. "digital marketing"); all long-tail city keywords kept as secondary. Homepage primary = "home" (page name is "Home"; renaming it changes the theme breadcrumb on every page — tried and reverted within a minute) | previous keywords in session `fk_backup.json` |
 | 2026-09-27 | **Rank Math site audit: 100/100** (33 ok, 0 fail, 1 warning = mobile speed) | — |
+| 2026-09-27 | **Sitemap 404 fixed:** /sitemap_index.xml and all child sitemaps returned 404 (rewrite rules lost after today's plugin activations/deactivations; LiteSpeed then cached the 404). Scheduled a Rank Math rewrite flush, triggered it via admin-ajax, purged LiteSpeed → all 200 | Settings → Permalinks → Save |
+| 2026-09-27 | Homepage meta description now carries the page's top on-page words (services, solutions, development, software) — SEOptimer "keywords across HTML tags" | Rank Math SEO box |
+| 2026-09-27 | `implementation/link-building-plan.md` — 90-day plan, paste-ready NAP + descriptions, 40+ targets | — |
 
 ### Still to do by hand (blocked or needs wp-admin UI)
 
@@ -97,3 +100,4 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 18. **Spam comments** — 1,312 held spam comments (betting/casino links): Comments → Pending → select all → Spam → Empty Spam. Then install Akismet or Antispam Bee.
 19. **Rank Math "Post Titles Missing Focus Keywords"** — false positive: it checks the on-page page name (e.g. "Digital Marketing"), which is part of the design; SEO titles already carry the keywords. Leave as is.
 20. **Hero empty until first interaction** — LiteSpeed delays all JS until the visitor moves/scrolls/taps, so the hero slider paints blank at first load (hurts LCP/first impression, esp. mobile). LiteSpeed Cache → Page Optimization → JS Settings → *Load JS Deferred*: set to **Deferred** instead of **Delayed**, or add the Swiper/theme scripts to *JS Delayed Excludes*. Console also shows `wp is not defined` / `moment is not defined` from the same delay.
+21. **Page weight** (SEOptimer) — WPChat is still active and loads ~0.6 MB JS + fonts on every page; deactivate + delete it (item 8). Theme + gilroy-core both load Font Awesome Pro (~1.5 MB of icon fonts, fa-solid loaded twice) — theme-level, leave unless the theme vendor offers a toggle.
