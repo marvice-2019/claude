@@ -84,6 +84,9 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 | 2026-09-27 | **Service FAQs:** 4 visible Q&As (includes / cost / timeline / service-specific) appended to the existing accordion on 18 service pages + FAQPage schema (output as Service `subjectOf`). Content in `implementation/service-faqs.md` | `backups/service-pages-before-faq-2026-09-27.json.gz` |
 | 2026-09-27 | Category archives (incl. demo "Clock Fly Strategy") → noindex + removed from sitemap; author bio → Director of Marvice Media Pvt Ltd, LinkedIn as sameAs | Rank Math titles/sitemap; Users → Profile |
 | 2026-09-27 | **Audit: SEO 64 · GEO 66 (26→57→66) · AEO 68** — `SEO-GEO-AEO-AUDIT-2026-09-27.md/.pdf` | — |
+| 2026-09-27 | LiteSpeed **Advanced** preset applied (auto-backup created by LiteSpeed): repeat page views now get full CSS + deferred JS (testimonial carousel fix finally reaches visitors); first-view guests still get Guest Optimization (UCSS + delayed JS). Live Smash Balloon Instagram feed now renders above the footer | LiteSpeed Cache → Presets → restore backup |
+| 2026-09-27 | Alt text: 48 media items + image settings on 25 pages (client logos KIA/Hyundai/Drava, portfolio screenshots, team photos, service banners, testimonials, blog cards) → site alt coverage 52% → 66%; rest are theme-hardcoded or decorative | `backups/pages-before-alt-2026-09-27.json.gz` |
+| 2026-09-27 | News Sitemap module off → blog guides now BlogPosting (were forced to NewsArticle) and news-sitemap removed; sitemap cache cleared; IndexNow resubmitted 34 URLs; Rank Math audit 100/100 | Rank Math → Modules |
 
 ### Still to do by hand (blocked or needs wp-admin UI)
 
@@ -112,3 +115,4 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 23. **Bing Webmaster Tools** — verify (import from Search Console) and submit the sitemap; Bing's index feeds ChatGPT search and Copilot.
 24. ~~Service-page FAQs~~ — done 2026-09-27 (review wording in `implementation/service-faqs.md`). Was: each service page needs 4–6 visible Q&As (price range, timeline, process, cities) for AI answer extraction; add in Elementor using the existing accordion style ("What We Provide" block).
 25. **Justdial / old directory listings** still show 17 Purasawalkam High Road and the old "four sector of brands / UVcart" description — AI summaries repeat it. Update Justdial, JustLookOn and Sulekha to the Koramangala + Nungambakkam offices and current brands.
+26. **Speed (wp-admin only):** LiteSpeed Cache → Page Optimization → Tuning/Guest: turn **Guest Optimization OFF** (first-view visitors still get delayed JS + stale UCSS) and JS Settings → Load JS Deferred = **Deferred**. Theme options: turn off **smooth scroll (Lenis)** — it shifts the whole page at ~4 s (desktop CLS 1.0).
