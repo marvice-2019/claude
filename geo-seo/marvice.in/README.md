@@ -81,6 +81,7 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 | 2026-09-27 | Author entity: user "yuvarajgs" → **Yuvaraj GS** with bio (Article schema author was the username) | Users → Profile |
 | 2026-09-27 | Entity schema: Chennai office (ProfessionalService, parentOrganization → #organization) on home; Onscreens / Worxforu / Conxyou as Organization nodes with knowsAbout + parentOrganization on their brand pages | Rank Math schema tab |
 | 2026-09-27 | Answer-first opening sentence (who / what / Bengaluru & Chennai) on 17 service pages, replacing fluff openers; rest of each paragraph and layout unchanged | `backups/service-intros-before-2026-09-27.json` |
+| 2026-09-27 | **Service FAQs:** 4 visible Q&As (includes / cost / timeline / service-specific) appended to the existing accordion on 18 service pages + FAQPage schema (output as Service `subjectOf`). Content in `implementation/service-faqs.md` | `backups/service-pages-before-faq-2026-09-27.json.gz` |
 
 ### Still to do by hand (blocked or needs wp-admin UI)
 
@@ -107,4 +108,4 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 21. **Page weight** (SEOptimer) — WPChat is still active and loads ~0.6 MB JS + fonts on every page; deactivate + delete it (item 8). Theme + gilroy-core both load Font Awesome Pro (~1.5 MB of icon fonts, fa-solid loaded twice) — theme-level, leave unless the theme vendor offers a toggle.
 22. **GPTBot rate-limited** — ChatGPT's crawler got an HTTP 429 in testing (others 200). hPanel → Security / bot protection: make sure AI crawlers (GPTBot, OAI-SearchBot, PerplexityBot, ClaudeBot) aren't throttled.
 23. **Bing Webmaster Tools** — verify (import from Search Console) and submit the sitemap; Bing's index feeds ChatGPT search and Copilot.
-24. **Service-page FAQs** — each service page needs 4–6 visible Q&As (price range, timeline, process, cities) for AI answer extraction; add in Elementor using the existing accordion style ("What We Provide" block).
+24. ~~Service-page FAQs~~ — done 2026-09-27 (review wording in `implementation/service-faqs.md`). Was: each service page needs 4–6 visible Q&As (price range, timeline, process, cities) for AI answer extraction; add in Elementor using the existing accordion style ("What We Provide" block).
