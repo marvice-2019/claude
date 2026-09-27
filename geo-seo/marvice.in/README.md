@@ -64,10 +64,15 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 | 2026-09-27 | Alt text added to 25 media items (client logos, office/team photos, service photos) → homepage 43/69 images with alt (was 5/69); remaining are decorative theme shapes | clear media alt |
 | 2026-09-27 | Hostinger "llms.txt generation" switched OFF (Rank Math module owns llms.txt). Stale static `public_html/llms.txt` still needs deleting by hand | Hostinger plugin setting |
 | 2026-09-27 | Tried a visually-hidden homepage H1 (screen-reader-text) — **reverted**: stale LiteSpeed UCSS lacked the hiding CSS so it showed on screen. Re-apply only after UCSS is turned off | — |
+| 2026-09-27 | Site tagline set: "Digital Marketing, SEO, GEO & Software Agency in Bengaluru & Chennai" (Rank Math *Site Tagline* warning) | Settings → General |
+| 2026-09-27 | Trashed 3 demo comments (lorem ipsum by "choicy"/wabidullahsharif@gmail.com and "A WordPress Commenter") | Comments → Trash → Restore |
+| 2026-09-27 | Terms + Privacy: WebPage schema and focus keywords (both pages output no JSON-LD) | Rank Math schema tab |
+| 2026-09-27 | Deactivated GoSMTP + GoSMTP Pro (conflicted with FluentSMTP); user then switched to GoSMTP and deactivated FluentSMTP | Plugins |
+| 2026-09-27 | Static `public_html/llms.txt` deleted by owner → Rank Math llms.txt now live. Rank Math site audit 56 → 85/100 | — |
 
 ### Still to do by hand (blocked or needs wp-admin UI)
 
-1. **llms.txt** — a stale physical file in `public_html/llms.txt` lists the old lorem posts. hPanel → File Manager → replace it with `implementation/llms.txt`.
+1. ~~llms.txt~~ — done 2026-09-27.
 2. **Rank Math → Setup Wizard** — Company, Marvice Media, logo, Local SEO (Bengaluru address, phone). Fixes the Article/Person schema on every page and the site-wide Organization data.
 3. **Rank Math → Titles & Meta → Post Types** — set tf-header / tf-footer to noindex and exclude from sitemap (theme template parts; can't be unpublished without breaking the header/footer).
 4. **Legal pages** — review `implementation/legal-pages-draft.md` and publish (Privacy Policy still names themexriver.com).
@@ -77,10 +82,12 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 8. **Remove Smash Balloon + WPChat** (deactivate/delete was blocked for me): Plugins → select Smash Balloon Facebook/Instagram/Reviews/TikTok/X/YouTube Feed, Social Wall, WPChat → Deactivate → Delete. None are used in any page.
 9. **LiteSpeed UCSS** — homepage only loads a stale UCSS file, so CSS fixes (carousel) don't reach visitors: LiteSpeed Cache → Page Optimization → CSS Settings → *Generate UCSS* OFF → Save → Toolbox → Purge All.
 10. **WhatsApp button** — after removing WPChat: Plugins → Add New → *Joinchat* → Settings → phone `+918056291930` → Save (or update Elementor Pro with a licence to use Elementor Floating Buttons; draft 4298 is ready).
-11. **Contact + newsletter forms and email delivery** — see `implementation/contact-forms.md` (CF7 REST doesn't persist; site cannot send mail until SMTP is configured).
+11. **Contact + newsletter forms and email delivery** — see `implementation/contact-forms.md`. GoSMTP (Outlook) is the active mailer; Entra app `bcf9354f-f457-4709-8788-5419c6fbaca4` needs a client secret **Value** (not the Secret ID) and GoSMTP's redirect URI added under Authentication → Web. Microsoft basic SMTP AUTH is retired, so OAuth is the only direct route.
 12. **Instagram Posts in footer (auto-update)** — keep *Smash Balloon Instagram Feed* (only that one), connect the @marvice.in account, then edit Global Footer in Elementor and replace the 4 static images with the Instagram Feed widget (4 posts, 1 row).
-13. **Delete `public_html/llms.txt`** (hPanel → File Manager) — a stale static file overrides Rank Math's new llms.txt.
+13. ~~Delete `public_html/llms.txt`~~ — done 2026-09-27.
 14. **HSTS + security headers** (audit FAIL) — hPanel → Security, or add to .htaccess: `Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"` plus X-Content-Type-Options, X-Frame-Options, Referrer-Policy.
 15. **Homepage H1** (audit FAIL) — theme widgets hard-code h2; add one Elementor Heading (H1) styled like the section title, e.g. "Digital Marketing, SEO & Software Company in Bengaluru & Chennai".
 16. **Header/footer links** — logo + copyright link use http://marvice.in; footer LinkedIn icon points to the admin URL …/mycompany/ → use https://www.linkedin.com/company/marvice-media-pvt-ltd/.
 17. **Image alt text** — theme widgets don't read media-library alt text; set alt fields in each Elementor image/logo widget.
+18. **Spam comments** — 1,312 held spam comments (betting/casino links): Comments → Pending → select all → Spam → Empty Spam. Then install Akismet or Antispam Bee.
+19. **Rank Math "Post Titles Missing Focus Keywords"** — false positive: it checks the on-page page name (e.g. "Digital Marketing"), which is part of the design; SEO titles already carry the keywords. Leave as is.
