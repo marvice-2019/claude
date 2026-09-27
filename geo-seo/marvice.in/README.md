@@ -69,6 +69,11 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 | 2026-09-27 | Terms + Privacy: WebPage schema and focus keywords (both pages output no JSON-LD) | Rank Math schema tab |
 | 2026-09-27 | Deactivated GoSMTP + GoSMTP Pro (conflicted with FluentSMTP); user then switched to GoSMTP and deactivated FluentSMTP | Plugins |
 | 2026-09-27 | Static `public_html/llms.txt` deleted by owner → Rank Math llms.txt now live. Rank Math site audit 56 → 85/100 | — |
+| 2026-09-27 | Google Search Console verified (HTML file uploaded by owner); cleared an invalid Rank Math google_verify value (file name pasted as meta code) | Rank Math → General → Webmaster Tools |
+| 2026-09-27 | **Homepage H1:** hero slide 1 title tag h2 → h1 (per-slide `title_tag`, widget 912e7a5). Verified with Playwright: same 0px margins, 90px size, same position desktop + mobile. (An inline `<style>` attempt in the slide description was stripped by kses and showed as text for ~1 min — removed.) | set slide 1 `title_tag` back to h2; backup `home_2169_before_h1.json` in session scratchpad |
+| 2026-09-27 | Per-post noindex on the 18 tf-header / tf-footer templates (Rank Math "Focus Keywords" test only skips posts with per-post noindex) | Rank Math meta `rank_math_robots` |
+| 2026-09-27 | Primary focus keyword on 32 pages/posts set to the topic phrase contained in each page name (e.g. "digital marketing"); all long-tail city keywords kept as secondary. Homepage primary = "home" (page name is "Home"; renaming it changes the theme breadcrumb on every page — tried and reverted within a minute) | previous keywords in session `fk_backup.json` |
+| 2026-09-27 | **Rank Math site audit: 100/100** (33 ok, 0 fail, 1 warning = mobile speed) | — |
 
 ### Still to do by hand (blocked or needs wp-admin UI)
 
@@ -76,7 +81,7 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 2. **Rank Math → Setup Wizard** — Company, Marvice Media, logo, Local SEO (Bengaluru address, phone). Fixes the Article/Person schema on every page and the site-wide Organization data.
 3. **Rank Math → Titles & Meta → Post Types** — set tf-header / tf-footer to noindex and exclude from sitemap (theme template parts; can't be unpublished without breaking the header/footer).
 4. **Legal pages** — review `implementation/legal-pages-draft.md` and publish (Privacy Policy still names themexriver.com).
-5. **Google Search Console + Bing Webmaster** — submit `https://marvice.in/sitemap_index.xml`; Rank Math's sitemap cache refreshes on its own.
+5. **Google Search Console** verified 2026-09-27 — still submit the sitemap there; **Bing Webmaster** —  submit `https://marvice.in/sitemap_index.xml`; Rank Math's sitemap cache refreshes on its own.
 6. **Google Business Profiles** for Koramangala and Nungambakkam.
 7. **Homepage H1** — the theme's hero slider has no H1 option; add an H1 in Elementor only if it can be styled to match.
 8. **Remove Smash Balloon + WPChat** (deactivate/delete was blocked for me): Plugins → select Smash Balloon Facebook/Instagram/Reviews/TikTok/X/YouTube Feed, Social Wall, WPChat → Deactivate → Delete. None are used in any page.
@@ -86,8 +91,9 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 12. **Instagram Posts in footer (auto-update)** — keep *Smash Balloon Instagram Feed* (only that one), connect the @marvice.in account, then edit Global Footer in Elementor and replace the 4 static images with the Instagram Feed widget (4 posts, 1 row).
 13. ~~Delete `public_html/llms.txt`~~ — done 2026-09-27.
 14. **HSTS + security headers** (audit FAIL) — hPanel → Security, or add to .htaccess: `Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"` plus X-Content-Type-Options, X-Frame-Options, Referrer-Policy.
-15. **Homepage H1** (audit FAIL) — theme widgets hard-code h2; add one Elementor Heading (H1) styled like the section title, e.g. "Digital Marketing, SEO & Software Company in Bengaluru & Chennai".
+15. ~~Homepage H1~~ — done 2026-09-27 via hero slide title tag. (was: — theme widgets hard-code h2; add one Elementor Heading (H1) styled like the section title, e.g. "Digital Marketing, SEO & Software Company in Bengaluru & Chennai".
 16. **Header/footer links** — logo + copyright link use http://marvice.in; footer LinkedIn icon points to the admin URL …/mycompany/ → use https://www.linkedin.com/company/marvice-media-pvt-ltd/.
 17. **Image alt text** — theme widgets don't read media-library alt text; set alt fields in each Elementor image/logo widget.
 18. **Spam comments** — 1,312 held spam comments (betting/casino links): Comments → Pending → select all → Spam → Empty Spam. Then install Akismet or Antispam Bee.
 19. **Rank Math "Post Titles Missing Focus Keywords"** — false positive: it checks the on-page page name (e.g. "Digital Marketing"), which is part of the design; SEO titles already carry the keywords. Leave as is.
+20. **Hero empty until first interaction** — LiteSpeed delays all JS until the visitor moves/scrolls/taps, so the hero slider paints blank at first load (hurts LCP/first impression, esp. mobile). LiteSpeed Cache → Page Optimization → JS Settings → *Load JS Deferred*: set to **Deferred** instead of **Delayed**, or add the Swiper/theme scripts to *JS Delayed Excludes*. Console also shows `wp is not defined` / `moment is not defined` from the same delay.
