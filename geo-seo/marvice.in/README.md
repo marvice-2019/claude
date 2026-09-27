@@ -60,6 +60,10 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 | 2026-09-26 | **SEOmator audit follow-up (Rank Math API, no theme/design change):** knowledge graph → ProfessionalService "Marvice Media" (address, phone, email, logo, 4 sameAs, description); default OG image (office photo) — fixes og:image FAIL; pages no longer typed Article/Person; About/Contact pages → AboutPage/ContactPage; theme CPTs (tf-header/footer, services, projects, careers, teams, products, floating buttons) noindex + removed from sitemap; author archives off; Local SEO module on | Rank Math settings |
 | 2026-09-26 | Keyword titles / descriptions / focus keywords on 32 pages & posts (`implementation/keyword-map.md`); FAQPage schema on /faqs/; Service schema on 21 service pages; Rank Math llms.txt module configured (served once the stale physical file is deleted) | Rank Math per-page SEO box |
 | 2026-09-26 | Re-audit: GEO 26 → 57/100 (`GEO-REAUDIT-2026-09-26.md`, `marvice-geo-reaudit.pdf`). Fixed missing schema on /our-services/ (Service) and /our-projects/ (CollectionPage) — Rank Math output no JSON-LD there | Rank Math schema tab |
+| 2026-09-27 | Privacy Policy + Terms: lorem ipsum / themexriver text replaced with Marvice text (DPDP Act 2023 privacy policy) in the existing Elementor layout — **have a lawyer/CA review** | backup JSON |
+| 2026-09-27 | Alt text added to 25 media items (client logos, office/team photos, service photos) → homepage 43/69 images with alt (was 5/69); remaining are decorative theme shapes | clear media alt |
+| 2026-09-27 | Hostinger "llms.txt generation" switched OFF (Rank Math module owns llms.txt). Stale static `public_html/llms.txt` still needs deleting by hand | Hostinger plugin setting |
+| 2026-09-27 | Tried a visually-hidden homepage H1 (screen-reader-text) — **reverted**: stale LiteSpeed UCSS lacked the hiding CSS so it showed on screen. Re-apply only after UCSS is turned off | — |
 
 ### Still to do by hand (blocked or needs wp-admin UI)
 
