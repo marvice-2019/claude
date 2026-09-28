@@ -76,6 +76,10 @@
       "env": {
         "HOSTINGER_API_TOKEN": "${HOSTINGER_API_TOKEN}"
       }
+    },
+    "conxyou-site": {
+      "type": "http",
+      "url": "https://websites-agents.hostinger.com/conxyou.com/mcp"
     }
   }
 }
