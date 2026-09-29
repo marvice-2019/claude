@@ -93,3 +93,10 @@ for u in / /services/ /products/ /about/ /contact/ /faq/; do
 2. Set the edited pages back via WordPress Revisions (Elementor → History → Revisions).
 3. Re-publish any drafted demo records if needed.
 4. For a full restore, use the UpdraftPlus backup from step 1, then purge the cache and regenerate CSS.
+
+## Update (29 Sep 2026, later)
+
+- WordPress core found at 7.1.2 (updated outside this session). All main pages verified 200 with no PHP errors; plugins (Elementor 3.11.5, CF7 5.7.4, AIOSEO 4.3.3, RevSlider 6.6.10) unchanged.
+- Flamingo 2.6.4 installed and active: every enquiry is stored in WP Admin → Flamingo → Inbound Messages, even while email fails.
+- Form #91: hidden `your-subject` field ("Worxforu website enquiry") so Flamingo entries have a readable title. Test entries trashed.
+- Still blocked: email delivery (`mail_failed`) until SMTP is configured with a real mailbox; site address still `http://` (owner, Settings → General).
