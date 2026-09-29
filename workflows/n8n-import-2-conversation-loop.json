@@ -484,6 +484,83 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [2220, 180]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "missed-escalation-check",
+              "leftValue": "={{ $json.callback_required }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "db1b2442-2d01-43c1-8012-a92f3c34b1f6",
+      "name": "Escalation Missed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.WATI_BASE_URL || 'https://live-server-108478.wati.io' }}/api/v1/sendTemplateMessage",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "whatsappNumber",
+              "value": "={{ String($env.ESCALATION_ALERT_WHATSAPP || '').replace(/\\D/g, '') }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WATI_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  template_name: 'missed_escalation_alert',\n  broadcast_name: 'voice_agent_missed_escalation',\n  parameters: [\n    { name: 'venue', value: String($json.business_name || $json.business_id || 'Voice agent') },\n    { name: 'caller_name', value: String($json.caller_name || 'Unknown caller') },\n    { name: 'caller_number', value: String($json.caller_number || 'unknown') },\n    { name: 'time', value: $now.setZone($env.BUSINESS_TIMEZONE || 'Asia/Kolkata').toFormat('dd LLL, hh:mm a') },\n    { name: 'reason', value: String($json.escalation_reason || $json.emotion_state || 'asked for a human') }\n  ]\n}) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "9f3011ba-053d-43d0-b98d-b6ab4bdd1fcc",
+      "name": "WhatsApp Missed Escalation Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2440,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "Alerts the manager on WhatsApp when a caller asked for a human but no valid escalation number was configured. Needs ESCALATION_ALERT_WHATSAPP and an approved WATI template 'missed_escalation_alert'."
     }
   ],
   "connections": {
@@ -614,9 +691,17 @@
             "node": "Respond Escalation TwiML",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Escalation Missed?",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
+    },
+    "Escalation Missed?": {
+      "main": [[{ "node": "WhatsApp Missed Escalation Alert", "type": "main", "index": 0 }], []]
     },
     "Build AI Prompt": {
       "main": [
