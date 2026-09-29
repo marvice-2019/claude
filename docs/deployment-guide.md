@@ -68,6 +68,7 @@ In n8n, add each as a variable:
    - `booking_confirmation`: "Hi {{1}}! Your reservation at {{5}} is confirmed. Date: {{2}}, Time: {{3}}, Guests: {{4}}. See you there!"
    - `call_followup`: "Hi {{1}}! Sorry we couldn't connect on the call. Reply here to continue — we're happy to help!"
    - `daily_report`: "Daily Report ({{1}}): {{2}} calls, {{3}} booking rate, {{4}} escalation rate."
+   - `missed_escalation_alert` (category: Utility; custom params `venue`, `caller_name`, `caller_number`, `time`, `reason`): "Missed escalation at {{venue}}: {{caller_name}} ({{caller_number}}) asked for a human at {{time}} but no escalation number is set. Reason: {{reason}}. They were promised a callback within 15 minutes, please call them now."
 3. Get API key from WATI dashboard
 
 ---
