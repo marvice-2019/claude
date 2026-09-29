@@ -54,7 +54,7 @@
             { "name": "current_offers", "value": "20% off group bookings (5+), Ladies night Wednesday, Happy hours 5-7 PM" },
             { "name": "vip_options", "value": "VIP booth Rs.2000 extra (private area, bottle service), Rooftop dining Rs.1500 extra" },
             { "name": "address", "value": "123 MG Road, Bangalore 560001" },
-            { "name": "escalation_number", "value": "+919876543210" }
+            { "name": "escalation_number", "value": "={{ $env.ESCALATION_PHONE || '' }}" }
           ],
           "number": [],
           "boolean": []
