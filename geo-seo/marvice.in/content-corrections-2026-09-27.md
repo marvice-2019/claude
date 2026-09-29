@@ -48,6 +48,17 @@ Applied 27 September 2026 by Marvice Media Pvt Ltd from *Marvice_Content_Correct
 
 Before/after screenshots (desktop 1366 px, mobile 390 px) compared for all 8 pages: no layout, wrapping or clipping regressions; "Explore Our Client Projects" now fits one line on mobile (was two).
 
+## Follow-up fixes (29 Sep 2026)
+
+| Item | Page | Change | Result |
+|---|---|---|---|
+| Demo content | `/our-services/onscreens/` | 5 tool boxes "WordPress/Sketch/figma/photoshop/illustrator Complete Prototype" → WordPress Development, Sketch UI Design, Figma Prototyping, Photoshop Design, Illustrator Graphics; heading "…Range Of Companies." → "…Industry-Leading Tools." | Applied, verified |
+| H01/H04 | `/about-us/` | Same fixes as homepage ("Have a Question?", "Customers worldwide") | Applied |
+| Consistency with G-items | GEO, Digital Marketing, AI, SaaS pages; GEO article; homepage blog card | Page excerpts (llms.txt), GEO meta description and card/excerpt text: removed "get cited by…", "so you also show up in AI answers", "built on Claude"; SaaS excerpt added | Applied; llms.txt verified |
+| FAQ readability | `/faqs/` | Answers were wrapped in `<p>` so theme CSS painted them dark grey on the dark open panel (unreadable); unwrapped → white like service pages | Applied, verified desktop + mobile |
+| Internal links | `/faqs/` | 9 links from answers to brand, service and contact pages (schema text unchanged) | Applied |
+| Link colour | Elementor kit custom CSS | `.item-body .disc a{color:inherit;text-decoration:underline}` — applies to returning visitors now, first-view visitors once LiteSpeed Guest Optimization is off | Applied |
+
 ## Blocked — needs wp-admin (1–2 minutes each)
 
 | Item | Where | Why blocked | Do this |

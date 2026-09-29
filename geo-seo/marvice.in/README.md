@@ -88,6 +88,7 @@ Then weeks 3–12 per the roadmap in the report: service-page rewrites, real tea
 | 2026-09-27 | Alt text: 48 media items + image settings on 25 pages (client logos KIA/Hyundai/Drava, portfolio screenshots, team photos, service banners, testimonials, blog cards) → site alt coverage 52% → 66%; rest are theme-hardcoded or decorative | `backups/pages-before-alt-2026-09-27.json.gz` |
 | 2026-09-27 | News Sitemap module off → blog guides now BlogPosting (were forced to NewsArticle) and news-sitemap removed; sitemap cache cleared; IndexNow resubmitted 34 URLs; Rank Math audit 100/100 | Rank Math → Modules |
 | 2026-09-27 | **Content corrections brief** applied: 39 scoped text fixes (web design, digital marketing, GEO, FAQs, projects, homepage, SaaS naming, GEO article), blog category widget fixed, FAQ schema synced in place; S01/S02/S04 blocked (CF7 / footer template), owner-confirmation items listed — `content-corrections-2026-09-27.md` | `backups/content-corrections-before-2026-09-27.json.gz` |
+| 2026-09-29 | Follow-ups: Onscreens demo tool boxes replaced, About H01/H04, excerpts/meta/llms.txt made consistent with corrections, /faqs/ answers readable (unwrapped `<p>`), 9 FAQ internal links, kit CSS for FAQ link colour | `backups/round3-before-2026-09-29.json.gz` |
 
 ### Still to do by hand (blocked or needs wp-admin UI)
 
