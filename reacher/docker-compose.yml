@@ -1,0 +1,71 @@
+# Reacher email verification API behind Caddy (auto-HTTPS + API key gate).
+# Usage: cp .env.example .env && edit && docker compose up -d
+name: reacher
+
+services:
+  reacher:
+    image: reacherhq/backend:v0.11.6
+    restart: unless-stopped
+    environment:
+      RCH__BACKEND_NAME: ${BACKEND_NAME:-reacher}
+      # Backend rejects any request without this value in x-reacher-secret.
+      # Caddy injects it, so the backend is locked even if exposed by mistake.
+      RCH__HEADER_SECRET: ${REACHER_API_KEY:?set REACHER_API_KEY in .env}
+      RCH__HELLO_NAME: ${HELLO_NAME:?set HELLO_NAME in .env}
+      RCH__FROM_EMAIL: ${FROM_EMAIL:?set FROM_EMAIL in .env}
+      RCH__SMTP_TIMEOUT: ${SMTP_TIMEOUT:-45}
+      RUST_LOG: reacher=info
+      # Optional SOCKS5 proxy for SMTP (use when your host blocks port 25).
+      # Uncomment all lines together and fill the values in .env.
+      # RCH__PROXY__HOST: ${PROXY_HOST}
+      # RCH__PROXY__PORT: ${PROXY_PORT}
+      # RCH__PROXY__USERNAME: ${PROXY_USERNAME}
+      # RCH__PROXY__PASSWORD: ${PROXY_PASSWORD}
+      # RCH__PROXY__TIMEOUT_MS: 10000
+    expose:
+      - "8080"
+    # Headless Chrome (used for Yahoo / Hotmail B2C checks) needs shared memory.
+    shm_size: 1gb
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    image: caddy:2.11-alpine
+    restart: unless-stopped
+    depends_on:
+      reacher:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+      REACHER_API_KEY: ${REACHER_API_KEY}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  caddy_data:
+  caddy_config:

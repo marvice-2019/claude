@@ -1,0 +1,47 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	request_body {
+		max_size 1MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	log {
+		output stdout
+		format filter {
+			request>headers>X-Reacher-Secret delete
+			request>headers>Authorization delete
+			wrap json
+		}
+	}
+
+	# Public health check (returns backend version only).
+	handle /version {
+		reverse_proxy reacher:8080
+	}
+
+	# Accept the key as either `x-reacher-secret: KEY` or `Authorization: Bearer KEY`.
+	@authorized expression `{header.X-Reacher-Secret} == "{$REACHER_API_KEY}" || {header.Authorization} == "Bearer {$REACHER_API_KEY}"`
+
+	handle @authorized {
+		reverse_proxy reacher:8080 {
+			header_up X-Reacher-Secret {$REACHER_API_KEY}
+			header_up -Authorization
+		}
+	}
+
+	handle {
+		header Content-Type application/json
+		respond `{"error":"unauthorized"}` 401
+	}
+}
