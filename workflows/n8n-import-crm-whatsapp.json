@@ -1,0 +1,420 @@
+{
+  "name": "Voice Agent — CRM + WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "crm-action",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "crm-001",
+      "name": "CRM Action Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 400]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            { "name": "action", "value": "={{$json.body.action || $json.action || 'UNKNOWN'}}" },
+            { "name": "business_id", "value": "={{$json.body.business_id || $json.business_id || 'default'}}" },
+            { "name": "session_id", "value": "={{$json.body.session_id || $json.session_id || ''}}" },
+            { "name": "caller_number", "value": "={{$json.body.caller_number || $json.caller_number || ''}}" },
+            { "name": "detected_language", "value": "={{$json.body.detected_language || $json.detected_language || 'en'}}" },
+            { "name": "booking_data_raw", "value": "={{JSON.stringify($json.body.booking_data || $json.booking_data || {})}}" },
+            { "name": "complaint_text", "value": "={{$json.body.complaint_text || $json.complaint_text || ''}}" },
+            { "name": "lead_data_raw", "value": "={{JSON.stringify($json.body.lead_data || $json.lead_data || {})}}" }
+          ],
+          "number": [],
+          "boolean": []
+        },
+        "options": {}
+      },
+      "id": "crm-002",
+      "name": "Extract CRM Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [220, 400]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{$json.action}}",
+        "rules": {
+          "rules": [
+            { "value": "CONFIRM_BOOKING", "output": 0 },
+            { "value": "LEAD_CAPTURE", "output": 1 },
+            { "value": "COMPLAINT", "output": 2 }
+          ]
+        },
+        "fallbackOutput": 3
+      },
+      "id": "crm-003",
+      "name": "Route by Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [440, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse booking data\nconst s = $input.first().json;\nlet booking = {};\ntry { booking = JSON.parse(s.booking_data_raw || '{}'); } catch(e) {}\n\nreturn [{ json: {\n  ...s,\n  booking_name: booking.name || 'Guest',\n  booking_date: booking.date || '',\n  booking_time: booking.time || '',\n  booking_guests: booking.guests || '',\n  booking_special: booking.special_requests || ''\n}}];\n"
+      },
+      "id": "crm-010",
+      "name": "Parse Booking Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 200]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{$env.GSHEET_ID}}",
+        "sheetName": "Bookings",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{new Date().toISOString()}}",
+            "session_id": "={{$json.session_id}}",
+            "business_id": "={{$json.business_id}}",
+            "phone": "={{$json.caller_number}}",
+            "name": "={{$json.booking_name}}",
+            "date": "={{$json.booking_date}}",
+            "time": "={{$json.booking_time}}",
+            "guests": "={{$json.booking_guests}}",
+            "special_requests": "={{$json.booking_special}}",
+            "language": "={{$json.detected_language}}",
+            "status": "confirmed"
+          }
+        },
+        "options": {}
+      },
+      "id": "crm-011",
+      "name": "Save Booking to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [880, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://live-server-108478.wati.io/api/v1/sendTemplateMessage",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{$env.WATI_API_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": "={\n  \"template_name\": \"booking_confirmation\",\n  \"broadcast_name\": \"voice_agent_booking\",\n  \"parameters\": [\n    {\"name\": \"customer_name\", \"value\": \"{{$json.booking_name}}\"},\n    {\"name\": \"date\", \"value\": \"{{$json.booking_date}}\"},\n    {\"name\": \"time\", \"value\": \"{{$json.booking_time}}\"},\n    {\"name\": \"guests\", \"value\": \"{{$json.booking_guests}}\"},\n    {\"name\": \"venue\", \"value\": \"The Blue Lagoon\"}\n  ],\n  \"phone\": \"{{$json.caller_number.replace('+', '')}}\"\n}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "crm-012",
+      "name": "WhatsApp Booking Confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1100, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle WhatsApp send failure — mark for retry\nconst s = $input.first().json;\nconst success = s.statusCode === 200 || s.result === true;\n\nreturn [{ json: {\n  action: 'CONFIRM_BOOKING',\n  session_id: s.session_id,\n  business_id: s.business_id,\n  whatsapp_sent: success,\n  status: success ? 'completed' : 'whatsapp_failed_retry'\n}}];\n"
+      },
+      "id": "crm-013",
+      "name": "Check WhatsApp Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse lead data\nconst s = $input.first().json;\nlet lead = {};\ntry { lead = JSON.parse(s.lead_data_raw || '{}'); } catch(e) {}\n\nreturn [{ json: {\n  ...s,\n  lead_name: lead.name || '',\n  lead_phone: s.caller_number,\n  lead_interest: lead.interest || 'general_enquiry',\n  lead_notes: lead.notes || ''\n}}];\n"
+      },
+      "id": "crm-020",
+      "name": "Parse Lead Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 400]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{$env.GSHEET_ID}}",
+        "sheetName": "Leads",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{new Date().toISOString()}}",
+            "session_id": "={{$json.session_id}}",
+            "business_id": "={{$json.business_id}}",
+            "phone": "={{$json.lead_phone}}",
+            "name": "={{$json.lead_name}}",
+            "interest": "={{$json.lead_interest}}",
+            "notes": "={{$json.lead_notes}}",
+            "language": "={{$json.detected_language}}",
+            "status": "new"
+          }
+        },
+        "options": {}
+      },
+      "id": "crm-021",
+      "name": "Save Lead to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [880, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://live-server-108478.wati.io/api/v1/sendTemplateMessage",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{$env.WATI_API_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": "={\n  \"template_name\": \"lead_followup\",\n  \"broadcast_name\": \"voice_agent_lead\",\n  \"parameters\": [\n    {\"name\": \"1\", \"value\": \"{{$json.lead_name || 'there'}}\"}\n  ],\n  \"phone\": \"{{$json.lead_phone.replace('+', '')}}\"\n}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "crm-022",
+      "name": "WhatsApp Lead Follow-up",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1100, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $input.first().json;\nreturn [{ json: {\n  action: 'LEAD_CAPTURE',\n  session_id: s.session_id,\n  business_id: s.business_id,\n  status: 'completed'\n}}];\n"
+      },
+      "id": "crm-023",
+      "name": "Lead Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 400]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{$env.GSHEET_ID}}",
+        "sheetName": "Complaints",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{new Date().toISOString()}}",
+            "session_id": "={{$json.session_id}}",
+            "business_id": "={{$json.business_id}}",
+            "phone": "={{$json.caller_number}}",
+            "complaint": "={{$json.complaint_text}}",
+            "language": "={{$json.detected_language}}",
+            "status": "open",
+            "priority": "high"
+          }
+        },
+        "options": {}
+      },
+      "id": "crm-030",
+      "name": "Save Complaint to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [660, 600]
+    },
+    {
+      "parameters": {
+        "url": "https://live-server-108478.wati.io/api/v1/sendTemplateMessage",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{$env.WATI_API_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": "={\n  \"template_name\": \"complaint_acknowledged\",\n  \"broadcast_name\": \"voice_agent_complaint\",\n  \"parameters\": [\n    {\"name\": \"1\", \"value\": \"Valued Guest\"}\n  ],\n  \"phone\": \"{{$json.caller_number.replace('+', '')}}\"\n}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "crm-031",
+      "name": "WhatsApp Complaint Ack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [880, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $input.first().json;\nreturn [{ json: {\n  action: 'COMPLAINT',\n  session_id: s.session_id,\n  business_id: s.business_id,\n  status: 'complaint_logged'\n}}];\n"
+      },
+      "id": "crm-032",
+      "name": "Complaint Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 600]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{$env.GSHEET_ID}}",
+        "sheetName": "ActivityLog",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{new Date().toISOString()}}",
+            "action": "={{$json.action || 'UNKNOWN'}}",
+            "session_id": "={{$json.session_id}}",
+            "business_id": "={{$json.business_id}}",
+            "phone": "={{$json.caller_number}}",
+            "status": "={{$json.status || 'unknown'}}",
+            "details": "={{JSON.stringify($json)}}"
+          }
+        },
+        "options": {}
+      },
+      "id": "crm-040",
+      "name": "Log Activity",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [1540, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Unknown action fallback\nconst s = $input.first().json;\nreturn [{ json: {\n  action: s.action || 'UNKNOWN',\n  session_id: s.session_id,\n  business_id: s.business_id,\n  status: 'unknown_action_ignored'\n}}];\n"
+      },
+      "id": "crm-050",
+      "name": "Unknown Action Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 800]
+    }
+  ],
+  "connections": {
+    "CRM Action Webhook": {
+      "main": [
+        [
+          { "node": "Extract CRM Data", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Extract CRM Data": {
+      "main": [
+        [
+          { "node": "Route by Action", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Route by Action": {
+      "main": [
+        [
+          { "node": "Parse Booking Data", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Parse Lead Data", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Save Complaint to Sheets", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Unknown Action Handler", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Parse Booking Data": {
+      "main": [
+        [
+          { "node": "Save Booking to Sheets", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Save Booking to Sheets": {
+      "main": [
+        [
+          { "node": "WhatsApp Booking Confirmation", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "WhatsApp Booking Confirmation": {
+      "main": [
+        [
+          { "node": "Check WhatsApp Status", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Check WhatsApp Status": {
+      "main": [
+        [
+          { "node": "Log Activity", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Parse Lead Data": {
+      "main": [
+        [
+          { "node": "Save Lead to Sheets", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Save Lead to Sheets": {
+      "main": [
+        [
+          { "node": "WhatsApp Lead Follow-up", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "WhatsApp Lead Follow-up": {
+      "main": [
+        [
+          { "node": "Lead Status", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Lead Status": {
+      "main": [
+        [
+          { "node": "Log Activity", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Save Complaint to Sheets": {
+      "main": [
+        [
+          { "node": "WhatsApp Complaint Ack", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "WhatsApp Complaint Ack": {
+      "main": [
+        [
+          { "node": "Complaint Status", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Complaint Status": {
+      "main": [
+        [
+          { "node": "Log Activity", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Unknown Action Handler": {
+      "main": [
+        [
+          { "node": "Log Activity", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "Asia/Kolkata"
+  },
+  "tags": [
+    { "name": "voice-agent", "id": "tag-1" },
+    { "name": "crm", "id": "tag-4" }
+  ],
+  "triggerCount": 1
+}
