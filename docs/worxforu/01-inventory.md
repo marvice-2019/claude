@@ -55,20 +55,20 @@ Action key: **KEEP-EDIT** = keep the URL and replace its content · **DRAFT** = 
 
 Categories: Business & Strategy, Human Resorce [sic], Tax & Home Loan → rename to **AI & Automation**, **Business Software**, **Digital Delivery**.
 
-## Services CPT (`?service=`): all six are demo
+## Services CPT (`?service=`): 2 genuine, 4 demo
 
-The brief (§1) asks me to check these before removing anything. None of them match any Worxforu or Marvice capability listed on marvice.in.
+The brief (§1) asks me to check these before removing anything. The owner confirmed Market Research and SEO as real offerings. The other four remain demo.
 
 | Slug | Class | Action |
 |---|---|---|
 | tax-and-consultancy-services | Demo | DRAFT, keep in review |
 | audit-and-assurance-services | Demo | DRAFT, keep in review |
 | life-health-insurance-consulting | Demo | DRAFT, keep in review |
-| market-research-and-advertising | Demo (marketing belongs to Marvice, per §12) | DRAFT, keep in review |
-| seo-optimization | Demo (search belongs to Marvice) | DRAFT, keep in review |
+| market-research-and-advertising | **Genuine, confirmed by the owner (29 Sep)** | KEEP-EDIT: rewrite the content, retitle it Market Research |
+| seo-optimization | **Genuine, confirmed by the owner (29 Sep)** | KEEP-EDIT: rewrite the content, retitle it SEO Services |
 | legal-assessment-and-hr-management | Demo | DRAFT, keep in review |
 
-**Owner check needed:** confirm whether any of these six is a real Worxforu offering. By default none is retained.
+Retained: 2 (SEO, Market Research). Unpublished: 4.
 
 ## Case studies CPT (`?case-study=`): all four are demo, DRAFT
 
@@ -94,7 +94,7 @@ Keep the case-study grid component on the homepage and refill it with the Produc
 | 30 Commercial Road, Fratton, Australia | Footer | Remove from the footer (compact fields only). Full offices go on Contact. |
 | 380 St Kilda Road, Melbourne | Sidebar panel | Remove |
 | 3556 Hartford Way Vlg, Mount Pleasant, SC… Australia | Contact page | Marvice offices (Bengaluru, Chennai) |
-| Mon-Fri 8am-6pm / Mon–Sat 8–5 / Sat–Thursday 10–5 | Top bar, footer, sidebar | **Remove.** The brief says not to invent opening hours. Show the email in the top bar instead. |
+| Mon-Fri 8am-6pm / Mon–Sat 8–5 / Sat–Thursday 10–5 | Top bar, footer, sidebar | **Mon–Sat 10am–7pm · Sunday closed** (owner-approved 29 Sep) |
 | "2019 © All rights reserved by CaseThemes" | Footer | `© 2026 Worxforu — a brand of Marvice Media Pvt Ltd.` |
 | 113 × demo.casethemes.net | Header mega-menu (Demos / Multi Pages / One Page / Pages / Portfolio / Blog / Elements) | New menu (03-route-map) |
 | Instagram Feed "No feed found" | Footer widget | Remove the widget; use the social icon slot with the Worxforu Instagram URL |

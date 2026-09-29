@@ -16,10 +16,10 @@
 | B1 | WordPress admin access: approve the WPVibe connection or supply a staging copy | All CMS edits | Yuvaraj |
 | B2 | Backup taken and confirmed (UpdraftPlus or host) | Any edit on production | Yuvaraj / host |
 | B3 | Staging environment (host staging, or WP Staging plugin) | Safe review before production | Yuvaraj / host |
-| B4 | Confirm none of the 6 existing `?service=` entries is a real offering | Final unpublish of those records | Yuvaraj |
-| B5 | Onscreens / Marvice ownership decision for websites and mobile (§12) | Publishing `/services/website-development/`, `/ecommerce-development/`, `/mobile-app-development/` | Marvice |
-| B6 | Support hours and response terms | Support page terms line | Marvice |
-| B7 | Sectors the team can actually support | Industries list | Marvice |
+| ~~B4~~ | Resolved 29 Sep: keep SEO and Market Research; unpublish the other 4 | — | — |
+| ~~B5~~ | Resolved 29 Sep: websites and apps published under Worxforu | — | — |
+| B6 | Hours resolved (Mon–Sat 10am–7pm · Sunday closed). Response-time targets are still open (support plans only, not blocking) | — | Marvice |
+| ~~B7~~ | Resolved 29 Sep: broad industry coverage | — | — |
 | B8 | Privacy and Terms copy | `/privacy/`, `/terms/` | Marvice / legal |
 | B9 | Is the phone number WhatsApp-enabled? | Any WhatsApp button (none added until confirmed) | Marvice |
 | B10 | Real product screenshots or demos | Any "Book a Demo" CTA (none added) | Marvice |
@@ -29,7 +29,7 @@
 1. **Backup:** UpdraftPlus full backup, download it, record the restore steps from 01-inventory.
 2. **Permalinks:** Settings → Permalinks → Post name. Purge the LiteSpeed cache. Confirm the old `?page_id=` URLs 301 correctly.
 3. **Global settings:**
-   - Consultio Theme Options (Redux): top bar phone and email, hide hours, hide cart icon, disable the newsletter popup, footer copyright.
+   - Consultio Theme Options (Redux): top bar phone, email and hours (Mon–Sat 10am–7pm · Sunday closed), hide cart icon, disable the newsletter popup, footer copyright.
    - Header logo → the Worxforu Asset files.
    - Remove the Instagram Feed widget. Replace the off-canvas sidebar widget text.
 4. **Menus:**
@@ -76,7 +76,7 @@ for u in / /services/ /products/ /about/ /contact/ /faq/; do
 ## Release acceptance checklist (§11)
 
 - [ ] All genuine services and products are accounted for; uncertain records are drafted, not deleted
-- [ ] 6 core, 3 Marvice-required (portals, LMS, SaaS) and 9 expanded service pages have useful content
+- [ ] 6 core, 3 Marvice-required (portals, LMS, SaaS), 12 expanded and 2 growth (SEO, Market Research) service pages have useful content
 - [ ] No theme migration, new palette, font or global CSS change
 - [ ] No demo links, placeholder claims or sample contacts on any published page
 - [ ] Every menu item, card and CTA resolves on desktop and mobile

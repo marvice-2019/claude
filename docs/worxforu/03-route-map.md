@@ -15,6 +15,8 @@ Services ▾                   /services/
   Custom Software            /services/custom-software/
   Website and Mobile         /services/web-mobile-development/
   Consulting and Support     /services/technology-consulting/
+  SEO Services               /services/seo/
+  Market Research            /services/market-research/
   ─ All services →           /services/
 Products ▾                   /products/
   CRM Solution               /products/crm-solution/
@@ -29,7 +31,7 @@ Contact                      /contact/
 [Discuss Your Project]       /contact/   (existing header CTA button slot)
 ```
 
-Industry use cases go on the Services hub as a section, not in the menu, until real sector content exists.
+The industries list sits on the Services hub as a section, not in the menu.
 
 ## Footer menu
 
@@ -47,20 +49,22 @@ Build child pages under `services` (parent page = 407, slug `services`) so the U
 | `/services/erp-crm/` | ERP and CRM Software (includes CRM consulting) | Duplicate of 409 | Publish |
 | `/services/business-automation/` | Business Automation | Duplicate of 409 | Publish |
 | `/services/custom-software/` | Custom Software (includes full-stack/backend) | Duplicate of 409 | Publish |
-| `/services/web-mobile-development/` | Website and Mobile | Duplicate of 409 | Publish once Onscreens ownership is agreed (§12). Otherwise publish with the "delivered with the Marvice team" note. |
+| `/services/web-mobile-development/` | Website and Mobile | Duplicate of 409 | Publish (owner confirmed Worxforu delivers websites and apps) |
 | `/services/technology-consulting/` | Consulting and Support | Duplicate of 409 | Publish |
 | `/services/web-portals/` | Web Portals | Duplicate of 409 | Publish |
 | `/services/learning-management-systems/` | LMS | Duplicate of 409 | Publish |
 | `/services/saas-implementation/` | SaaS Implementation | Duplicate of 409 | Publish |
-| `/services/website-development/` | Business Websites | Duplicate of 409 | Draft until §12 ownership is agreed |
-| `/services/ecommerce-development/` | Ecommerce | Duplicate of 409 | Draft until §12 ownership is agreed |
-| `/services/mobile-app-development/` | Android and iOS Apps | Duplicate of 409 | Draft until §12 ownership is agreed |
+| `/services/website-development/` | Business Websites | Duplicate of 409 | Publish |
+| `/services/ecommerce-development/` | Ecommerce | Duplicate of 409 | Publish |
+| `/services/mobile-app-development/` | Android and iOS Apps | Duplicate of 409 | Publish |
 | `/services/ui-ux-design/` | UI and UX Design | Duplicate of 409 | Publish |
 | `/services/cloud-solutions/` | Cloud Migration and Hosting | Duplicate of 409 | Publish |
 | `/services/devops/` | DevOps | Duplicate of 409 | Publish |
 | `/services/api-integration/` | API Development and Integration | Duplicate of 409 | Publish |
 | `/services/data-analytics/` | Data and Analytics | Duplicate of 409 | Publish |
 | `/services/support-maintenance/` | Maintenance, Training and Support | Duplicate of 409 | Publish |
+| `/services/seo/` | SEO Services | Existing `seo-optimization` service record, rewritten | Publish |
+| `/services/market-research/` | Market Research | Existing `market-research-and-advertising` record, rewritten | Publish |
 | `/products/` | Products and Solutions hub | Duplicate of 407 | Publish |
 | `/products/{slug}/` | 9 catalogue entries | Duplicate of 409 | Only entries with a confirmed state (see 02-content §Products) |
 | `/about/` | About | ID 26 edited | Publish |
@@ -78,9 +82,9 @@ Redirect only where an equivalent page exists. The brief (§3) says not to send 
 | Old | New |
 |---|---|
 | `/?page_id=407` (Services v.1) | `/services/` (handled by the permalink change) |
-| `/?service=seo-optimization` | 410, or leave it drafted (no equivalent; SEO belongs to Marvice) |
-| `/?service=market-research-and-advertising` | 410 or draft |
-| `/?service=tax-…`, `audit-…`, `life-health-…`, `legal-…` | 410 or draft |
+| `/?service=seo-optimization` | `/services/seo/` (the same record is kept and rewritten) |
+| `/?service=market-research-and-advertising` | `/services/market-research/` (the same record is kept and rewritten) |
+| `/?service=tax-…`, `audit-…`, `life-health-…`, `legal-…` | 410, or leave drafted |
 | `/?case-study=*` (4) | `/products/` (the showcase replaced them) |
 | `/?page_id=748` Shop, cart, checkout, my-account | 410 after WooCommerce is deactivated |
 | Team, testimonials, pricing, portfolio, blog variants | Leave drafted; they have no inbound value |

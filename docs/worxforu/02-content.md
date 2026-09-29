@@ -2,7 +2,8 @@
 
 Rules applied throughout:
 - Keep every existing component, image, section order and style. Only text, links, alt text and metadata change.
-- No invented numbers, clients, testimonials, prices, awards, hours or partnerships.
+- No invented numbers, clients, testimonials, prices, awards or partnerships.
+- Hours (owner-approved): **Mon–Sat 10am–7pm · Sunday closed**.
 - Brand line: **Worxforu, a Marvice brand.** Parent: Marvice Media Pvt Ltd.
 - Contact: **Marvice Media enquiries**: `+91 80562 91930` (`tel:+918056291930`) · `info@marvice.in` (`mailto:info@marvice.in`) · Instagram `https://www.instagram.com/worxforu/` (aria-label "Worxforu on Instagram").
 - Excluded offerings (§14) appear nowhere.
@@ -13,7 +14,8 @@ Rules applied throughout:
 
 ### Top bar (existing slots)
 - Phone slot: `+91 80562 91930` → `tel:+918056291930`
-- Hours slot: replace with `info@marvice.in` → `mailto:info@marvice.in`. There are no approved hours, so hours are not shown.
+- Hours slot: **Mon–Sat 10am–7pm · Sunday closed**
+- Email (if a slot exists): `info@marvice.in` → `mailto:info@marvice.in`
 
 ### Header CTA button
 **Discuss Your Project** → `/contact/`
@@ -22,13 +24,14 @@ Rules applied throughout:
 - Text: Worxforu, a Marvice brand, provides AI solutions, business software, automation and custom development for connected business operations.
 - Label: Marvice Media enquiries
 - `+91 80562 91930` · `info@marvice.in`
+- Mon–Sat 10am–7pm · Sunday closed
 - Button: Contact us → `/contact/`
 
 ### Footer (existing columns)
 - **Brand column:** Worxforu, a Marvice brand, provides AI solutions, business software, automation and custom development for connected business operations.
 - **Newsletter column** (MC4WP, separate opt-in only): heading "Insights"; text "Occasional practical notes on AI, automation and business software. Unsubscribe any time."; field "Your email"; button "Subscribe".
 - **Official info column:** label "Marvice Media enquiries" · `+91 80562 91930` · `info@marvice.in` · Offices: Bengaluru · Chennai → `/contact/`
-- **Open hours column:** retitle it **Quick links** and list Services · Products · About · Insights · Contact. If the column can only hold hours, remove it.
+- **Open hours column:** Monday – Saturday: 10:00 am – 7:00 pm · Sunday: Closed
 - **Instagram widget:** remove. Put the Worxforu Instagram URL in the social icon slot.
 - **Copyright bar:** © 2026 Worxforu. Worxforu is a brand of [Marvice Media Pvt Ltd](https://marvice.in/). All rights reserved. Keep any theme licence notice the licence requires, but not "© CaseThemes" as the site owner.
 
@@ -125,7 +128,7 @@ Hide it until real Insights posts exist. The brief says no dummy posts.
 ## SERVICES HUB (page 407 → `/services/`)
 
 **SEO title:** Services | Worxforu
-**Meta:** AI solutions, ERP and CRM, business automation, custom software, portals, LMS, SaaS implementation, cloud and support services from Worxforu, a Marvice brand.
+**Meta:** AI solutions, ERP and CRM, automation, custom software, websites and apps, SEO, market research, cloud and support services from Worxforu, a Marvice brand.
 
 - H1: **Business Technology Services**
 - Intro: From a single automated workflow to a complete business system, Worxforu helps you plan, build, connect and support the technology your operations depend on. Start with one need; we'll scope the rest around it.
@@ -146,13 +149,22 @@ Same six cards as the homepage.
 | DevOps and Deployment | Repeatable builds, tested releases and safe rollbacks. | `/services/devops/` |
 | Maintenance, Training and Support | Keep systems current, documented and well understood. | `/services/support-maintenance/` |
 
-### Website and mobile (grouped block)
-Business websites · Ecommerce development · Android and iOS applications. These are delivered together with the Marvice team. The block links to `/services/web-mobile-development/`.
+### Website and mobile (grouped block, existing grid)
+| Card | Line | Link |
+|---|---|---|
+| Business Websites | Fast, editable websites built to generate enquiries. | `/services/website-development/` |
+| Ecommerce Development | Online stores connected to your inventory and orders. | `/services/ecommerce-development/` |
+| Android and iOS Apps | Mobile apps for customers and internal teams. | `/services/mobile-app-development/` |
 
-### Industries we can support (text/list block, no client claims)
-Hospitality · Retail and distribution · Education · Professional services · Manufacturing · Healthcare administration
+### Growth services (existing grid)
+| Card | Line | Link |
+|---|---|---|
+| SEO Services | Get found by customers searching for what you offer. | `/services/seo/` |
+| Market Research | Understand your market, customers and competitors before you invest. | `/services/market-research/` |
+
+### Industries we serve (text/list block, no client claims; owner confirmed broad coverage)
+Hospitality and F&B · Retail and ecommerce · Distribution and logistics · Manufacturing · Education and training · Healthcare and clinics · Real estate and construction · Professional services · Travel and tourism · Media and entertainment · Startups and SaaS · Non-profits
 Line: *Every industry runs differently. Tell us how yours works and we'll show you where technology can help.*
-**Owner action:** remove any sector the team can't support before publishing.
 
 ### Closing CTA
 **Not sure where to start?** Describe the problem, not the solution. We'll recommend the right starting point. → **Share Your Requirements** → `/contact/`
@@ -229,10 +241,10 @@ Standard pricing line: *Pricing depends on modules, users, customisation, integr
 - CTA: **Discuss Your Software Project**
 
 ### 5. Website and Mobile Development (`/services/web-mobile-development/`)
-**Title:** Website and Mobile Development | Worxforu · **Meta:** Business websites, ecommerce, web applications and Android/iOS apps connected to your operations. Delivered with the Marvice team.
+**Title:** Website and Mobile Development | Worxforu · **Meta:** Business websites, ecommerce, web applications and Android/iOS apps connected to your operations.
 
 - H1: **Digital Experiences Connected to Your Operations**
-- Intro: Websites and apps work harder when they connect to the systems behind them. We deliver business websites, ecommerce and mobile applications together with the Marvice team.
+- Intro: Websites and apps work harder when they connect to the systems behind them. Worxforu designs and builds business websites, ecommerce stores and mobile applications that link to your CRM, inventory and workflows.
 - **Business websites:** Static and CMS-managed sites · Content editing · Responsive delivery · Forms and integrations · Technical search setup
 - **Ecommerce:** Product management · Checkout through approved payment providers · Shipping and inventory integration
 - **Android and iOS apps:** Platform selection · Interface design · Backend connectivity · Device testing · Release preparation
@@ -336,9 +348,59 @@ Standard pricing line: *Pricing depends on modules, users, customisation, integr
 - H1: **Maintenance, Training and Support**
 - Intro: Keep systems current, secure and well understood after launch.
 - **What's included:** Scheduled updates · Incident handling · Documentation · User training
-- **Scope and boundaries:** Support hours and response terms are set out in your service plan. `{{OWNER: supply the published support hours before going live; no 24/7 claim}}`
+- **Support hours:** Mon–Sat 10am–7pm · Sunday closed. Response targets and any out-of-hours cover are set out in your service plan.
 - Related: Technology Consulting · Cloud Solutions · DevOps
 - CTA: **Discuss a Support Plan**
+
+
+### 16. Business Websites (`/services/website-development/`)
+**Title:** Website Development | Worxforu · **Meta:** Business websites, from fast informational sites to CMS-managed sites with forms, integrations and technical SEO.
+
+- H1: **Business Websites That Generate Enquiries**
+- Intro: Your website is usually the first conversation with a customer. We build fast, clear sites your team can update, connected to the systems that handle the enquiries.
+- **What's included:** Static and dynamic websites · CMS setup and content editing · Responsive design · Forms and CRM integration · Technical SEO setup · Analytics and conversion tracking
+- Related: Ecommerce · SEO Services · UI and UX Design
+- CTA: **Discuss Your Website**
+
+### 17. Ecommerce Development (`/services/ecommerce-development/`)
+**Title:** Ecommerce Development | Worxforu · **Meta:** Online stores with product management, secure checkout, and shipping and inventory integration.
+
+- H1: **Ecommerce Built Around Your Operations**
+- Intro: Sell online without running a second business in spreadsheets. We connect your catalogue, orders and stock in one flow.
+- **What's included:** Product and catalogue management · Checkout through approved payment providers · Shipping and inventory integration · Order notifications · Customer accounts where needed
+- **Scope and boundaries:** Payment gateway fees and platform subscriptions are billed by the provider.
+- Related: Business Websites · ERP and CRM · SEO Services
+- CTA: **Plan Your Online Store**
+
+### 18. Android and iOS Applications (`/services/mobile-app-development/`)
+**Title:** Mobile App Development | Worxforu · **Meta:** Android and iOS apps for customer journeys and internal workflows, with backend connectivity, testing and store release.
+
+- H1: **Android and iOS Applications**
+- Intro: Put your service in your customers' pockets, or give field teams the tools they need on the move.
+- **What's included:** Platform selection (native or cross-platform) · Interface design · Backend and API connectivity · Device testing · App Store and Play Store release preparation
+- Related: UI and UX Design · API Integration · Custom Software
+- CTA: **Discuss Your App**
+
+### 19. SEO Services (`/services/seo/`, reuse existing record `?service=seo-optimization`)
+**Title:** SEO Services | Worxforu · **Meta:** Technical SEO, on-page optimisation, local SEO and content strategy to help customers find your business in search and AI answers.
+
+- H1: **SEO Services**
+- Intro: A good website needs to be found. We improve how search engines and AI assistants understand your site, so the right customers reach you.
+- **What's included:** Technical SEO audit and fixes · Keyword and search-intent research · On-page optimisation · Local SEO and Google Business Profile · Content strategy · Structured data · Search Console and analytics reporting
+- **Scope and boundaries:** Rankings depend on competition, content and search-engine changes. We commit to agreed work and transparent reporting, not guaranteed positions.
+- **Extra FAQ:** *How long does SEO take?* Technical fixes can show effects within weeks. Content and authority usually build over several months. We agree milestones up front.
+- Related: Business Websites · Market Research · Data and Analytics
+- CTA: **Get an SEO Review**
+
+### 20. Market Research (`/services/market-research/`, reuse existing record `?service=market-research-and-advertising`)
+**Title:** Market Research | Worxforu · **Meta:** Market sizing, competitor analysis, customer research and demand validation to guide product, pricing and go-to-market decisions.
+
+- H1: **Market Research for Better Decisions**
+- Intro: Before you build, launch or expand, know who your customers are, what they want and who you're up against.
+- **What's included:** Market and opportunity sizing · Competitor analysis · Customer surveys and interviews · Search-demand and digital-trend analysis · Pricing and positioning research · Findings report with recommendations
+- **Scope and boundaries:** Research methods, sample sizes and data sources are agreed before fieldwork. Findings are reported with their limitations.
+- Related: SEO Services · Technology Consulting · Data and Analytics
+- CTA: **Discuss Your Research Needs**
 
 ---
 
@@ -389,13 +451,13 @@ Write the other eight entries with the same fields, using the modules in the tab
 - H1: **About Worxforu**
 - Intro: Worxforu is the software and automation brand of Marvice Media Pvt Ltd, helping businesses plan and implement AI solutions, custom applications and connected operational systems.
 - **What we do:** We work with businesses that have outgrown spreadsheets, disconnected tools and manual handoffs. Our focus is practical: understand how your operations run, then plan, build and support the systems that make them simpler.
-- **Our areas:** Automation · Custom software · Web portals · AI development · Learning management systems · SaaS consultation and implementation. Websites and mobile applications are delivered together with the Marvice team.
+- **Our areas:** Automation · Custom software · Web portals · AI development · Learning management systems · SaaS consultation and implementation. We also build websites and mobile apps, and support growth with SEO and market research.
 - **How we work** (reuse the existing icon/points component):
   - **Requirements first:** Technology recommendations follow a clear understanding of the problem.
   - **Scoped in writing:** Deliverables, integrations and responsibilities are agreed before build.
   - **Built to connect:** New systems work with the tools you already use.
   - **Supported after launch:** Training, documentation and support match an agreed plan.
-- **Part of Marvice:** Worxforu is a brand of [Marvice Media Pvt Ltd](https://marvice.in/). For marketing, gifting, events and PR, visit Marvice.
+- **Part of Marvice:** Worxforu is a brand of [Marvice Media Pvt Ltd](https://marvice.in/). For branding, gifting, events and PR, visit Marvice.
 - CTA: **Discuss Your Project** → `/contact/`
 
 ---
@@ -413,7 +475,7 @@ Write the other eight entries with the same fields, using the modules in the tab
 - **Marvice offices**
   - **Bengaluru:** No.38, 3rd Floor, Green Leaf Extension, 3rd Cross, 80 Feet Rd, 4th Block, Koramangala, Bengaluru, Karnataka 560034
   - **Chennai:** Prestige Palladium Bayan, 8th Floor, 43/1 Greams Road, Nungambakkam, Chennai, Tamil Nadu 600006
-- No hours are shown. Remove the fake hours line.
+- **Hours:** Mon–Sat 10am–7pm · Sunday closed
 - Map widget: point it at the Bengaluru office, or remove it. It must not stay on the demo location.
 
 ### Enquiry form (Contact Form 7, existing form styling)
@@ -427,7 +489,7 @@ Form heading: **Share your requirements**
 [select* service-interest first_as_label "Service interest"
   "AI Solutions" "ERP and CRM Software" "Business Automation" "Custom Software Development"
   "Web Portals" "Learning Management Systems" "SaaS Implementation" "Website and Mobile"
-  "Cloud, DevOps and Support" "Technology Consulting" "Not sure yet"]
+  "Cloud, DevOps and Support" "Technology Consulting" "SEO Services" "Market Research" "Not sure yet"]
 [select budget first_as_label "Budget range (optional)" "Under ₹5 lakh" "₹5–15 lakh" "₹15–50 lakh" "Above ₹50 lakh" "Not decided"]
 [select timeline first_as_label "Timeline (optional)" "Within 1 month" "1–3 months" "3–6 months" "Exploring"]
 [textarea* your-message placeholder "What do you want to improve? Current tools, users and goals help us scope it."]
@@ -460,6 +522,7 @@ H1: **Frequently Asked Questions**. Use the four standard FAQs plus the AI accur
 
 ## STRUCTURED DATA (AIOSEO → Search Appearance)
 - Organization: name "Worxforu", url `https://worxforu.com/`, logo = Asset file, `parentOrganization` → { "@type":"Organization", "name":"Marvice Media Pvt Ltd", "url":"https://marvice.in/" }, `sameAs` Instagram. No address block for Worxforu, since the offices belong to Marvice.
+- `openingHours`: "Mo-Sa 10:00-19:00" on the Marvice contact point.
 - BreadcrumbList on all inner pages.
 - No Product, SoftwareApplication, Review or AggregateRating markup (no genuine product data exists).
 - FAQPage only where the FAQ is visible on the page.
