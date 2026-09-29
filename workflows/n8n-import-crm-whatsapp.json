@@ -98,25 +98,45 @@
     },
     {
       "parameters": {
-        "url": "https://live-server-108478.wati.io/api/v1/sendTemplateMessage",
         "method": "POST",
+        "url": "={{ $env.WATI_BASE_URL || 'https://live-server-108478.wati.io' }}/api/v1/sendTemplateMessage",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "whatsappNumber",
+              "value": "={{ String($json.caller_number || '').replace(/\\D/g, '') }}"
+            }
+          ]
+        },
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{$env.WATI_API_KEY}}" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WATI_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
-        "bodyContentType": "json",
-        "body": "={\n  \"template_name\": \"booking_confirmation\",\n  \"broadcast_name\": \"voice_agent_booking\",\n  \"parameters\": [\n    {\"name\": \"customer_name\", \"value\": \"{{$json.booking_name}}\"},\n    {\"name\": \"date\", \"value\": \"{{$json.booking_date}}\"},\n    {\"name\": \"time\", \"value\": \"{{$json.booking_time}}\"},\n    {\"name\": \"guests\", \"value\": \"{{$json.booking_guests}}\"},\n    {\"name\": \"venue\", \"value\": \"The Blue Lagoon\"}\n  ],\n  \"phone\": \"{{$json.caller_number.replace('+', '')}}\"\n}",
-        "options": { "timeout": 10000 }
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  template_name: 'booking_confirmation',\n  broadcast_name: 'voice_agent_booking',\n  parameters: [\n    { name: 'customer_name', value: String($json.booking_name || 'Valued Guest') },\n    { name: 'date', value: String($json.booking_date || '') },\n    { name: 'time', value: String($json.booking_time || '') },\n    { name: 'guests', value: String($json.booking_guests || '') },\n    { name: 'venue', value: String($json.business_name || $env.BUSINESS_NAME || 'us') }\n  ]\n}) }}",
+        "options": {
+          "timeout": 10000
+        }
       },
       "id": "crm-012",
       "name": "WhatsApp Booking Confirmation",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [1100, 200]
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        200
+      ]
     },
     {
       "parameters": {
@@ -167,25 +187,45 @@
     },
     {
       "parameters": {
-        "url": "https://live-server-108478.wati.io/api/v1/sendTemplateMessage",
         "method": "POST",
+        "url": "={{ $env.WATI_BASE_URL || 'https://live-server-108478.wati.io' }}/api/v1/sendTemplateMessage",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "whatsappNumber",
+              "value": "={{ String($json.lead_phone || '').replace(/\\D/g, '') }}"
+            }
+          ]
+        },
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{$env.WATI_API_KEY}}" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WATI_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
-        "bodyContentType": "json",
-        "body": "={\n  \"template_name\": \"lead_followup\",\n  \"broadcast_name\": \"voice_agent_lead\",\n  \"parameters\": [\n    {\"name\": \"1\", \"value\": \"{{$json.lead_name || 'there'}}\"}\n  ],\n  \"phone\": \"{{$json.lead_phone.replace('+', '')}}\"\n}",
-        "options": { "timeout": 10000 }
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  template_name: 'lead_followup',\n  broadcast_name: 'voice_agent_lead',\n  parameters: [\n    { name: '1', value: String($json.lead_name || 'there') }\n  ]\n}) }}",
+        "options": {
+          "timeout": 10000
+        }
       },
       "id": "crm-022",
       "name": "WhatsApp Lead Follow-up",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [1100, 400]
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        400
+      ]
     },
     {
       "parameters": {
@@ -225,25 +265,45 @@
     },
     {
       "parameters": {
-        "url": "https://live-server-108478.wati.io/api/v1/sendTemplateMessage",
         "method": "POST",
+        "url": "={{ $env.WATI_BASE_URL || 'https://live-server-108478.wati.io' }}/api/v1/sendTemplateMessage",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "whatsappNumber",
+              "value": "={{ String($json.caller_number || '').replace(/\\D/g, '') }}"
+            }
+          ]
+        },
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{$env.WATI_API_KEY}}" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WATI_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
-        "bodyContentType": "json",
-        "body": "={\n  \"template_name\": \"complaint_acknowledged\",\n  \"broadcast_name\": \"voice_agent_complaint\",\n  \"parameters\": [\n    {\"name\": \"1\", \"value\": \"Valued Guest\"}\n  ],\n  \"phone\": \"{{$json.caller_number.replace('+', '')}}\"\n}",
-        "options": { "timeout": 10000 }
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  template_name: 'complaint_acknowledged',\n  broadcast_name: 'voice_agent_complaint',\n  parameters: [\n    { name: '1', value: String('Valued Guest') }\n  ]\n}) }}",
+        "options": {
+          "timeout": 10000
+        }
       },
       "id": "crm-031",
       "name": "WhatsApp Complaint Ack",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [880, 600]
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        600
+      ]
     },
     {
       "parameters": {
