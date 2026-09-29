@@ -100,3 +100,11 @@ for u in / /services/ /products/ /about/ /contact/; do
   curl -sL "https://worxforu.com$u" | grep -iE 'forex|prop firm|mt4|mt5|liquidity|copier|pamm|mamm|infyst' && echo "FAIL $u"
 done
 ```
+
+## Live URL state (29 Sep 2026)
+
+- Permalinks: `/index.php/%postname%/` (PATHINFO). `/%postname%/` was tried first but the host's `.htaccess` has no WordPress rewrite block, so every inner page 404'd; switched to PATHINFO to restore the site.
+- Services: `/index.php/service/<slug>/` (theme `service_slug` = `service`). Setting it to `services` made the theme's service archive shadow the Services page at `/services/`.
+- `/index.php/services/ai-agent-setup-managed-automation/` redirects (WordPress) to `/index.php/service/ai-agent-setup-managed-automation/`.
+- Sitemap: `/index.php/sitemap.xml` (34 URLs: pages, 20 services, 9 products). Root `/robots.txt`, `/sitemap.xml` and sub-sitemaps need the `.htaccess` WordPress block.
+- To finish: add the standard WordPress block to `public_html/.htaccess`, then `rewrite structure '/%postname%/'` (approval), re-verify.
