@@ -100,3 +100,11 @@ for u in / /services/ /products/ /about/ /contact/ /faq/; do
 - Flamingo 2.6.4 installed and active: every enquiry is stored in WP Admin → Flamingo → Inbound Messages, even while email fails.
 - Form #91: hidden `your-subject` field ("Worxforu website enquiry") so Flamingo entries have a readable title. Test entries trashed.
 - Still blocked: email delivery (`mail_failed`) until SMTP is configured with a real mailbox; site address still `http://` (owner, Settings → General).
+
+## SEO plugin: migrated to Rank Math (29 Sep 2026)
+
+- Owner chose Rank Math PRO (current) over AIOSEO 4.3.3 (2023). AIOSEO + 8 add-ons deactivated, still installed; its data is untouched for rollback (reactivate AIOSEO, deactivate Rank Math).
+- Rank Math: titles/descriptions for 5 pages + 29 services/products (`updateMeta`); Service + FAQPage schema on services, Service on products, CollectionPage/AboutPage/ContactPage on hub pages, Organization enrichment (parent Marvice, contact point, hours) on home (`updateSchemas`).
+- Knowledge graph: Worxforu, logo, sales phone, info@marvice.in, Instagram, Mon–Sat 10:00–19:00. Separator `|`.
+- Sitemap `/sitemap_index.xml` (pages, services, products only; local KML sitemap off). robots.txt from Rank Math with AI-crawler allow rules + sitemap line. llms.txt enabled (pages, services, products).
+- Gotcha: the WPVibe CLI collapses newlines in plain arguments; pass multi-line values as JSON strings with `--format=json`.
