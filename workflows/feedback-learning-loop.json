@@ -101,13 +101,19 @@
       "id": "send-report-notification",
       "name": "Send Report via WhatsApp to Admin",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [1250, 300],
+      "position": [
+        1250,
+        300
+      ],
       "parameters": {
-        "url": "https://live-server-108478.wati.io/api/v1/sendTemplateMessage",
+        "url": "=https://live-server-108478.wati.io/api/v1/sendTemplateMessage?whatsappNumber={{ String($env.ADMIN_PHONE || '').replace(/\\D/g, '') }}",
         "method": "POST",
         "headers": {
           "parameter": [
-            { "name": "Authorization", "value": "Bearer {{$env.WATI_API_KEY}}" }
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$env.WATI_API_KEY}}"
+            }
           ]
         },
         "body": {
@@ -115,12 +121,23 @@
             "template_name": "daily_report",
             "broadcast_name": "admin_report",
             "parameters": [
-              { "name": "date", "value": "={{new Date().toISOString().split('T')[0]}}" },
-              { "name": "total_calls", "value": "={{$node['Calculate Performance Metrics'].json.total_calls}}" },
-              { "name": "booking_rate", "value": "={{$node['Calculate Performance Metrics'].json.booking_conversion_rate}}" },
-              { "name": "escalation_rate", "value": "={{$node['Calculate Performance Metrics'].json.escalation_rate}}" }
-            ],
-            "phone": "={{$env.ADMIN_PHONE}}"
+              {
+                "name": "date",
+                "value": "={{new Date().toISOString().split('T')[0]}}"
+              },
+              {
+                "name": "total_calls",
+                "value": "={{$node['Calculate Performance Metrics'].json.total_calls}}"
+              },
+              {
+                "name": "booking_rate",
+                "value": "={{$node['Calculate Performance Metrics'].json.booking_conversion_rate}}"
+              },
+              {
+                "name": "escalation_rate",
+                "value": "={{$node['Calculate Performance Metrics'].json.escalation_rate}}"
+              }
+            ]
           }
         }
       },

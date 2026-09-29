@@ -383,19 +383,32 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://live-server-108478.wati.io/api/v1/sendTemplateMessage",
+        "url": "={{ $env.WATI_BASE_URL || 'https://live-server-108478.wati.io' }}/api/v1/sendTemplateMessage",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "whatsappNumber",
+              "value": "={{ String($json.caller_number || '').replace(/\\D/g, '') }}"
+            }
+          ]
+        },
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Authorization",
               "value": "=Bearer {{ $env.WATI_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"template_name\": \"booking_confirmation\",\n  \"broadcast_name\": \"voice_agent_booking\",\n  \"parameters\": [\n    { \"name\": \"customer_name\", \"value\": \"{{ $json.extracted_data.name }}\" },\n    { \"name\": \"date\", \"value\": \"{{ $json.extracted_data.date }}\" },\n    { \"name\": \"time\", \"value\": \"{{ $json.extracted_data.time }}\" },\n    { \"name\": \"guests\", \"value\": \"{{ $json.extracted_data.guests }}\" },\n    { \"name\": \"venue\", \"value\": \"The Venue\" }\n  ],\n  \"phone\": \"{{ $json.caller_number.replace('+', '') }}\"\n}",
+        "jsonBody": "={{ JSON.stringify({\n  template_name: 'booking_confirmation',\n  broadcast_name: 'voice_agent_booking',\n  parameters: [\n    { name: 'customer_name', value: String($json.extracted_data.name || 'Valued Guest') },\n    { name: 'date', value: String($json.extracted_data.date || '') },\n    { name: 'time', value: String($json.extracted_data.time || '') },\n    { name: 'guests', value: String($json.extracted_data.guests || '') },\n    { name: 'venue', value: String($json.business_name || $env.BUSINESS_NAME || 'us') }\n  ]\n}) }}",
         "options": {
           "timeout": 10000
         }
@@ -404,7 +417,10 @@
       "name": "WhatsApp Confirmation",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3760, 540],
+      "position": [
+        3760,
+        540
+      ],
       "onError": "continueRegularOutput"
     },
     {

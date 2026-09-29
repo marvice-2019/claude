@@ -428,14 +428,23 @@
       "id": "send-whatsapp-confirmation",
       "name": "Send WhatsApp Confirmation",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [2650, 1000],
+      "position": [
+        2650,
+        1000
+      ],
       "parameters": {
-        "url": "https://live-server-108478.wati.io/api/v1/sendTemplateMessage",
+        "url": "=https://live-server-108478.wati.io/api/v1/sendTemplateMessage?whatsappNumber={{ String($json.caller_number || '').replace(/\\D/g, '') }}",
         "method": "POST",
         "headers": {
           "parameter": [
-            { "name": "Authorization", "value": "Bearer {{$env.WATI_API_KEY}}" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$env.WATI_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "body": {
@@ -443,13 +452,27 @@
             "template_name": "booking_confirmation",
             "broadcast_name": "voice_agent_booking",
             "parameters": [
-              { "name": "customer_name", "value": "={{$json.collected_data.name}}" },
-              { "name": "date", "value": "={{$json.collected_data.date}}" },
-              { "name": "time", "value": "={{$json.collected_data.time}}" },
-              { "name": "guests", "value": "={{$json.collected_data.guests}}" },
-              { "name": "venue", "value": "={{$json.business_config.business_name}}" }
-            ],
-            "phone": "={{$json.caller_number.replace('+', '')}}"
+              {
+                "name": "customer_name",
+                "value": "={{$json.collected_data.name}}"
+              },
+              {
+                "name": "date",
+                "value": "={{$json.collected_data.date}}"
+              },
+              {
+                "name": "time",
+                "value": "={{$json.collected_data.time}}"
+              },
+              {
+                "name": "guests",
+                "value": "={{$json.collected_data.guests}}"
+              },
+              {
+                "name": "venue",
+                "value": "={{$json.business_config.business_name}}"
+              }
+            ]
           }
         }
       },

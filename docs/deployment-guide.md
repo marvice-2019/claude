@@ -65,11 +65,14 @@ In n8n, add each as a variable:
 
 1. Register on WATI and connect your WhatsApp Business number
 2. Create message templates:
-   - `booking_confirmation`: "Hi {{1}}! Your reservation at {{5}} is confirmed. Date: {{2}}, Time: {{3}}, Guests: {{4}}. See you there!"
+   - `booking_confirmation` (custom params `customer_name`, `date`, `time`, `guests`, `venue`): "Hi {{customer_name}}! Your reservation at {{venue}} is confirmed. Date: {{date}}, Time: {{time}}, Guests: {{guests}}. See you there!"
    - `call_followup`: "Hi {{1}}! Sorry we couldn't connect on the call. Reply here to continue — we're happy to help!"
-   - `daily_report`: "Daily Report ({{1}}): {{2}} calls, {{3}} booking rate, {{4}} escalation rate."
+   - `daily_report` (custom params `date`, `total_calls`, `booking_rate`, `escalation_rate`): "Daily Report ({{date}}): {{total_calls}} calls, {{booking_rate}} booking rate, {{escalation_rate}} escalation rate."
+   - `lead_followup`: "Hi {{1}}! Thanks for calling us earlier. Reply here if you'd like to book a table or ask about our offers."
+   - `complaint_acknowledged`: "Hi {{1}}, we're sorry about your experience. Your complaint has been logged and our manager will contact you shortly."
    - `missed_escalation_alert` (category: Utility; custom params `venue`, `caller_name`, `caller_number`, `time`, `reason`): "Missed escalation at {{venue}}: {{caller_name}} ({{caller_number}}) asked for a human at {{time}} but no escalation number is set. Reason: {{reason}}. They were promised a callback within 15 minutes, please call them now."
-3. Get API key from WATI dashboard
+3. Custom param names must match exactly: the workflows send params by name (`customer_name`, `venue`, …), not by position
+4. Get API key from WATI dashboard
 
 ---
 
