@@ -108,3 +108,12 @@ done
 - `/index.php/services/ai-agent-setup-managed-automation/` redirects (WordPress) to `/index.php/service/ai-agent-setup-managed-automation/`.
 - Sitemap: `/index.php/sitemap.xml` (34 URLs: pages, 20 services, 9 products). Root `/robots.txt`, `/sitemap.xml` and sub-sitemaps need the `.htaccess` WordPress block.
 - To finish: add the standard WordPress block to `public_html/.htaccess`, then `rewrite structure '/%postname%/'` (approval), re-verify.
+
+## Final URL state (29 Sep 2026, later)
+
+- `rewrite structure '/%postname%/' --hard` (approved) wrote the WordPress block to `.htaccess`; clean URLs now work.
+- Pages: `/`, `/services/`, `/products/`, `/about/`, `/contact/`. Services: `/service/<slug>/`. Products: `/case-study/<slug>/`.
+- Old `?page_id=` and `/index.php/...` URLs 301 to clean URLs; `?service=`/`?case-study=` resolve with a canonical pointing to the clean URL.
+- `/services/ai-agent-setup-managed-automation/` redirects to `/service/ai-agent-setup-managed-automation/`.
+- `robots.txt` live (AI crawlers allowed); `/sitemap.xml` lists 34 URLs; empty news/video sitemaps disabled.
+- Still pending (owner, WP Admin): Settings → General, WordPress Address and Site Address → `https://worxforu.com`.
