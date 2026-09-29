@@ -85,6 +85,7 @@ TEAM = {
                  ('Engineering', 'Web, mobile & backend'), ('Quality Assurance', 'Testing & release readiness')],
     '4b1ed7cb': [('UI/UX Design', 'Flows & prototypes'), ('Support', 'Maintenance & training')],
 }
+ICONS = [(1,4482),(2,4483),(3,4484),(4,4486),(5,4487),(6,4488)]
 # links for buttons (existing link objects replaced)
 LINKS = {'9b0c8bd': 'btn_link', '35b48ed': 'btn_link', 'ceac700': 'btn_link', 'fda3141': 'link', '7e916a8': 'link', '64b13f9e': 'link'}
 LINK_TARGET = {'9b0c8bd': '/?page_id=407', '35b48ed': '/?page_id=407', 'ceac700': '/?page_id=407',
@@ -106,6 +107,8 @@ def transform_home(data):
                 for it, (t, p) in zip(items, TEAM[e['id']]):
                     log.append((e['id'], 'team', f"{it.get('title')} / {it.get('position')}", f'{t} / {p}'))
                     it['title'], it['position'] = t, p
+                    ic = ICONS[len([x for x in log if x[1]=='team']) - 1]   # swap demo headshot for a service icon
+                    it['image'] = {'url': f'https://worxforu.com/wp-content/uploads/2020/04/h14-service-icon{ic[0]}.png', 'id': ic[1]}
                     it['link'] = L('https://worxforu.com/?page_id=407'); it['social'] = ''
             walk(e.get('elements', []))
     walk(out)

@@ -1,0 +1,507 @@
+{
+ "crm-solution": {
+  "id": 2442,
+  "view_url": "https://worxforu.com/?case-study=crm-solution",
+  "edit_url": "https://worxforu.com/wp-admin/post.php?post=2442&action=elementor",
+  "warnings": []
+ },
+ "erp-solution": {
+  "id": 2441,
+  "view_url": "https://worxforu.com/?case-study=erp-solution",
+  "edit_url": "https://worxforu.com/wp-admin/post.php?post=2441&action=elementor",
+  "warnings": []
+ },
+ "ai-business-assistant": {
+  "id": 2440,
+  "view_url": "https://worxforu.com/?case-study=ai-business-assistant",
+  "edit_url": "https://worxforu.com/wp-admin/post.php?post=2440&action=elementor",
+  "warnings": []
+ },
+ "workflow-automation": {
+  "id": 2439,
+  "view_url": "https://worxforu.com/?case-study=workflow-automation",
+  "edit_url": "https://worxforu.com/wp-admin/post.php?post=2439&action=elementor",
+  "warnings": []
+ },
+ "lms-solution": {
+  "id": 4876,
+  "view_url": "https://worxforu.com/?case-study=lms-solution",
+  "edit_url": "https://worxforu.com/wp-admin/post.php?post=4876&action=elementor",
+  "warnings": []
+ },
+ "hr-attendance-solution": {
+  "id": 4879,
+  "view_url": "https://worxforu.com/?case-study=hr-attendance-solution",
+  "edit_url": "https://worxforu.com/wp-admin/post.php?post=4879&action=elementor",
+  "warnings": []
+ },
+ "project-task-solution": {
+  "id": 4882,
+  "view_url": "https://worxforu.com/?case-study=project-task-solution",
+  "edit_url": "https://worxforu.com/wp-admin/post.php?post=4882&action=elementor",
+  "warnings": []
+ },
+ "helpdesk-solution": {
+  "id": 4885,
+  "view_url": "https://worxforu.com/?case-study=helpdesk-solution",
+  "edit_url": "https://worxforu.com/wp-admin/post.php?post=4885&action=elementor",
+  "warnings": []
+ },
+ "analytics-dashboard": {
+  "id": 4888,
+  "view_url": "https://worxforu.com/?case-study=analytics-dashboard",
+  "edit_url": "https://worxforu.com/wp-admin/post.php?post=4888&action=elementor",
+  "warnings": []
+ },
+ "cf7": {
+  "id": 91,
+  "slug": "contact-form-1",
+  "title": "Worxforu Enquiry",
+  "locale": "en_US",
+  "properties": {
+   "cf7mls_back_bg_color": "",
+   "cf7mls_back_text_color": "",
+   "cf7mls_next_bg_color": "",
+   "cf7mls_next_text_color": "",
+   "cf7mls_db_save_every_step": "no",
+   "cf7mls_step_name": "[]",
+   "cf7mls_progress_bar_style": 1,
+   "cf7_mls_enable_progress_bar": "0",
+   "cf7mls_progress_bar_bg_color": "#0073aa",
+   "cf7_mls_auto_scroll_animation": "",
+   "cf7_mls_auto_moving_animation": "",
+   "cf7mls_select_stype_transition": "",
+   "cf7mls_style_text": "vertical",
+   "cf7_mls_enable_progress_bar_percent": "0",
+   "cf7mls_progress_bar_percent_color": "#0073aa",
+   "cf7mls_allow_choose_step": "off",
+   "cf7mls_back_button_title": "",
+   "form": {
+    "content": "<div class=\"row\">\n<div class=\"col-lg-6 col-md-6\">[text* your-name placeholder \"Full name\"]</div>\n<div class=\"col-lg-6 col-md-6\">[email* your-email placeholder \"Work email\"]</div>\n<div class=\"col-lg-6 col-md-6\">[text* your-company placeholder \"Company\"]</div>\n<div class=\"col-lg-6 col-md-6\">[tel your-phone placeholder \"Phone (optional)\"]</div>\n<div class=\"col-lg-12\">[select* service-interest first_as_label \"Service interest\" \"AI Solutions\" \"ERP and CRM Software\" \"Business Automation\" \"Custom Software Development\" \"Website and Mobile Development\" \"Web Portals\" \"Learning Management Systems\" \"SaaS Implementation\" \"SEO Services\" \"Market Research\" \"Cloud, DevOps and Support\" \"Technology Consulting\" \"Not sure yet\"]</div>\n<div class=\"col-lg-6 col-md-6\">[select budget first_as_label \"Budget range (optional)\" \"Under \u20b95 lakh\" \"\u20b95\u201315 lakh\" \"\u20b915\u201350 lakh\" \"Above \u20b950 lakh\" \"Not decided\"]</div>\n<div class=\"col-lg-6 col-md-6\">[select timeline first_as_label \"Timeline (optional)\" \"Within 1 month\" \"1\u20133 months\" \"3\u20136 months\" \"Exploring\"]</div>\n<div class=\"col-lg-12\">[textarea* your-message placeholder \"What do you want to improve? Current tools, users and goals help us scope it.\"]</div>\n<div class=\"col-lg-12\">[acceptance consent] I agree to Worxforu / Marvice Media contacting me about this enquiry. [/acceptance]</div>\n<div class=\"col-lg-12\"><div class=\"input-filled\">[submit \"Send Enquiry\"]</div></div>\n</div>",
+    "fields": [
+     {
+      "type": "text*",
+      "basetype": "text",
+      "name": "your-name",
+      "options": [
+       "placeholder"
+      ],
+      "raw_values": [
+       "Full name"
+      ],
+      "labels": [
+       "Full name"
+      ],
+      "values": [
+       "Full name"
+      ],
+      "pipes": [
+       [
+        "Full name",
+        "Full name"
+       ]
+      ],
+      "content": ""
+     },
+     {
+      "type": "email*",
+      "basetype": "email",
+      "name": "your-email",
+      "options": [
+       "placeholder"
+      ],
+      "raw_values": [
+       "Work email"
+      ],
+      "labels": [
+       "Work email"
+      ],
+      "values": [
+       "Work email"
+      ],
+      "pipes": [
+       [
+        "Work email",
+        "Work email"
+       ]
+      ],
+      "content": ""
+     },
+     {
+      "type": "text*",
+      "basetype": "text",
+      "name": "your-company",
+      "options": [
+       "placeholder"
+      ],
+      "raw_values": [
+       "Company"
+      ],
+      "labels": [
+       "Company"
+      ],
+      "values": [
+       "Company"
+      ],
+      "pipes": [
+       [
+        "Company",
+        "Company"
+       ]
+      ],
+      "content": ""
+     },
+     {
+      "type": "tel",
+      "basetype": "tel",
+      "name": "your-phone",
+      "options": [
+       "placeholder"
+      ],
+      "raw_values": [
+       "Phone (optional)"
+      ],
+      "labels": [
+       "Phone (optional)"
+      ],
+      "values": [
+       "Phone (optional)"
+      ],
+      "pipes": [
+       [
+        "Phone (optional)",
+        "Phone (optional)"
+       ]
+      ],
+      "content": ""
+     },
+     {
+      "type": "select*",
+      "basetype": "select",
+      "name": "service-interest",
+      "options": [
+       "first_as_label"
+      ],
+      "raw_values": [
+       "Service interest",
+       "AI Solutions",
+       "ERP and CRM Software",
+       "Business Automation",
+       "Custom Software Development",
+       "Website and Mobile Development",
+       "Web Portals",
+       "Learning Management Systems",
+       "SaaS Implementation",
+       "SEO Services",
+       "Market Research",
+       "Cloud, DevOps and Support",
+       "Technology Consulting",
+       "Not sure yet"
+      ],
+      "labels": [
+       "Service interest",
+       "AI Solutions",
+       "ERP and CRM Software",
+       "Business Automation",
+       "Custom Software Development",
+       "Website and Mobile Development",
+       "Web Portals",
+       "Learning Management Systems",
+       "SaaS Implementation",
+       "SEO Services",
+       "Market Research",
+       "Cloud, DevOps and Support",
+       "Technology Consulting",
+       "Not sure yet"
+      ],
+      "values": [
+       "Service interest",
+       "AI Solutions",
+       "ERP and CRM Software",
+       "Business Automation",
+       "Custom Software Development",
+       "Website and Mobile Development",
+       "Web Portals",
+       "Learning Management Systems",
+       "SaaS Implementation",
+       "SEO Services",
+       "Market Research",
+       "Cloud, DevOps and Support",
+       "Technology Consulting",
+       "Not sure yet"
+      ],
+      "pipes": [
+       [
+        "Service interest",
+        "Service interest"
+       ],
+       [
+        "AI Solutions",
+        "AI Solutions"
+       ],
+       [
+        "ERP and CRM Software",
+        "ERP and CRM Software"
+       ],
+       [
+        "Business Automation",
+        "Business Automation"
+       ],
+       [
+        "Custom Software Development",
+        "Custom Software Development"
+       ],
+       [
+        "Website and Mobile Development",
+        "Website and Mobile Development"
+       ],
+       [
+        "Web Portals",
+        "Web Portals"
+       ],
+       [
+        "Learning Management Systems",
+        "Learning Management Systems"
+       ],
+       [
+        "SaaS Implementation",
+        "SaaS Implementation"
+       ],
+       [
+        "SEO Services",
+        "SEO Services"
+       ],
+       [
+        "Market Research",
+        "Market Research"
+       ],
+       [
+        "Cloud, DevOps and Support",
+        "Cloud, DevOps and Support"
+       ],
+       [
+        "Technology Consulting",
+        "Technology Consulting"
+       ],
+       [
+        "Not sure yet",
+        "Not sure yet"
+       ]
+      ],
+      "content": ""
+     },
+     {
+      "type": "select",
+      "basetype": "select",
+      "name": "budget",
+      "options": [
+       "first_as_label"
+      ],
+      "raw_values": [
+       "Budget range (optional)",
+       "Under \u20b95 lakh",
+       "\u20b95\u201315 lakh",
+       "\u20b915\u201350 lakh",
+       "Above \u20b950 lakh",
+       "Not decided"
+      ],
+      "labels": [
+       "Budget range (optional)",
+       "Under \u20b95 lakh",
+       "\u20b95\u201315 lakh",
+       "\u20b915\u201350 lakh",
+       "Above \u20b950 lakh",
+       "Not decided"
+      ],
+      "values": [
+       "Budget range (optional)",
+       "Under \u20b95 lakh",
+       "\u20b95\u201315 lakh",
+       "\u20b915\u201350 lakh",
+       "Above \u20b950 lakh",
+       "Not decided"
+      ],
+      "pipes": [
+       [
+        "Budget range (optional)",
+        "Budget range (optional)"
+       ],
+       [
+        "Under \u20b95 lakh",
+        "Under \u20b95 lakh"
+       ],
+       [
+        "\u20b95\u201315 lakh",
+        "\u20b95\u201315 lakh"
+       ],
+       [
+        "\u20b915\u201350 lakh",
+        "\u20b915\u201350 lakh"
+       ],
+       [
+        "Above \u20b950 lakh",
+        "Above \u20b950 lakh"
+       ],
+       [
+        "Not decided",
+        "Not decided"
+       ]
+      ],
+      "content": ""
+     },
+     {
+      "type": "select",
+      "basetype": "select",
+      "name": "timeline",
+      "options": [
+       "first_as_label"
+      ],
+      "raw_values": [
+       "Timeline (optional)",
+       "Within 1 month",
+       "1\u20133 months",
+       "3\u20136 months",
+       "Exploring"
+      ],
+      "labels": [
+       "Timeline (optional)",
+       "Within 1 month",
+       "1\u20133 months",
+       "3\u20136 months",
+       "Exploring"
+      ],
+      "values": [
+       "Timeline (optional)",
+       "Within 1 month",
+       "1\u20133 months",
+       "3\u20136 months",
+       "Exploring"
+      ],
+      "pipes": [
+       [
+        "Timeline (optional)",
+        "Timeline (optional)"
+       ],
+       [
+        "Within 1 month",
+        "Within 1 month"
+       ],
+       [
+        "1\u20133 months",
+        "1\u20133 months"
+       ],
+       [
+        "3\u20136 months",
+        "3\u20136 months"
+       ],
+       [
+        "Exploring",
+        "Exploring"
+       ]
+      ],
+      "content": ""
+     },
+     {
+      "type": "textarea*",
+      "basetype": "textarea",
+      "name": "your-message",
+      "options": [
+       "placeholder"
+      ],
+      "raw_values": [
+       "What do you want to improve? Current tools, users and goals help us scope it."
+      ],
+      "labels": [
+       "What do you want to improve? Current tools, users and goals help us scope it."
+      ],
+      "values": [
+       "What do you want to improve? Current tools, users and goals help us scope it."
+      ],
+      "pipes": [
+       [
+        "What do you want to improve? Current tools, users and goals help us scope it.",
+        "What do you want to improve? Current tools, users and goals help us scope it."
+       ]
+      ],
+      "content": ""
+     },
+     {
+      "type": "acceptance",
+      "basetype": "acceptance",
+      "name": "consent",
+      "options": [],
+      "raw_values": [],
+      "labels": [],
+      "values": [],
+      "pipes": [],
+      "content": "I agree to Worxforu / Marvice Media contacting me about this enquiry."
+     },
+     {
+      "type": "submit",
+      "basetype": "submit",
+      "name": "",
+      "options": [],
+      "raw_values": [
+       "Send Enquiry"
+      ],
+      "labels": [
+       "Send Enquiry"
+      ],
+      "values": [
+       "Send Enquiry"
+      ],
+      "pipes": [
+       [
+        "Send Enquiry",
+        "Send Enquiry"
+       ]
+      ],
+      "content": ""
+     }
+    ]
+   },
+   "mail": {
+    "active": true,
+    "subject": "Worxforu enquiry: [service-interest] from [your-company]",
+    "sender": "Worxforu Website <wordpress@worxforu.com>",
+    "recipient": "info@marvice.in",
+    "body": "Name: [your-name]\nEmail: [your-email]\nCompany: [your-company]\nPhone: [your-phone]\nService: [service-interest]\nBudget: [budget]\nTimeline: [timeline]\n\nMessage:\n[your-message]\n\n-- \nSent from the enquiry form on worxforu.com ([_url])",
+    "additional_headers": "Reply-To: [your-email]",
+    "attachments": "",
+    "use_html": false,
+    "exclude_blank": false
+   },
+   "mail_2": "",
+   "messages": {
+    "mail_sent_ok": "Thanks. Your requirements have reached our team. We will reply by email.",
+    "mail_sent_ng": "Your message could not be sent. Please try again, or email info@marvice.in directly.",
+    "validation_error": "One or more fields have an error. Please check and try again.",
+    "spam": "There was an error trying to send your message. Please try again later.",
+    "accept_terms": "You must accept the terms and conditions before sending your message.",
+    "invalid_required": "The field is required.",
+    "invalid_too_long": "The field is too long.",
+    "invalid_too_short": "The field is too short.",
+    "upload_failed": "There was an unknown error uploading the file.",
+    "upload_file_type_invalid": "You are not allowed to upload files of this type.",
+    "upload_file_too_large": "The file is too big.",
+    "upload_failed_php_error": "There was an error uploading the file.",
+    "invalid_date": "The date format is incorrect.",
+    "date_too_early": "The date is before the earliest one allowed.",
+    "date_too_late": "The date is after the latest one allowed.",
+    "invalid_number": "The number format is invalid.",
+    "number_too_small": "The number is smaller than the minimum allowed.",
+    "number_too_large": "The number is larger than the maximum allowed.",
+    "quiz_answer_not_correct": "The answer to the quiz is incorrect.",
+    "captcha_not_match": "Your entered code is incorrect.",
+    "invalid_email": "The e-mail address entered is invalid.",
+    "invalid_url": "The URL is invalid.",
+    "invalid_tel": "The telephone number is invalid."
+   },
+   "additional_settings": {
+    "content": "",
+    "settings": []
+   }
+  },
+  "config_errors": []
+ }
+}
