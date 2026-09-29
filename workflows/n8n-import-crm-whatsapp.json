@@ -105,7 +105,7 @@
           "parameters": [
             {
               "name": "whatsappNumber",
-              "value": "={{ String($json.caller_number || '').replace(/\\D/g, '') }}"
+              "value": "={{ String($('Parse Booking Data').first().json.caller_number || '').replace(/\\D/g, '') }}"
             }
           ]
         },
@@ -124,7 +124,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  template_name: 'booking_confirmation',\n  broadcast_name: 'voice_agent_booking',\n  parameters: [\n    { name: 'customer_name', value: String($json.booking_name || 'Valued Guest') },\n    { name: 'date', value: String($json.booking_date || '') },\n    { name: 'time', value: String($json.booking_time || '') },\n    { name: 'guests', value: String($json.booking_guests || '') },\n    { name: 'venue', value: String($json.business_name || $env.BUSINESS_NAME || 'us') }\n  ]\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  template_name: 'booking_confirmation',\n  broadcast_name: 'voice_agent_booking',\n  parameters: [\n    { name: 'customer_name', value: String($('Parse Booking Data').first().json.booking_name || 'Valued Guest') },\n    { name: 'date', value: String($('Parse Booking Data').first().json.booking_date || '') },\n    { name: 'time', value: String($('Parse Booking Data').first().json.booking_time || '') },\n    { name: 'guests', value: String($('Parse Booking Data').first().json.booking_guests || '') },\n    { name: 'venue', value: String($('Parse Booking Data').first().json.business_name || $env.BUSINESS_NAME || 'us') }\n  ]\n}) }}",
         "options": {
           "timeout": 10000
         }
@@ -136,11 +136,12 @@
       "position": [
         1100,
         200
-      ]
+      ],
+      "notes": "Reads from 'Parse Booking Data': the Google Sheets step before this node outputs the saved row, not the booking/call data."
     },
     {
       "parameters": {
-        "jsCode": "// Handle WhatsApp send failure — mark for retry\nconst s = $input.first().json;\nconst success = s.statusCode === 200 || s.result === true;\n\nreturn [{ json: {\n  action: 'CONFIRM_BOOKING',\n  session_id: s.session_id,\n  business_id: s.business_id,\n  whatsapp_sent: success,\n  status: success ? 'completed' : 'whatsapp_failed_retry'\n}}];\n"
+        "jsCode": "// Handle WhatsApp send failure — mark for retry\nconst s = $input.first().json;\n// WATI's response has no session; take it from the CRM request data\nconst ctx = $('Parse Booking Data').first().json;\nconst success = s.statusCode === 200 || s.result === true;\n\nreturn [{ json: {\n  action: 'CONFIRM_BOOKING',\n  session_id: ctx.session_id,\n  business_id: ctx.business_id,\n  whatsapp_sent: success,\n  status: success ? 'completed' : 'whatsapp_failed_retry'\n}}];\n"
       },
       "id": "crm-013",
       "name": "Check WhatsApp Status",
@@ -194,7 +195,7 @@
           "parameters": [
             {
               "name": "whatsappNumber",
-              "value": "={{ String($json.lead_phone || '').replace(/\\D/g, '') }}"
+              "value": "={{ String($('Parse Lead Data').first().json.lead_phone || '').replace(/\\D/g, '') }}"
             }
           ]
         },
@@ -213,7 +214,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  template_name: 'lead_followup',\n  broadcast_name: 'voice_agent_lead',\n  parameters: [\n    { name: '1', value: String($json.lead_name || 'there') }\n  ]\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  template_name: 'lead_followup',\n  broadcast_name: 'voice_agent_lead',\n  parameters: [\n    { name: '1', value: String($('Parse Lead Data').first().json.lead_name || 'there') }\n  ]\n}) }}",
         "options": {
           "timeout": 10000
         }
@@ -225,11 +226,12 @@
       "position": [
         1100,
         400
-      ]
+      ],
+      "notes": "Reads from 'Parse Lead Data': the Google Sheets step before this node outputs the saved row, not the booking/call data."
     },
     {
       "parameters": {
-        "jsCode": "const s = $input.first().json;\nreturn [{ json: {\n  action: 'LEAD_CAPTURE',\n  session_id: s.session_id,\n  business_id: s.business_id,\n  status: 'completed'\n}}];\n"
+        "jsCode": "const s = $input.first().json;\n// WATI's response has no session; take it from the CRM request data\nconst ctx = $('Parse Lead Data').first().json;\nreturn [{ json: {\n  action: 'LEAD_CAPTURE',\n  session_id: ctx.session_id,\n  business_id: ctx.business_id,\n  status: 'completed'\n}}];\n"
       },
       "id": "crm-023",
       "name": "Lead Status",
@@ -272,7 +274,7 @@
           "parameters": [
             {
               "name": "whatsappNumber",
-              "value": "={{ String($json.caller_number || '').replace(/\\D/g, '') }}"
+              "value": "={{ String($('Extract CRM Data').first().json.caller_number || '').replace(/\\D/g, '') }}"
             }
           ]
         },
@@ -303,11 +305,12 @@
       "position": [
         880,
         600
-      ]
+      ],
+      "notes": "Reads from 'Extract CRM Data': the Google Sheets step before this node outputs the saved row, not the booking/call data."
     },
     {
       "parameters": {
-        "jsCode": "const s = $input.first().json;\nreturn [{ json: {\n  action: 'COMPLAINT',\n  session_id: s.session_id,\n  business_id: s.business_id,\n  status: 'complaint_logged'\n}}];\n"
+        "jsCode": "const s = $input.first().json;\n// WATI's response has no session; take it from the CRM request data\nconst ctx = $('Extract CRM Data').first().json;\nreturn [{ json: {\n  action: 'COMPLAINT',\n  session_id: ctx.session_id,\n  business_id: ctx.business_id,\n  status: 'complaint_logged'\n}}];\n"
       },
       "id": "crm-032",
       "name": "Complaint Status",

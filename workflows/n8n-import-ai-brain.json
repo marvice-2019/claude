@@ -5,14 +5,17 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "ai-brain",
-        "responseMode": "lastNode",
+        "responseMode": "responseNode",
         "options": {}
       },
       "id": "ai-001",
       "name": "AI Brain Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 300]
+      "position": [
+        0,
+        300
+      ]
     },
     {
       "parameters": {
@@ -99,36 +102,54 @@
     },
     {
       "parameters": {
-        "url": "https://api.anthropic.com/v1/messages",
         "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "x-api-key", "value": "={{$env.ANTHROPIC_API_KEY}}" },
-            { "name": "anthropic-version", "value": "2023-06-01" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
-        "bodyContentType": "json",
-        "body": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 350,\n  \"system\": {{JSON.stringify($json.system_prompt)}},\n  \"messages\": {{JSON.stringify($json.ai_messages)}}\n}",
-        "options": { "timeout": 12000 }
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 350,\n  \"system\": {{ JSON.stringify($json.system_prompt) }},\n  \"messages\": {{ JSON.stringify($json.ai_messages) }}\n}",
+        "options": {
+          "timeout": 12000
+        }
       },
       "id": "ai-007",
       "name": "Claude API Call",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [1320, 300]
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        300
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// ═══ PARSE AI RESPONSE ═══\nconst input = $input.first().json;\nlet aiText = '';\ntry { aiText = input.content[0].text || ''; }\ncatch(e) { aiText = 'Sorry, could you repeat that?'; }\n\n// Extract <data> block\nlet extracted = { intent: 'unknown', action_type: 'continue' };\nconst m = aiText.match(/<data>([\\s\\S]*?)<\\/data>/);\nif (m) { try { extracted = JSON.parse(m[1]); } catch(e) {} }\n\n// Clean spoken text\nconst spoken = aiText.replace(/<data>[\\s\\S]*?<\\/data>/g, '').trim();\n\n// Build action object\nconst action = { type: extracted.action_type || 'continue' };\nif (action.type === 'transfer') action.number = extracted.action_number || '';\n\n// Build booking data\nconst booking = {};\nif (extracted.date) booking.date = extracted.date;\nif (extracted.time) booking.time = extracted.time;\nif (extracted.guests) booking.guests = extracted.guests;\nif (extracted.name) booking.name = extracted.name;\nif (extracted.special_requests) booking.special_requests = extracted.special_requests;\n\nconst bookingComplete = extracted.intent === 'booking' &&\n  extracted.date && extracted.time && extracted.guests && extracted.name;\n\nif (bookingComplete) action.type = 'confirm_booking';\n\nreturn [{ json: {\n  reply_text: spoken,\n  intent: extracted.intent || 'unknown',\n  emotion: input.emotion || 'neutral',\n  action: action,\n  booking_data: booking,\n  booking_complete: bookingComplete || false,\n  session_id: input.session_id,\n  business_id: input.business_id,\n  caller_number: input.caller_number,\n  detected_language: input.detected_language\n}}];\n"
+        "jsCode": "// ═══ PARSE AI RESPONSE ═══\nconst input = $input.first().json;\n// Claude's response has no call context; take it from the prompt builder\nconst ctx = $('Build AI Prompt').first().json;\nlet aiText = '';\ntry { aiText = input.content[0].text || ''; }\ncatch(e) { aiText = 'Sorry, could you repeat that?'; }\n\n// Extract <data> block\nlet extracted = { intent: 'unknown', action_type: 'continue' };\nconst m = aiText.match(/<data>([\\s\\S]*?)<\\/data>/);\nif (m) { try { extracted = JSON.parse(m[1]); } catch(e) {} }\n\n// Clean spoken text\nconst spoken = aiText.replace(/<data>[\\s\\S]*?<\\/data>/g, '').trim();\n\n// Build action object\nconst action = { type: extracted.action_type || 'continue' };\nif (action.type === 'transfer') action.number = extracted.action_number || '';\n\n// Build booking data\nconst booking = {};\nif (extracted.date) booking.date = extracted.date;\nif (extracted.time) booking.time = extracted.time;\nif (extracted.guests) booking.guests = extracted.guests;\nif (extracted.name) booking.name = extracted.name;\nif (extracted.special_requests) booking.special_requests = extracted.special_requests;\n\nconst bookingComplete = extracted.intent === 'booking' &&\n  extracted.date && extracted.time && extracted.guests && extracted.name;\n\nif (bookingComplete) action.type = 'confirm_booking';\n\nreturn [{ json: {\n  reply_text: spoken,\n  intent: extracted.intent || 'unknown',\n  emotion: ctx.emotion || 'neutral',\n  action: action,\n  booking_data: booking,\n  booking_complete: bookingComplete || false,\n  session_id: ctx.session_id,\n  business_id: ctx.business_id,\n  caller_number: ctx.caller_number,\n  detected_language: ctx.detected_language\n}}];\n"
       },
       "id": "ai-008",
       "name": "Parse AI Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1540, 300]
+      "position": [
+        1540,
+        300
+      ]
     },
     {
       "parameters": {
@@ -159,24 +180,49 @@
     },
     {
       "parameters": {
-        "url": "=https://YOUR_N8N_URL/webhook/crm-action",
         "method": "POST",
+        "url": "=https://YOUR_N8N_URL/webhook/crm-action",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
-        "bodyContentType": "json",
-        "body": "={\n  \"action\": \"CONFIRM_BOOKING\",\n  \"business_id\": \"{{$json.business_id}}\",\n  \"session_id\": \"{{$json.session_id}}\",\n  \"caller_number\": \"{{$json.caller_number}}\",\n  \"booking_data\": {{JSON.stringify($json.booking_data)}},\n  \"detected_language\": \"{{$json.detected_language}}\"\n}",
-        "options": { "timeout": 10000 }
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  action: 'CONFIRM_BOOKING',\n  business_id: $json.business_id,\n  session_id: $json.session_id,\n  caller_number: $json.caller_number,\n  booking_data: $json.booking_data || {},\n  detected_language: $json.detected_language\n}) }}",
+        "options": {
+          "timeout": 10000
+        }
       },
       "id": "ai-011",
       "name": "Trigger CRM Booking",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [2200, 200]
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "0fa197d1-31be-43ce-bc5f-5bf54ef167d3",
+      "name": "Respond with AI Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1980,
+        120
+      ],
+      "notes": "Returns the AI reply to the call handler. Previously the webhook answered with the last node's output, which on a completed booking was the CRM response instead of the reply."
     }
   ],
   "connections": {
@@ -239,6 +285,7 @@
     "Save Conversation Memory": {
       "main": [
         [
+          { "node": "Respond with AI Result", "type": "main", "index": 0 },
           { "node": "Booking Complete?", "type": "main", "index": 0 }
         ]
       ]

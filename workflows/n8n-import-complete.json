@@ -102,7 +102,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Build TwiML: play greeting, then record caller's response\nconst s = $input.first().json;\nconst sid = s.session_id;\nconst base = $env.N8N_BASE_URL || 'https://your-n8n.com';\nconst msg = (s.greeting_message || 'Welcome! How can I help you?').replace(/[\"<>&]/g, '');\n\n// Check if ElevenLabs returned audio binary\nconst hasBinary = Object.keys($input.first().binary || {}).length > 0;\n\nlet playSection;\nif (hasBinary) {\n  // In production: upload binary to S3/GCS, get URL, use <Play>\n  // Fallback to <Say> for now (reliable across all setups)\n  playSection = `<Say voice=\"Polly.Aditi\" language=\"en-IN\">${msg}</Say>`;\n} else {\n  playSection = `<Say voice=\"Polly.Aditi\" language=\"en-IN\">${msg}</Say>`;\n}\n\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  ${playSection}\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n</Response>`;\n\nreturn [{ json: { ...s, twiml_response: twiml } }];\n"
+        "jsCode": "// Build TwiML: play greeting, then record caller's response\n// TTS returns audio, not the session, so read the call context from the node before it\nconst s = $('5. Generate Greeting').first().json;\nconst sid = s.session_id;\nconst base = $env.N8N_BASE_URL || 'https://your-n8n.com';\nconst msg = (s.greeting_message || 'Welcome! How can I help you?').replace(/[\"<>&]/g, '');\n\n// Check if ElevenLabs returned audio binary\nconst hasBinary = Object.keys($input.first().binary || {}).length > 0;\n\nlet playSection;\nif (hasBinary) {\n  // In production: upload binary to S3/GCS, get URL, use <Play>\n  // Fallback to <Say> for now (reliable across all setups)\n  playSection = `<Say voice=\"Polly.Aditi\" language=\"en-IN\">${msg}</Say>`;\n} else {\n  playSection = `<Say voice=\"Polly.Aditi\" language=\"en-IN\">${msg}</Say>`;\n}\n\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  ${playSection}\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n</Response>`;\n\nreturn [{ json: { ...s, twiml_response: twiml } }];\n"
       },
       "id": "00000000-0001-4000-8000-000000000008",
       "name": "7. Build Greeting TwiML",
@@ -225,7 +225,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ═══ PARSE STT + DETECT LANGUAGE ═══\nconst input = $input.first().json;\nlet transcript = '', lang = 'en', confidence = 0;\n\ntry {\n  const ch = input.results.channels[0];\n  const alt = ch.alternatives[0];\n  transcript = alt.transcript || '';\n  confidence = alt.confidence || 0;\n  lang = ch.detected_language || 'en';\n} catch(e) { transcript = ''; }\n\n// Normalize lang code\nconst norm = { 'ta': 'ta','ta-IN':'ta','te':'te','te-IN':'te','kn':'kn','kn-IN':'kn','ml':'ml','ml-IN':'ml','en':'en','en-IN':'en','en-US':'en','hi':'hi','hi-IN':'hi' };\nconst names = { ta:'Tamil', te:'Telugu', kn:'Kannada', ml:'Malayalam', en:'English', hi:'Hindi' };\nconst nl = norm[lang] || 'en';\n\nreturn [{ json: {\n  session_id: input.session_id || '',\n  caller_number: input.caller_number || '',\n  business_number: input.business_number || '',\n  recording_url: input.recording_url || '',\n  caller_transcript: transcript,\n  detected_language: nl,\n  language_name: names[nl] || 'English',\n  stt_confidence: confidence,\n  is_empty: transcript.trim() === ''\n}}];\n"
+        "jsCode": "// ═══ PARSE STT + DETECT LANGUAGE ═══\nconst input = $input.first().json;\n// Deepgram's response has no call context; take it from the turn data\nconst ctx = $('12. Has Recording?').first().json;\nlet transcript = '', lang = 'en', confidence = 0;\n\ntry {\n  const ch = input.results.channels[0];\n  const alt = ch.alternatives[0];\n  transcript = alt.transcript || '';\n  confidence = alt.confidence || 0;\n  lang = ch.detected_language || 'en';\n} catch(e) { transcript = ''; }\n\n// Normalize lang code\nconst norm = { 'ta': 'ta','ta-IN':'ta','te':'te','te-IN':'te','kn':'kn','kn-IN':'kn','ml':'ml','ml-IN':'ml','en':'en','en-IN':'en','en-US':'en','hi':'hi','hi-IN':'hi' };\nconst names = { ta:'Tamil', te:'Telugu', kn:'Kannada', ml:'Malayalam', en:'English', hi:'Hindi' };\nconst nl = norm[lang] || 'en';\n\nreturn [{ json: {\n  session_id: ctx.session_id || '',\n  caller_number: ctx.caller_number || '',\n  business_number: ctx.business_number || '',\n  recording_url: ctx.recording_url || '',\n  caller_transcript: transcript,\n  detected_language: nl,\n  language_name: names[nl] || 'English',\n  stt_confidence: confidence,\n  is_empty: transcript.trim() === ''\n}}];\n"
       },
       "id": "00000000-0002-4000-8000-000000000007",
       "name": "15. Parse STT Result",
@@ -346,7 +346,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ═══ PARSE AI RESPONSE + EXTRACT STRUCTURED DATA ═══\nconst input = $input.first().json;\nlet aiText = '';\ntry { aiText = input.content[0].text || ''; }\ncatch(e) { aiText = 'I am sorry, could you repeat that? I missed what you said.'; }\n\n// Extract <data> block\nlet extracted = {};\nconst m = aiText.match(/<data>([\\s\\S]*?)<\\/data>/);\nif (m) { try { extracted = JSON.parse(m[1]); } catch(e) {} }\n\n// Clean spoken text (remove data block)\nconst spoken = aiText.replace(/<data>[\\s\\S]*?<\\/data>/g, '').trim();\n\n// Check booking completeness\nconst d = extracted;\nconst bookingDone = d.intent === 'booking' && d.date && d.time && d.guests && d.name;\n\nreturn [{ json: {\n  session_id: input.session_id,\n  caller_number: input.caller_number,\n  business_number: input.business_number,\n  detected_language: input.detected_language,\n  language_name: input.language_name,\n  emotion_state: input.emotion_state,\n  caller_transcript: input.caller_transcript,\n  ai_response: spoken,\n  extracted_data: extracted,\n  detected_intent: extracted.intent || 'unknown',\n  booking_complete: bookingDone || false\n}}];\n"
+        "jsCode": "// ═══ PARSE AI RESPONSE + EXTRACT STRUCTURED DATA ═══\nconst input = $input.first().json;\n// Claude's response has no call context; take it from the prompt builder\nconst ctx = $('20. Build AI Prompt').first().json;\nlet aiText = '';\ntry { aiText = input.content[0].text || ''; }\ncatch(e) { aiText = 'I am sorry, could you repeat that? I missed what you said.'; }\n\n// Extract <data> block\nlet extracted = {};\nconst m = aiText.match(/<data>([\\s\\S]*?)<\\/data>/);\nif (m) { try { extracted = JSON.parse(m[1]); } catch(e) {} }\n\n// Clean spoken text (remove data block)\nconst spoken = aiText.replace(/<data>[\\s\\S]*?<\\/data>/g, '').trim();\n\n// Check booking completeness\nconst d = extracted;\nconst bookingDone = d.intent === 'booking' && d.date && d.time && d.guests && d.name;\n\nreturn [{ json: {\n  session_id: ctx.session_id,\n  caller_number: ctx.caller_number,\n  business_number: ctx.business_number,\n  detected_language: ctx.detected_language,\n  language_name: ctx.language_name,\n  emotion_state: ctx.emotion_state,\n  caller_transcript: ctx.caller_transcript,\n  ai_response: spoken,\n  extracted_data: extracted,\n  detected_intent: extracted.intent || 'unknown',\n  booking_complete: bookingDone || false\n}}];\n"
       },
       "id": "00000000-0002-4000-8000-000000000015",
       "name": "22. Parse AI Response",
@@ -391,7 +391,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ═══ BUILD TWIML — Play response + record next turn ═══\nconst s = $input.first().json;\nconst sid = s.session_id;\nconst base = $env.N8N_BASE_URL || 'https://your-n8n.com';\nconst endCall = s.should_end_call || false;\nconst spoken = (s.ai_response || 'Could you repeat that?').replace(/[\"<>&]/g, c => ({'\"':'&quot;','<':'&lt;','>':'&gt;','&':'&amp;'}[c]));\n\nlet twiml;\nif (endCall) {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spoken}</Say>\n  <Hangup/>\n</Response>`;\n} else {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spoken}</Say>\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n</Response>`;\n}\n\nreturn [{ json: { ...s, twiml_response: twiml } }];\n"
+        "jsCode": "// ═══ BUILD TWIML — Play response + record next turn ═══\n// TTS returns audio, not the session, so read the call context from the node before it\nconst s = $('23. Humanization Engine').first().json;\nconst sid = s.session_id;\nconst base = $env.N8N_BASE_URL || 'https://your-n8n.com';\nconst endCall = s.should_end_call || false;\nconst spoken = (s.ai_response || 'Could you repeat that?').replace(/[\"<>&]/g, c => ({'\"':'&quot;','<':'&lt;','>':'&gt;','&':'&amp;'}[c]));\n\nlet twiml;\nif (endCall) {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spoken}</Say>\n  <Hangup/>\n</Response>`;\n} else {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spoken}</Say>\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n</Response>`;\n}\n\nreturn [{ json: { ...s, twiml_response: twiml } }];\n"
       },
       "id": "00000000-0002-4000-8000-000000000018",
       "name": "25. Build Response TwiML",
@@ -474,7 +474,7 @@
           "parameters": [
             {
               "name": "whatsappNumber",
-              "value": "={{ String($json.caller_number || '').replace(/\\D/g, '') }}"
+              "value": "={{ String($('27. Booking Complete?').first().json.caller_number || '').replace(/\\D/g, '') }}"
             }
           ]
         },
@@ -493,7 +493,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  template_name: 'booking_confirmation',\n  broadcast_name: 'voice_agent_booking',\n  parameters: [\n    { name: 'customer_name', value: String($json.extracted_data.name || 'Valued Guest') },\n    { name: 'date', value: String($json.extracted_data.date || '') },\n    { name: 'time', value: String($json.extracted_data.time || '') },\n    { name: 'guests', value: String($json.extracted_data.guests || '') },\n    { name: 'venue', value: String($json.business_name || $env.BUSINESS_NAME || 'us') }\n  ]\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  template_name: 'booking_confirmation',\n  broadcast_name: 'voice_agent_booking',\n  parameters: [\n    { name: 'customer_name', value: String($('27. Booking Complete?').first().json.extracted_data.name || 'Valued Guest') },\n    { name: 'date', value: String($('27. Booking Complete?').first().json.extracted_data.date || '') },\n    { name: 'time', value: String($('27. Booking Complete?').first().json.extracted_data.time || '') },\n    { name: 'guests', value: String($('27. Booking Complete?').first().json.extracted_data.guests || '') },\n    { name: 'venue', value: String($('27. Booking Complete?').first().json.business_name || $env.BUSINESS_NAME || 'us') }\n  ]\n}) }}",
         "options": {
           "timeout": 10000
         }
@@ -506,7 +506,8 @@
         3520,
         840
       ],
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "notes": "Reads from '27. Booking Complete?': the Google Sheets step before this node outputs the saved row, not the booking/call data."
     },
     {
       "parameters": {
