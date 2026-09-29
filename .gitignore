@@ -1,0 +1,4 @@
+# Local credentials (LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET etc.)
+.env
+.env.*
+!.env.example
