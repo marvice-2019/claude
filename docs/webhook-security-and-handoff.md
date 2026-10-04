@@ -1,6 +1,6 @@
 # Webhook Security & Bot Pause
 
-Applies to the split workflows: `n8n-import-call-handler.json`, `n8n-import-ai-brain.json`, `n8n-import-crm-whatsapp.json`. `main-voice-agent.json` and `n8n-import-complete.json` don't have these checks yet.
+Applies to the split stack: `n8n-import-call-handler.json`, `n8n-import-ai-brain.json`, `n8n-import-crm-whatsapp.json`. The earlier workflow versions (`main-voice-agent.json`, `n8n-import-complete.json`, `-1-`/`-2-`) don't have these checks. Don't deploy them.
 
 ## What changed
 
@@ -8,6 +8,7 @@ Applies to the split workflows: `n8n-import-call-handler.json`, `n8n-import-ai-b
 |---|---|---|
 | `voice/incoming`, `voice/turn` | Anyone with the URL could start calls, burn Deepgram/ElevenLabs/Claude credits, write fake bookings | `X-Twilio-Signature` verified (HMAC-SHA1 of URL + sorted params). Bad requests get `403` |
 | `crm-action` | Anyone could make it save rows and send WhatsApp templates to any number | Requires `X-Internal-Token`. Missing or wrong token gets `401` |
+| `ai-brain` | Anyone could spend Claude credits, and trigger booking confirmations through it | Requires `X-Internal-Token`, sent by the call handler. Missing or wrong token gets `401` |
 
 **Bot pause.** When the AI transfers a caller to a human, or a complaint is logged, the guest gets an `active` row in the `Handoffs` sheet for `HANDOFF_PAUSE_HOURS` (default 24). While it's active:
 
@@ -44,6 +45,6 @@ Staff end a pause by setting `status` to `released` in the sheet.
 | Situation | Result |
 |---|---|
 | `TWILIO_AUTH_TOKEN`, `N8N_BASE_URL` or `crypto` missing, mode `enforce` | Calls rejected (fails closed). Use `log` while setting up |
-| `INTERNAL_WEBHOOK_TOKEN` unset or under 16 chars | `crm-action` rejects everything. The call itself continues, but no Sheets rows or WhatsApp messages are written |
+| `INTERNAL_WEBHOOK_TOKEN` unset or under 16 chars | `ai-brain` and `crm-action` reject everything. Callers hear "could you repeat that?" on every turn, and nothing reaches Sheets or WhatsApp |
 | Sheets error on a handoff lookup | Treated as not paused: the AI answers and follow-ups send |
 | Handoff upsert fails | Logged and the request continues, so the complaint and WhatsApp ack aren't lost |

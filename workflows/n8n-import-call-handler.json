@@ -153,15 +153,23 @@
     {
       "parameters": {
         "conditions": {
-          "boolean": [
-            { "value1": "={{$json.has_recording}}", "value2": true }
-          ]
-        }
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "5d914484-48c5-426a-b841-bf098bcedb5d",
+              "leftValue": "={{ !!$json.has_recording }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
       "id": "ch-012",
       "name": "Has Recording?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
+      "typeVersion": 2.2,
       "position": [880, 700]
     },
     {
@@ -229,25 +237,34 @@
     {
       "parameters": {
         "conditions": {
-          "boolean": [
-            { "value1": "={{$json.is_empty}}", "value2": true }
-          ]
-        }
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "fcab4543-875b-416e-b95f-f8bd8af653bb",
+              "leftValue": "={{ !!$json.is_empty }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
       "id": "ch-022",
       "name": "Transcript Empty?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
+      "typeVersion": 2.2,
       "position": [1540, 600]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://YOUR_N8N_URL/webhook/ai-brain",
+        "url": "={{ ($env.N8N_BASE_URL || 'https://YOUR_N8N_URL').replace(/\\/+$/, '') }}/webhook/ai-brain",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Content-Type", "value": "application/json" }
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Internal-Token", "value": "={{ $env.INTERNAL_WEBHOOK_TOKEN }}" }
           ]
         },
         "sendBody": true,
@@ -342,21 +359,29 @@
     {
       "parameters": {
         "conditions": {
-          "string": [
-            { "value1": "={{$json.intent}}", "value2": "booking", "operation": "equals" }
-          ]
-        }
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "eb31adb5-5289-4363-a014-824b42ccede9",
+              "leftValue": "={{ String($json.intent || '') }}",
+              "rightValue": "booking",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
       "id": "ch-040",
       "name": "Is Booking Action?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
+      "typeVersion": 2.2,
       "position": [2860, 720]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://YOUR_N8N_URL/webhook/crm-action",
+        "url": "={{ ($env.N8N_BASE_URL || 'https://YOUR_N8N_URL').replace(/\\/+$/, '') }}/webhook/crm-action",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [

@@ -12,10 +12,7 @@
       "name": "AI Brain Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [
-        0,
-        300
-      ]
+      "position": [0, 300]
     },
     {
       "parameters": {
@@ -44,7 +41,7 @@
       "name": "Extract Input Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 2,
-      "position": [220, 300]
+      "position": [660, 300]
     },
     {
       "parameters": {
@@ -55,7 +52,10 @@
             { "name": "timings", "value": "Mon-Sun: 12 PM - 1 AM" },
             { "name": "menu_highlights", "value": "Biryani, Grilled Seafood, Cocktails, Mocktails, Pan-Asian, North Indian" },
             { "name": "current_offers", "value": "20% off group bookings (5+), Ladies night Wednesday, Happy hours 5-7 PM" },
-            { "name": "vip_options", "value": "VIP booth Rs.2000 extra (private area, bottle service), Rooftop dining Rs.1500 extra" },
+            {
+              "name": "vip_options",
+              "value": "VIP booth Rs.2000 extra (private area, bottle service), Rooftop dining Rs.1500 extra"
+            },
             { "name": "address", "value": "123 MG Road, Bangalore 560001" },
             { "name": "escalation_number", "value": "={{ $env.ESCALATION_PHONE || '' }}" }
           ],
@@ -68,7 +68,7 @@
       "name": "Load Business Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 2,
-      "position": [440, 300]
+      "position": [880, 300]
     },
     {
       "parameters": {
@@ -78,7 +78,7 @@
       "name": "Load Conversation Memory",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [660, 300]
+      "position": [1100, 300]
     },
     {
       "parameters": {
@@ -88,7 +88,7 @@
       "name": "Detect Emotion",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [880, 300]
+      "position": [1320, 300]
     },
     {
       "parameters": {
@@ -98,7 +98,7 @@
       "name": "Build AI Prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1100, 300]
+      "position": [1540, 300]
     },
     {
       "parameters": {
@@ -107,35 +107,21 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "x-api-key",
-              "value": "={{ $env.ANTHROPIC_API_KEY }}"
-            },
-            {
-              "name": "anthropic-version",
-              "value": "2023-06-01"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 350,\n  \"system\": {{ JSON.stringify($json.system_prompt) }},\n  \"messages\": {{ JSON.stringify($json.ai_messages) }}\n}",
-        "options": {
-          "timeout": 12000
-        }
+        "options": { "timeout": 12000 }
       },
       "id": "ai-007",
       "name": "Claude API Call",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1320,
-        300
-      ],
+      "position": [1760, 300],
       "onError": "continueRegularOutput"
     },
     {
@@ -146,10 +132,7 @@
       "name": "Parse AI Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1540,
-        300
-      ]
+      "position": [1980, 300]
     },
     {
       "parameters": {
@@ -159,57 +142,51 @@
       "name": "Save Conversation Memory",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1760, 300]
+      "position": [2200, 300]
     },
     {
       "parameters": {
         "conditions": {
-          "boolean": [
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
             {
-              "value1": "={{$json.booking_complete}}",
-              "value2": true
+              "id": "dbb4f22f-a288-467f-bc58-1251cba1d649",
+              "leftValue": "={{ !!$json.booking_complete }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
             }
-          ]
-        }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
       "id": "ai-010",
       "name": "Booking Complete?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [1980, 300]
+      "typeVersion": 2.2,
+      "position": [2420, 300]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://YOUR_N8N_URL/webhook/crm-action",
+        "url": "={{ ($env.N8N_BASE_URL || 'https://YOUR_N8N_URL').replace(/\\/+$/, '') }}/webhook/crm-action",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "X-Internal-Token",
-              "value": "={{ $env.INTERNAL_WEBHOOK_TOKEN }}"
-            }
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Internal-Token", "value": "={{ $env.INTERNAL_WEBHOOK_TOKEN }}" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({\n  action: 'CONFIRM_BOOKING',\n  business_id: $json.business_id,\n  session_id: $json.session_id,\n  caller_number: $json.caller_number,\n  booking_data: $json.booking_data || {},\n  detected_language: $json.detected_language\n}) }}",
-        "options": {
-          "timeout": 10000
-        }
+        "options": { "timeout": 10000 }
       },
       "id": "ai-011",
       "name": "Trigger CRM Booking",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        2200,
-        200
-      ],
+      "position": [2640, 200],
       "onError": "continueRegularOutput"
     },
     {
@@ -222,18 +199,59 @@
       "name": "Respond with AI Result",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [
-        1980,
-        120
-      ],
+      "position": [2420, 120],
       "notes": "Returns the AI reply to the call handler. Previously the webhook answered with the last node's output, which on a completed booking was the CRM response instead of the reply."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Only the call handler may call ai-brain: it spends Claude credits and, on a complete booking,\n// calls crm-action with the internal token. Callers send X-Internal-Token = INTERNAL_WEBHOOK_TOKEN.\n// Fails closed: an unset or short (<16 chars) token rejects every request.\nconst req = $input.first().json;\nconst expected = String($env.INTERNAL_WEBHOOK_TOKEN || '');\nconst provided = String((req.headers || {})['x-internal-token'] || '');\n\n// Constant-time compare so the token can't be guessed one character at a time.\nconst n = Math.max(expected.length, provided.length);\nlet diff = expected.length ^ provided.length;\nfor (let i = 0; i < n; i++) diff |= (expected.charCodeAt(i) || 0) ^ (provided.charCodeAt(i) || 0);\nconst configured = expected.length >= 16;\nconst authorized = configured && provided.length > 0 && diff === 0;\n\nreturn [{ json: {\n  ...req,\n  request_allowed: authorized,\n  auth_reason: !configured ? 'token_not_configured' : (!provided ? 'missing_token' : (authorized ? 'ok' : 'token_mismatch'))\n} }];\n"
+      },
+      "id": "909abc35-5543-4430-bc4d-5d8adc41afdc",
+      "name": "Verify Internal Token",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "df715fe6-37b9-4502-a23e-fd781925234e",
+              "leftValue": "={{ $json.request_allowed }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "329fe388-c62c-494b-a418-abebf97a7796",
+      "name": "Authorized?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'unauthorized', reason: $json.auth_reason }) }}",
+        "options": { "responseCode": 401 }
+      },
+      "id": "c9ddf0d9-f4f6-446a-99fd-c5e3a681fc09",
+      "name": "Reject Unauthorized",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 500]
     }
   ],
   "connections": {
     "AI Brain Webhook": {
       "main": [
         [
-          { "node": "Extract Input Data", "type": "main", "index": 0 }
+          { "node": "Verify Internal Token", "type": "main", "index": 0 }
         ]
       ]
     },
@@ -301,13 +319,26 @@
         ],
         []
       ]
+    },
+    "Verify Internal Token": {
+      "main": [
+        [
+          { "node": "Authorized?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Authorized?": {
+      "main": [
+        [
+          { "node": "Extract Input Data", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Reject Unauthorized", "type": "main", "index": 0 }
+        ]
+      ]
     }
   },
-  "settings": {
-    "executionOrder": "v1",
-    "saveManualExecutions": true,
-    "timezone": "Asia/Kolkata"
-  },
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true, "timezone": "Asia/Kolkata" },
   "tags": [
     { "name": "voice-agent", "id": "tag-1" },
     { "name": "ai-brain", "id": "tag-3" }

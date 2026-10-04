@@ -18,9 +18,12 @@ Production-ready AI voice agent for customer care and sales in hospitality busin
 
 ```
 ├── workflows/
-│   ├── main-voice-agent.json        # Core inbound call workflow (n8n)
-│   ├── outbound-campaign.json       # Outbound calling campaign workflow
-│   └── feedback-learning-loop.json  # Daily analytics + prompt improvement
+│   ├── n8n-import-call-handler.json # Deploy: Twilio calls, STT/TTS, TwiML, transfers
+│   ├── n8n-import-ai-brain.json     # Deploy: Claude conversation logic
+│   ├── n8n-import-crm-whatsapp.json # Deploy: Sheets, WhatsApp, bot pause
+│   ├── outbound-campaign.json       # Optional: outbound calling campaign
+│   ├── feedback-learning-loop.json  # Optional: daily analytics + prompt improvement
+│   └── (main-voice-agent, n8n-import-complete/-1-/-2-)  # Earlier versions, don't import with the above
 ├── prompts/
 │   ├── system-prompt.md             # Full AI system prompt (multi-language)
 │   └── conversation-scripts.md      # Sample scripts in 5 languages
@@ -42,12 +45,12 @@ Production-ready AI voice agent for customer care and sales in hospitality busin
 
 ## Quick Start
 
-1. Set up n8n (cloud or self-hosted)
-2. Import the 3 workflows from `workflows/`
+1. Set up self-hosted n8n (the workflows read `$env`)
+2. Import the split stack: `n8n-import-call-handler.json`, `n8n-import-ai-brain.json`, `n8n-import-crm-whatsapp.json`
 3. Configure API keys from `configs/env-template.env`
 4. Set up Google Sheets from `configs/google-sheets-schema.md`
-5. Configure Twilio webhook → your n8n URL
-6. Test with a phone call
+5. Point Twilio's voice webhook at `${N8N_BASE_URL}/webhook/voice/incoming`
+6. Test with a phone call, then turn on signature enforcement (`docs/webhook-security-and-handoff.md`)
 
 See `docs/deployment-guide.md` for detailed instructions.
 

@@ -1,5 +1,14 @@
 # Google Sheets Schema
 
+Row 1 of each sheet holds the column names below. The split stack's Sheets nodes map by header name, so order doesn't matter, but a missing header means that field is silently dropped.
+
+| Sheet | Used by |
+|---|---|
+| Bookings, Leads, Complaints, ActivityLog, Handoffs | Split stack (`n8n-import-crm-whatsapp.json`, call handler) |
+| OutboundQueue | `outbound-campaign.json` |
+| ConversationLogs, DailyReports | `feedback-learning-loop.json` (the split stack doesn't write ConversationLogs yet) |
+| BusinessConfig, Customers | Earlier workflow versions only; the split stack keeps venue details in the AI brain's `Load Business Config` node |
+
 ## Sheet 1: BusinessConfig
 
 | Column | Field | Type | Example |
@@ -41,6 +50,7 @@
 | I | intent | string | `booking` |
 | J | language | string | `en` |
 | K | status | string | `confirmed` |
+| L | business_id | string | `biz_001` (written by the split stack) |
 
 ## Sheet 4: ConversationLogs
 
@@ -68,7 +78,46 @@
 | G | template | string | `event_promo` |
 | H | status | string | `pending` |
 
-## Sheet 6: Handoffs
+## Sheet 6: Leads
+
+| Column | Field | Type | Example |
+|--------|-------|------|---------|
+| A | timestamp | datetime | `2026-03-18T14:30:00Z` |
+| B | session_id | string | `CA1234567890` |
+| C | business_id | string | `biz_001` |
+| D | phone | string | `+919876543210` |
+| E | name | string | `Rahul Sharma` |
+| F | interest | string | `private_dining` |
+| G | notes | string | `Anniversary, 10 guests in May` |
+| H | language | string | `en` |
+| I | status | string | `new` |
+
+## Sheet 7: Complaints
+
+| Column | Field | Type | Example |
+|--------|-------|------|---------|
+| A | timestamp | datetime | `2026-03-18T14:30:00Z` |
+| B | session_id | string | `CA1234567890` |
+| C | business_id | string | `biz_001` |
+| D | phone | string | `+919876543210` |
+| E | complaint | string | `Waited 40 minutes for a confirmed table` |
+| F | language | string | `ta` |
+| G | status | string | `open` |
+| H | priority | string | `high` |
+
+## Sheet 8: ActivityLog
+
+| Column | Field | Type | Example |
+|--------|-------|------|---------|
+| A | timestamp | datetime | `2026-03-18T14:30:00Z` |
+| B | action | string | `CONFIRM_BOOKING`, `LEAD_CAPTURE`, `COMPLAINT`, `HANDOFF` |
+| C | session_id | string | `CA1234567890` |
+| D | business_id | string | `biz_001` |
+| E | phone | string | `+919876543210` |
+| F | status | string | `completed`, `followup_skipped_handoff` |
+| G | details | JSON string | `{"action":"COMPLAINT",...}` |
+
+## Sheet 9: Handoffs
 
 One row per guest per venue. Written by `n8n-import-crm-whatsapp.json` (action `HANDOFF`, and every `COMPLAINT`), read by the call handler and the lead follow-up. While a row is `active` and `paused_until` is in the future, the bot is paused for that guest: their next call goes straight to `ESCALATION_PHONE`, and automated lead follow-ups are skipped. Booking confirmations still send.
 
