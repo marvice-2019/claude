@@ -47,8 +47,9 @@ Caddy config + DNS (`agencyagents.app`) are managed on the host.
 
 Deployed by `.github/workflows/deploy-agency-landing.yml` (repo root) on every push to
 `main` that touches `agency-agents-app/landing/**`, or manually via *Run workflow*.
-Uploads over FTPS to the subdomain's document root on Hostinger. `.htaccess` here forces
-HTTPS and sets security/cache headers.
+publishes this folder (minus `.htaccess` and this README, plus a `CNAME` file) to the
+`gh-pages` branch, which GitHub Pages serves with automatic SSL. One-time DNS on
+Hostinger: `CNAME agency → marvice-2019.github.io`.
 
-The FTP action only deletes files it uploaded itself, so `updater.json` or anything else
-placed in the web root by hand is never removed.
+`.htaccess` stays for Apache/LiteSpeed hosts. `scripts/vps-setup-agency.sh` (repo root)
+sets up nginx on a VPS if the site moves off Pages; its config mirrors those headers.

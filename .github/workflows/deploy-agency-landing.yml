@@ -1,13 +1,11 @@
 # Deploys agency-agents-app/landing (static, no build step) to agency.marvice.tech
-# on Hostinger over FTPS.
+# via GitHub Pages: the folder is published to the gh-pages branch, which Pages serves.
 #
-# Required repo secrets (Settings → Secrets and variables → Actions):
-#   HOSTINGER_FTP_HOST      e.g. ftp.marvice.tech (hPanel → Files → FTP Accounts)
-#   HOSTINGER_FTP_USER      FTP user scoped to the agency subdomain
-#   HOSTINGER_FTP_PASSWORD
-# Optional repo variable:
-#   AGENCY_FTP_DIR          remote dir, default "./" (a subdomain-scoped FTP user
-#                           lands in its document root already). Must end with "/".
+# One-time DNS (Hostinger → Domains → marvice.tech → DNS records):
+#   CNAME  agency  →  marvice-2019.github.io
+# No secrets needed; the job pushes with the built-in GITHUB_TOKEN.
+#
+# scripts/vps-setup-agency.sh is kept for moving the site to a VPS later.
 
 name: Deploy agency.marvice.tech
 
@@ -22,6 +20,12 @@ on:
 concurrency:
   group: deploy-agency-landing
   cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  DOMAIN: agency.marvice.tech
 
 jobs:
   deploy:
@@ -39,39 +43,43 @@ jobs:
             echo "::error::Upstream domain still referenced in landing files"; exit 1
           fi
 
-      - name: Check deploy secrets
-        id: creds
-        env:
-          FTP_HOST: ${{ secrets.HOSTINGER_FTP_HOST }}
-          FTP_USER: ${{ secrets.HOSTINGER_FTP_USER }}
-          FTP_PASS: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+      - name: Build site
         run: |
-          if [ -n "$FTP_HOST" ] && [ -n "$FTP_USER" ] && [ -n "$FTP_PASS" ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::HOSTINGER_FTP_* secrets not set; skipping deploy."
+          mkdir _site
+          # .htaccess is Apache-only and README is docs; Pages needs neither.
+          rsync -a --exclude='.htaccess' --exclude='README.md' agency-agents-app/landing/ _site/
+          echo "$DOMAIN" > _site/CNAME
+          touch _site/.nojekyll
+
+      - name: Publish to gh-pages
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          cd _site
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Publish $DOMAIN from ${GITHUB_SHA::7}"
+          # gh-pages is a build output: one commit, replaced on every deploy.
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+
+      - name: Check DNS
+        run: |
+          want="${GITHUB_REPOSITORY_OWNER,,}.github.io"
+          target=$(dig +short CNAME "$DOMAIN" | sed 's/\.$//')
+          if [ "$target" != "$want" ]; then
+            echo "::error::$DOMAIN CNAME is '${target:-missing}'. Published to gh-pages, but the domain won't load until DNS has: CNAME agency → $want"
+            exit 1
           fi
 
-      - name: Upload via FTPS
-        if: steps.creds.outputs.ready == 'true'
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.HOSTINGER_FTP_HOST }}
-          username: ${{ secrets.HOSTINGER_FTP_USER }}
-          password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
-          protocol: ftps
-          local-dir: ./agency-agents-app/landing/
-          server-dir: ${{ vars.AGENCY_FTP_DIR || './' }}
-          exclude: |
-            **/.git*
-            **/.git*/**
-            README.md
-
       - name: Smoke test
-        if: steps.creds.outputs.ready == 'true'
         run: |
-          sleep 5
-          code=$(curl -s -o /dev/null -w '%{http_code}' https://agency.marvice.tech/)
-          echo "HTTP $code"
-          test "$code" = "200"
+          # Pages takes ~1 min to rebuild after the push.
+          for i in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://$DOMAIN/")
+            echo "attempt $i: HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          exit 1
