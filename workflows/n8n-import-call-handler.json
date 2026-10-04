@@ -167,19 +167,34 @@
     {
       "parameters": {
         "conditions": {
-          "boolean": [
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
             {
-              "value1": "={{$json.has_recording}}",
-              "value2": true
+              "id": "has-recording",
+              "leftValue": "={{ $json.has_recording }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             }
-          ]
-        }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
       "id": "ch-012",
       "name": "Has Recording?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [440, 700]
+      "position": [
+        440,
+        700
+      ]
     },
     {
       "parameters": {
@@ -260,19 +275,34 @@
     {
       "parameters": {
         "conditions": {
-          "boolean": [
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
             {
-              "value1": "={{$json.is_empty}}",
-              "value2": true
+              "id": "transcript-empty",
+              "leftValue": "={{ $json.is_empty }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             }
-          ]
-        }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
       "id": "ch-022",
       "name": "Transcript Empty?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1100, 600]
+      "position": [
+        1100,
+        600
+      ]
     },
     {
       "parameters": {
@@ -401,20 +431,34 @@
     {
       "parameters": {
         "conditions": {
-          "string": [
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
             {
-              "value1": "={{$json.intent}}",
-              "value2": "booking",
-              "operation": "equals"
+              "id": "is-booking",
+              "leftValue": "={{ $json.intent }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "booking"
             }
-          ]
-        }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
       "id": "ch-040",
       "name": "Is Booking Action?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2420, 720]
+      "position": [
+        2420,
+        720
+      ]
     },
     {
       "parameters": {

@@ -790,13 +790,22 @@
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
-          "conditions": [{
-            "id": "has-data",
-            "leftValue": "={{ $json.skip_analysis }}",
-            "rightValue": true,
-            "operator": { "type": "boolean", "operation": "notTrue" }
-          }],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "has-data",
+              "leftValue": "={{ $json.skip_analysis === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
@@ -805,7 +814,10 @@
       "name": "63. Has Data?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [660, 2200]
+      "position": [
+        660,
+        2200
+      ]
     },
     {
       "parameters": {

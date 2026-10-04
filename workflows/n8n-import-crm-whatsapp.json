@@ -40,22 +40,93 @@
     },
     {
       "parameters": {
-        "dataType": "string",
-        "value1": "={{$json.action}}",
+        "mode": "rules",
         "rules": {
-          "rules": [
-            { "value": "CONFIRM_BOOKING", "output": 0 },
-            { "value": "LEAD_CAPTURE", "output": 1 },
-            { "value": "COMPLAINT", "output": 2 }
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "booking",
+                    "leftValue": "={{ $json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "CONFIRM_BOOKING"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Booking"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "lead",
+                    "leftValue": "={{ $json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "LEAD_CAPTURE"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Lead"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "complaint",
+                    "leftValue": "={{ $json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "COMPLAINT"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Complaint"
+            }
           ]
         },
-        "fallbackOutput": 3
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Unknown"
+        }
       },
       "id": "crm-003",
       "name": "Route by Action",
       "type": "n8n-nodes-base.switch",
-      "typeVersion": 3,
-      "position": [440, 400]
+      "typeVersion": 3.2,
+      "position": [
+        440,
+        400
+      ]
     },
     {
       "parameters": {
@@ -70,8 +141,16 @@
     {
       "parameters": {
         "operation": "append",
-        "documentId": "={{$env.GSHEET_ID}}",
-        "sheetName": "Bookings",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.GSHEET_ID }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Bookings"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -93,8 +172,11 @@
       "id": "crm-011",
       "name": "Save Booking to Sheets",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 3,
-      "position": [880, 200]
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        200
+      ]
     },
     {
       "parameters": {
@@ -162,8 +244,16 @@
     {
       "parameters": {
         "operation": "append",
-        "documentId": "={{$env.GSHEET_ID}}",
-        "sheetName": "Leads",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.GSHEET_ID }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Leads"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -183,8 +273,11 @@
       "id": "crm-021",
       "name": "Save Lead to Sheets",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 3,
-      "position": [880, 400]
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        400
+      ]
     },
     {
       "parameters": {
@@ -242,8 +335,16 @@
     {
       "parameters": {
         "operation": "append",
-        "documentId": "={{$env.GSHEET_ID}}",
-        "sheetName": "Complaints",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.GSHEET_ID }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Complaints"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -262,8 +363,11 @@
       "id": "crm-030",
       "name": "Save Complaint to Sheets",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 3,
-      "position": [660, 600]
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        600
+      ]
     },
     {
       "parameters": {
@@ -321,8 +425,16 @@
     {
       "parameters": {
         "operation": "append",
-        "documentId": "={{$env.GSHEET_ID}}",
-        "sheetName": "ActivityLog",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.GSHEET_ID }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "ActivityLog"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -340,8 +452,11 @@
       "id": "crm-040",
       "name": "Log Activity",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 3,
-      "position": [1540, 400]
+      "typeVersion": 4.5,
+      "position": [
+        1540,
+        400
+      ]
     },
     {
       "parameters": {
