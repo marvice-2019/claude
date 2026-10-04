@@ -48,6 +48,16 @@ Production-ready AI voice agent for customer care and sales in hospitality busin
 
 See `docs/deployment-guide.md` for detailed instructions.
 
+## Claude Code + n8n-mcp
+
+`.mcp.json` registers [n8n-mcp](https://github.com/czlonkowski/n8n-mcp) (node docs, validation, templates), and `.claude/skills/` carries the matching n8n-skills pack.
+
+- **No env vars** → 7 docs/validation tools (`search_nodes`, `get_node`, `validate_workflow`, …).
+- **`N8N_API_URL` + `N8N_API_KEY` set** → adds workflow create/update/test/execution tools against your instance.
+- **`N8N_MCP_ACCESS_TOKEN`** (optional) → n8n instance-level MCP features (agents, resource explorer).
+
+Never point it at production workflows without a backup: validate in a copy first.
+
 ## Key Features
 
 - **Human-like conversations** — natural fillers, empathy, tone adaptation
