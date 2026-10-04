@@ -1,0 +1,938 @@
+{
+  "name": "Marketing — Email Campaigns (Brevo + Claude)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Email campaigns (Brevo + Claude)\n**Nightly:** syncs opted-in `Customers` to Brevo lists by segment (all / vip / regular / new / lapsed). Opted-out emails are blacklisted in Brevo.\n\n**Every 15 min:** picks a due `Campaigns` row with `channel=email`, `status=approved`. Claude writes the subject, preview text and HTML from `brief`, `offer` and `BusinessConfig`. A Brevo campaign is created for the segment's list:\n- `auto_send=TRUE` → scheduled at `send_at` (min. now+10 min) → `status=scheduled`\n- otherwise → saved as a Brevo **draft** → `status=draft_created` and the manager is pinged on WhatsApp to review and send.\n\n`BREVO_LISTS` env = `{\"all\":2,\"vip\":3,\"regular\":4,\"new\":5,\"lapsed\":6}` (your Brevo list IDs). Create contact attributes `SEGMENT`, `TOTAL_VISITS`, `LAST_VISIT` in Brevo first.",
+        "width": 560,
+        "height": 440,
+        "color": 7
+      },
+      "id": "a19ab74c-f384-4fc1-9c1b-0f7f9301bc99",
+      "name": "About",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 3 * * *"
+            }
+          ]
+        }
+      },
+      "id": "26053a74-c016-4043-b259-5acc65182577",
+      "name": "Nightly 3 AM Sync",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Customers",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "012e00b2-d3e3-4e65-8607-2500d1d978e2",
+      "name": "Read Customers",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const truthy = v => ['true', 'yes', 'y', '1'].includes(String(v ?? '').trim().toLowerCase());\nconst TZ = $env.BUSINESS_TZ_OFFSET || '+05:30';\n// Sheets returns \"2026-10-10 19:00\", ISO strings, or a date serial. Bare times are venue-local (IST).\nfunction parseWhen(v) {\n  if (v === undefined || v === null || v === '') return null;\n  if (typeof v === 'number') {\n    const sign = TZ.startsWith('-') ? -1 : 1;\n    const [h, m] = TZ.slice(1).split(':').map(Number);\n    return new Date((v - 25569) * 864e5 - sign * (h * 60 + (m || 0)) * 6e4);\n  }\n  let s = String(v).trim().replace(' ', 'T');\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) s += 'T00:00';\n  if (!/([zZ]|[+-]\\d{2}:?\\d{2})$/.test(s)) s += TZ;\n  const d = new Date(s);\n  return isNaN(d) ? null : d;\n}\n\nfunction segmentOf(c) {\n  const visits = Number(c.total_visits) || 0;\n  const last = parseWhen(c.last_visit);\n  const days = last ? (Date.now() - last) / 864e5 : Infinity;\n  if (visits > 0 && days > Number($env.LAPSED_AFTER_DAYS || 45)) return 'lapsed';\n  if (visits >= Number($env.VIP_MIN_VISITS || 5)) return 'vip';\n  if (visits <= 1) return 'new';\n  return 'regular';\n}\nfunction birthdayWithin(c, days) {\n  const m = String(c.birthday || '').match(/(\\d{1,4})[-\\/](\\d{1,2})(?:[-\\/](\\d{1,4}))?/);\n  if (!m) return false;\n  // Accept YYYY-MM-DD, DD-MM-YYYY or DD-MM\n  let month, day;\n  if (m[1].length === 4) { month = +m[2]; day = +m[3]; } else { day = +m[1]; month = +m[2]; }\n  const now = new Date();\n  for (let i = 0; i <= days; i++) {\n    const d = new Date(now.getTime() + i * 864e5);\n    if (d.getMonth() + 1 === month && d.getDate() === day) return true;\n  }\n  return false;\n}\nfunction matchesSegment(c, seg) {\n  seg = String(seg || 'all').trim().toLowerCase();\n  if (seg === 'all' || seg === '') return true;\n  if (seg === 'birthday') return birthdayWithin(c, 7);\n  return segmentOf(c) === seg;\n}\n\nconst lists = JSON.parse($env.BREVO_LISTS || '{}');\nconst segLists = ['vip', 'regular', 'new', 'lapsed'].filter(s => lists[s]);\nconst seen = new Set();\nconst out = [];\nfor (const { json: c } of $input.all()) {\n  const email = String(c.email || '').trim().toLowerCase();\n  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || seen.has(email)) continue;\n  seen.add(email);\n  if (!truthy(c.email_opt_in)) {\n    // Suppress anyone without consent; never re-subscribes a Brevo unsubscribe either way\n    out.push({ json: { email, segment: 'suppressed', brevo: { email, emailBlacklisted: true, updateEnabled: true } } });\n    continue;\n  }\n  const seg = segmentOf(c);\n  const name = String(c.name || '').trim();\n  out.push({ json: { email, segment: seg, brevo: {\n    email,\n    updateEnabled: true,\n    attributes: { FIRSTNAME: name.split(/\\s+/)[0] || '', SEGMENT: seg, TOTAL_VISITS: Number(c.total_visits) || 0, LAST_VISIT: c.last_visit || '' },\n    listIds: [lists.all, lists[seg]].filter(Boolean).map(Number),\n    unlinkListIds: segLists.filter(s => s !== seg).map(s => Number(lists[s])),\n  } } });\n}\nreturn out;\n"
+      },
+      "id": "11a8db18-bfdd-4449-882e-cdf5a2a6e71e",
+      "name": "Build Brevo Contacts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.brevo.com/v3/contacts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api-key",
+              "value": "={{ $env.BREVO_API_KEY }}"
+            },
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.brevo) }}",
+        "options": {
+          "timeout": 30000,
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 1000
+            }
+          }
+        }
+      },
+      "id": "02190475-4efe-4d91-9172-849612af80d5",
+      "name": "Upsert Brevo Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.all();\nconst failed = results.filter(r => r.json.error).length;\nconst sent = $('Build Brevo Contacts').all();\nconst bySeg = {};\nfor (const { json } of sent) bySeg[json.segment] = (bySeg[json.segment] || 0) + 1;\nreturn [{ json: { count: sent.length - failed, failed, details: JSON.stringify({ bySeg, failed }) } }];\n"
+      },
+      "id": "1ee097e0-ed15-4ce1-93a4-a774b8b76a32",
+      "name": "Sync Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "MarketingLog",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $now.toISO() }}",
+            "workflow": "email_sync",
+            "campaign_id": "",
+            "event": "brevo_contact_sync",
+            "count": "={{ $json.count }}",
+            "details": "={{ $json.details }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "campaign_id",
+              "displayName": "campaign_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "event",
+              "displayName": "event",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "count",
+              "displayName": "count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "details",
+              "displayName": "details",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c0cfe1b9-13c6-4aa2-bed2-848db268b7c5",
+      "name": "Log Sync",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "bc802944-e392-450d-b6d1-b3550d1bf409",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Campaigns",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "14fdc446-47fa-4038-a60e-8a0040c2312a",
+      "name": "Read Campaigns",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        220,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const truthy = v => ['true', 'yes', 'y', '1'].includes(String(v ?? '').trim().toLowerCase());\nconst TZ = $env.BUSINESS_TZ_OFFSET || '+05:30';\n// Sheets returns \"2026-10-10 19:00\", ISO strings, or a date serial. Bare times are venue-local (IST).\nfunction parseWhen(v) {\n  if (v === undefined || v === null || v === '') return null;\n  if (typeof v === 'number') {\n    const sign = TZ.startsWith('-') ? -1 : 1;\n    const [h, m] = TZ.slice(1).split(':').map(Number);\n    return new Date((v - 25569) * 864e5 - sign * (h * 60 + (m || 0)) * 6e4);\n  }\n  let s = String(v).trim().replace(' ', 'T');\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) s += 'T00:00';\n  if (!/([zZ]|[+-]\\d{2}:?\\d{2})$/.test(s)) s += TZ;\n  const d = new Date(s);\n  return isNaN(d) ? null : d;\n}\n\nconst now = new Date();\nconst due = $input.all().map(i => i.json)\n  .filter(c => String(c.channel).trim().toLowerCase() === 'email'\n    && String(c.status).trim().toLowerCase() === 'approved' && c.campaign_id && c.brief)\n  .map(c => ({ ...c, _when: parseWhen(c.send_at) || now }))\n  // Build copy up to 24h ahead so Brevo can hold the scheduled send\n  .filter(c => c._when - now <= 24 * 3600e3)\n  .sort((a, b) => a._when - b._when);\nif (!due.length) return [];\nconst { _when, ...c } = due[0];\nreturn [{ json: { ...c, send_at_iso: _when.toISOString() } }];\n"
+      },
+      "id": "09bfe498-765a-4172-81d3-72eca0ac1e43",
+      "name": "Pick Due Email Campaign",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Campaigns",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "campaign_id": "={{ $json.campaign_id }}",
+            "status": "processing",
+            "processed_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "campaign_id"
+          ],
+          "schema": [
+            {
+              "id": "campaign_id",
+              "displayName": "campaign_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "processed_at",
+              "displayName": "processed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "37732b8b-81a1-4519-b6c9-ee6c52fd5d00",
+      "name": "Lock Campaign",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "BusinessConfig",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "a6bcb8d0-e8a4-45e6-a441-f7b288b74441",
+      "name": "Read BusinessConfig",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        360
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const c = $('Pick Due Email Campaign').first().json;\nconst rows = $input.all().map(i => i.json);\nconst biz = rows.find(r => c.business_id && r.business_id === c.business_id) || rows[0] || {};\nconst system = `You are the senior email copywriter for ${biz.business_name || 'a hospitality venue'}, a ${biz.business_type || 'restaurant/club'} in India.\nWrite one marketing email that gets guests to book. Voice: warm, confident, specific, a little playful. Never generic.\nHard rules:\n- Use ONLY facts given below (offers, timings, address, menu). Never invent prices, dates, dishes or discounts.\n- Subject <= 50 characters, no ALL CAPS, at most one emoji, no spam words (\"FREE!!!\", \"act now\").\n- Preview text <= 90 characters, complements the subject.\n- Body: 90-160 words. One clear CTA button linking to the booking URL. Mobile-first.\n- html_body = inner HTML only (no <html>/<head>/<body>), single 600px column, inline CSS, web-safe fonts, no external CSS, no JavaScript.\n- If an image URL is provided, use it once as a full-width hero <img> with descriptive alt text. Otherwise no images.\n- Do NOT add an unsubscribe link or address footer — they are appended automatically.\nReturn ONLY a JSON object: {\"subject\": \"...\", \"preview_text\": \"...\", \"html_body\": \"...\"}`;\nconst user = JSON.stringify({\n  campaign_name: c.name, audience_segment: c.segment || 'all', brief: c.brief, offer: c.offer || '',\n  image_url: c.image_url || '', booking_url: $env.BOOKING_URL || '', menu_url: $env.MENU_URL || '',\n  venue: { name: biz.business_name, timings: biz.timings, menu_highlights: biz.menu_highlights,\n    current_offers: biz.current_offers, vip_options: biz.vip_options, address: biz.address, phone: biz.phone_number },\n}, null, 2);\nreturn [{ json: { campaign: c, biz, claude_body: {\n  model: $env.CLAUDE_MARKETING_MODEL || 'claude-sonnet-5-5',\n  max_tokens: 4000,\n  system,\n  messages: [{ role: 'user', content: user }],\n} } }];\n"
+      },
+      "id": "5c60a05d-1c2f-4f5f-9a3e-18dc5f948262",
+      "name": "Build Email Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.claude_body) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "e56a4d98-5840-4344-949e-af1c3324d4e5",
+      "name": "Claude — Write Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        360
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const truthy = v => ['true', 'yes', 'y', '1'].includes(String(v ?? '').trim().toLowerCase());\nconst TZ = $env.BUSINESS_TZ_OFFSET || '+05:30';\n// Sheets returns \"2026-10-10 19:00\", ISO strings, or a date serial. Bare times are venue-local (IST).\nfunction parseWhen(v) {\n  if (v === undefined || v === null || v === '') return null;\n  if (typeof v === 'number') {\n    const sign = TZ.startsWith('-') ? -1 : 1;\n    const [h, m] = TZ.slice(1).split(':').map(Number);\n    return new Date((v - 25569) * 864e5 - sign * (h * 60 + (m || 0)) * 6e4);\n  }\n  let s = String(v).trim().replace(' ', 'T');\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) s += 'T00:00';\n  if (!/([zZ]|[+-]\\d{2}:?\\d{2})$/.test(s)) s += TZ;\n  const d = new Date(s);\n  return isNaN(d) ? null : d;\n}\n\nconst { campaign: c, biz } = $('Build Email Prompt').item.json;\nlet copy = null, parse_error = '';\ntry {\n  if ($json.error) throw new Error(JSON.stringify($json.error).slice(0, 200));\n  const text = ($json.content || []).filter(b => b.type === 'text').map(b => b.text).join('');\n  copy = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));\n  if (!copy.subject || !copy.html_body) throw new Error('missing subject/html_body');\n} catch (e) { parse_error = 'Claude copy failed: ' + e.message; }\nif (parse_error) return { json: { campaign: c, parse_error } };\n\nconst lists = JSON.parse($env.BREVO_LISTS || '{}');\nconst seg = String(c.segment || 'all').trim().toLowerCase();\nconst listId = Number(lists[seg] || lists.all);\nconst esc = s => String(s || '').replace(/[&<>\"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[ch]));\nconst htmlContent = `<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>${esc(copy.subject)}</title></head>\n<body style=\"margin:0;padding:0;background:#f4f4f4;\"><div style=\"max-width:600px;margin:0 auto;background:#ffffff;font-family:Arial,Helvetica,sans-serif;color:#222;\">\n${copy.html_body}\n<div style=\"padding:24px;font-size:12px;line-height:18px;color:#777;text-align:center;border-top:1px solid #eee;\">\n${esc(biz.business_name)}${biz.address ? ' · ' + esc(biz.address) : ''}<br>\nYou're receiving this because you opted in at ${esc(biz.business_name || 'our venue')}. <a href=\"{{ unsubscribe }}\" style=\"color:#777;\">Unsubscribe</a>\n</div></div></body></html>`;\n\nconst autoSend = truthy(c.auto_send);\nconst minStart = new Date(Date.now() + 10 * 60e3);\nconst sendAt = new Date(Math.max(new Date(c.send_at_iso || 0).getTime(), minStart.getTime()));\nconst body = {\n  name: `${c.campaign_id} · ${c.name || seg}`.slice(0, 100),\n  subject: copy.subject,\n  previewText: copy.preview_text || '',\n  sender: { name: $env.BREVO_SENDER_NAME || biz.business_name || 'Team', email: $env.BREVO_SENDER_EMAIL },\n  htmlContent,\n  recipients: { listIds: [listId] },\n};\nif (autoSend) body.scheduledAt = sendAt.toISOString();\nif (!listId) return { json: { campaign: c, parse_error: `No Brevo list for segment \"${seg}\" in BREVO_LISTS` } };\nreturn { json: { campaign: c, autoSend, subject: copy.subject, brevo_body: body } };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "dbfff478-c77e-4ce4-83e5-b53d6ee77563",
+      "name": "Assemble Brevo Campaign",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "eaa7c9a7-4dc0-4f3d-a54a-24af7a2f5411",
+              "leftValue": "={{ !$json.parse_error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "89e3015f-ca25-4772-a5e3-2f19bd339328",
+      "name": "Copy OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.brevo.com/v3/emailCampaigns",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api-key",
+              "value": "={{ $env.BREVO_API_KEY }}"
+            },
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.brevo_body) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "9558d2b6-a6e9-40a0-900d-f64261e61259",
+      "name": "Create Brevo Campaign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        260
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const a = $('Assemble Brevo Campaign').item.json;\nconst c = a.campaign;\nlet status, notes = '', provider_ref = '';\nif (a.parse_error) { status = 'failed'; notes = a.parse_error; }\nelse if ($json.id) {\n  provider_ref = String($json.id);\n  status = a.autoSend ? 'scheduled' : 'draft_created';\n  notes = a.autoSend ? `Scheduled in Brevo for ${a.brevo_body.scheduledAt}` : 'Draft in Brevo — review and send';\n} else { status = 'failed'; notes = 'Brevo: ' + JSON.stringify($json.error || $json).slice(0, 300); }\nreturn { json: {\n  campaign_id: c.campaign_id, status, provider_ref, subject: a.subject || '', notes,\n  alert: status !== 'scheduled',\n  alert_text: status === 'draft_created'\n    ? `Email draft ready in Brevo: \"${a.subject}\" (${c.campaign_id}). Review and send.`\n    : `Email campaign ${c.campaign_id} ${status}. ${notes}`,\n} };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "798f338b-3eb1-45c4-98ce-07e542477149",
+      "name": "Record Outcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Campaigns",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "campaign_id": "={{ $json.campaign_id }}",
+            "status": "={{ $json.status }}",
+            "provider_ref": "={{ $json.provider_ref }}",
+            "subject": "={{ $json.subject }}",
+            "notes": "={{ $json.notes }}",
+            "completed_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "campaign_id"
+          ],
+          "schema": [
+            {
+              "id": "campaign_id",
+              "displayName": "campaign_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "provider_ref",
+              "displayName": "provider_ref",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c387b88f-7542-4c3e-8bc6-e5b158340131",
+      "name": "Update Campaign",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2420,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5cc39ce9-0d4b-449f-8025-8f3d141ad7e7",
+              "leftValue": "={{ $('Record Outcome').item.json.alert }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "742f8645-f942-4830-a499-972243c8d85a",
+      "name": "Needs Manager?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2640,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return { json: { alert_text: $('Record Outcome').item.json.alert_text } };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "8133573a-c9c6-402d-ac29-ce08b54089b4",
+      "name": "Alert Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.WATI_BASE_URL || 'https://live-server-108478.wati.io').replace(/\\/$/, '') }}/api/v1/sendTemplateMessage",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "whatsappNumber",
+              "value": "={{ String($env.ESCALATION_ALERT_WHATSAPP || $env.ADMIN_PHONE || '').replace(/\\D/g, '') }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WATI_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ template_name: $env.WATI_ALERT_TEMPLATE || 'staff_alert', broadcast_name: 'staff_alert', parameters: [{ name: '1', value: String($json.alert_text || '').slice(0, 900) }] }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "249bc69c-75e6-45b2-a88d-1e25bcd10cc9",
+      "name": "Alert Manager (WATI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3080,
+        260
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Nightly 3 AM Sync": {
+      "main": [
+        [
+          {
+            "node": "Read Customers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Customers": {
+      "main": [
+        [
+          {
+            "node": "Build Brevo Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Brevo Contacts": {
+      "main": [
+        [
+          {
+            "node": "Upsert Brevo Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Brevo Contact": {
+      "main": [
+        [
+          {
+            "node": "Sync Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Summary": {
+      "main": [
+        [
+          {
+            "node": "Log Sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Read Campaigns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Campaigns": {
+      "main": [
+        [
+          {
+            "node": "Pick Due Email Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Due Email Campaign": {
+      "main": [
+        [
+          {
+            "node": "Lock Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lock Campaign": {
+      "main": [
+        [
+          {
+            "node": "Read BusinessConfig",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read BusinessConfig": {
+      "main": [
+        [
+          {
+            "node": "Build Email Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email Prompt": {
+      "main": [
+        [
+          {
+            "node": "Claude — Write Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude — Write Email": {
+      "main": [
+        [
+          {
+            "node": "Assemble Brevo Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Brevo Campaign": {
+      "main": [
+        [
+          {
+            "node": "Copy OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Copy OK?": {
+      "main": [
+        [
+          {
+            "node": "Create Brevo Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Brevo Campaign": {
+      "main": [
+        [
+          {
+            "node": "Record Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Outcome": {
+      "main": [
+        [
+          {
+            "node": "Update Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Campaign": {
+      "main": [
+        [
+          {
+            "node": "Needs Manager?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Manager?": {
+      "main": [
+        [
+          {
+            "node": "Alert Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Text": {
+      "main": [
+        [
+          {
+            "node": "Alert Manager (WATI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "Asia/Kolkata"
+  },
+  "pinData": {},
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

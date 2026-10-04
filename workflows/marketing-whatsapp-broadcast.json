@@ -1,0 +1,1074 @@
+{
+  "name": "Marketing — WhatsApp Broadcasts (WATI)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## WhatsApp broadcasts (WATI)\n**Campaigns sheet → opted-in Customers → WATI template broadcast.**\n\n1. Add a row to `Campaigns` with `channel=whatsapp`, an **approved** WATI `template_name`, `segment` (all | vip | regular | new | lapsed | birthday) and `send_at`, then set `status=approved`.\n2. Every 15 min the oldest due campaign is locked (`processing`), the audience is built (opt-in, not opted out, frequency cap), and sent in chunks of 100.\n3. Results are written back to `Campaigns`, `MarketingLog` and `Customers.last_promo_at`.\n\n`template_params` is JSON, e.g. `[{\"name\":\"name\",\"value\":\"{first_name}\"},{\"name\":\"offer\",\"value\":\"{offer}\"}]`. Tokens: `{first_name} {name} {offer} {business_name}`.\n\n**Inbound webhook:** point WATI → Webhooks → *Message Received* at `/webhook/wati-inbound`. STOP / START update consent.",
+        "width": 520,
+        "height": 420,
+        "color": 7
+      },
+      "id": "e6cf54d1-9bec-4dc0-b496-ec1c70d6c0a7",
+      "name": "About",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "2f91b9e9-454f-4177-be39-96e3fe44b2fa",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Campaigns",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "20810d77-f0e9-4e2c-b3b8-208a22a456d5",
+      "name": "Read Campaigns",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const truthy = v => ['true', 'yes', 'y', '1'].includes(String(v ?? '').trim().toLowerCase());\nconst TZ = $env.BUSINESS_TZ_OFFSET || '+05:30';\n// Sheets returns \"2026-10-10 19:00\", ISO strings, or a date serial. Bare times are venue-local (IST).\nfunction parseWhen(v) {\n  if (v === undefined || v === null || v === '') return null;\n  if (typeof v === 'number') {\n    const sign = TZ.startsWith('-') ? -1 : 1;\n    const [h, m] = TZ.slice(1).split(':').map(Number);\n    return new Date((v - 25569) * 864e5 - sign * (h * 60 + (m || 0)) * 6e4);\n  }\n  let s = String(v).trim().replace(' ', 'T');\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) s += 'T00:00';\n  if (!/([zZ]|[+-]\\d{2}:?\\d{2})$/.test(s)) s += TZ;\n  const d = new Date(s);\n  return isNaN(d) ? null : d;\n}\n\nconst now = new Date();\nconst due = $input.all()\n  .map(i => i.json)\n  .filter(c => String(c.channel).trim().toLowerCase() === 'whatsapp'\n    && String(c.status).trim().toLowerCase() === 'approved'\n    && c.campaign_id && c.template_name)\n  .map(c => ({ ...c, _when: parseWhen(c.send_at) }))\n  .filter(c => c._when && c._when <= now)\n  .sort((a, b) => a._when - b._when);\n// One campaign per run keeps throughput and Meta quality rating predictable\nif (!due.length) return [];\nconst { _when, ...c } = due[0];\nreturn [{ json: c }];\n"
+      },
+      "id": "c49158fe-167e-4cc6-8bb8-1c999b20edaf",
+      "name": "Pick Due WhatsApp Campaign",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Campaigns",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "campaign_id": "={{ $json.campaign_id }}",
+            "status": "processing",
+            "processed_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "campaign_id"
+          ],
+          "schema": [
+            {
+              "id": "campaign_id",
+              "displayName": "campaign_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "processed_at",
+              "displayName": "processed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c68d0636-e89d-4f93-93a4-054cefb1577a",
+      "name": "Lock Campaign",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Customers",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "44b767a9-c37f-4268-9d18-a93f71ef3728",
+      "name": "Read Customers",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        0
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const truthy = v => ['true', 'yes', 'y', '1'].includes(String(v ?? '').trim().toLowerCase());\nconst TZ = $env.BUSINESS_TZ_OFFSET || '+05:30';\n// Sheets returns \"2026-10-10 19:00\", ISO strings, or a date serial. Bare times are venue-local (IST).\nfunction parseWhen(v) {\n  if (v === undefined || v === null || v === '') return null;\n  if (typeof v === 'number') {\n    const sign = TZ.startsWith('-') ? -1 : 1;\n    const [h, m] = TZ.slice(1).split(':').map(Number);\n    return new Date((v - 25569) * 864e5 - sign * (h * 60 + (m || 0)) * 6e4);\n  }\n  let s = String(v).trim().replace(' ', 'T');\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) s += 'T00:00';\n  if (!/([zZ]|[+-]\\d{2}:?\\d{2})$/.test(s)) s += TZ;\n  const d = new Date(s);\n  return isNaN(d) ? null : d;\n}\n\nfunction segmentOf(c) {\n  const visits = Number(c.total_visits) || 0;\n  const last = parseWhen(c.last_visit);\n  const days = last ? (Date.now() - last) / 864e5 : Infinity;\n  if (visits > 0 && days > Number($env.LAPSED_AFTER_DAYS || 45)) return 'lapsed';\n  if (visits >= Number($env.VIP_MIN_VISITS || 5)) return 'vip';\n  if (visits <= 1) return 'new';\n  return 'regular';\n}\nfunction birthdayWithin(c, days) {\n  const m = String(c.birthday || '').match(/(\\d{1,4})[-\\/](\\d{1,2})(?:[-\\/](\\d{1,4}))?/);\n  if (!m) return false;\n  // Accept YYYY-MM-DD, DD-MM-YYYY or DD-MM\n  let month, day;\n  if (m[1].length === 4) { month = +m[2]; day = +m[3]; } else { day = +m[1]; month = +m[2]; }\n  const now = new Date();\n  for (let i = 0; i <= days; i++) {\n    const d = new Date(now.getTime() + i * 864e5);\n    if (d.getMonth() + 1 === month && d.getDate() === day) return true;\n  }\n  return false;\n}\nfunction matchesSegment(c, seg) {\n  seg = String(seg || 'all').trim().toLowerCase();\n  if (seg === 'all' || seg === '') return true;\n  if (seg === 'birthday') return birthdayWithin(c, 7);\n  return segmentOf(c) === seg;\n}\n\nconst campaign = $('Pick Due WhatsApp Campaign').first().json;\nconst capDays = Number($env.MARKETING_FREQUENCY_CAP_DAYS || 3);\nconst cc = String($env.DEFAULT_COUNTRY_CODE || '91');\nconst businessName = $env.BUSINESS_NAME || '';\nlet paramSpec = [];\ntry { paramSpec = campaign.template_params ? JSON.parse(campaign.template_params) : []; } catch (e) {\n  throw new Error(`Campaign ${campaign.campaign_id}: template_params is not valid JSON`);\n}\nconst seen = new Set();\nconst receivers = [];\nfor (const { json: c } of $input.all()) {\n  if (!truthy(c.wa_opt_in) || truthy(c.wa_opt_out)) continue;\n  let digits = String(c.phone || '').replace(/\\D/g, '');\n  if (digits.length === 10) digits = cc + digits;\n  if (digits.length < 11 || digits.length > 15 || seen.has(digits)) continue;\n  if (!matchesSegment(c, campaign.segment)) continue;\n  const last = parseWhen(c.last_promo_at);\n  if (last && (Date.now() - last) / 864e5 < capDays) continue;\n  seen.add(digits);\n  const name = String(c.name || '').trim() || 'there';\n  const vars = { first_name: name.split(/\\s+/)[0], name, offer: campaign.offer || '', business_name: businessName };\n  const fill = v => String(v ?? '').replace(/\\{(\\w+)\\}/g, (m, k) => (k in vars ? vars[k] : m));\n  receivers.push({\n    sheetPhone: c.phone,\n    whatsappNumber: digits,\n    customParams: paramSpec.map(p => ({ name: String(p.name), value: fill(p.value) })),\n  });\n}\nconst base = { campaign_id: campaign.campaign_id, template_name: campaign.template_name,\n  broadcast_name: `${campaign.campaign_id}_${new Date().toISOString().slice(0, 10)}` };\nif (!receivers.length) return [{ json: { ...base, empty: true, receivers: [], phones: [] } }];\nconst out = [];\nfor (let i = 0; i < receivers.length; i += 100) {\n  const chunk = receivers.slice(i, i + 100);\n  out.push({ json: { ...base, chunk_index: i / 100,\n    receivers: chunk.map(({ whatsappNumber, customParams }) => ({ whatsappNumber, customParams })),\n    phones: chunk.map(r => r.sheetPhone) } });\n}\nreturn out;\n"
+      },
+      "id": "29ae4ec6-3698-486c-afe8-8286c65d582b",
+      "name": "Build Audience",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f98b56fa-c70f-4a19-bf39-63fbee6bb085",
+              "leftValue": "={{ $json.receivers.length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "57ca9022-b45e-4610-bfb3-7629e4265adb",
+      "name": "Has Recipients?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "4a2a82e6-9e0e-41e2-bd0b-7f717b4b6f25",
+      "name": "Loop Chunks",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1540,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.WATI_BASE_URL || 'https://live-server-108478.wati.io').replace(/\\/$/, '') }}/api/v1/sendTemplateMessages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WATI_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ template_name: $json.template_name, broadcast_name: $json.broadcast_name, receivers: $json.receivers }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "1e0c53ce-bfa4-444d-a41a-accbbaa6bfed",
+      "name": "Send WATI Broadcast",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const chunk = $('Loop Chunks').item.json;\nconst r = $json;\nconst ok = r && r.result === true && !r.error;\nreturn { json: {\n  campaign_id: chunk.campaign_id,\n  chunk_index: chunk.chunk_index,\n  phones: ok ? chunk.phones : [],\n  sent: ok ? chunk.phones.length : 0,\n  failed: ok ? 0 : chunk.phones.length,\n  error: ok ? '' : JSON.stringify(r.error || r.info || r).slice(0, 300),\n} };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "bd0535ca-e655-431a-af4b-f6e7c1442c5e",
+      "name": "Tag Chunk Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "6dce5afc-ef2c-4370-9004-a3991290768d",
+      "name": "Throttle 5s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2200,
+        0
+      ],
+      "webhookId": "3583d9d0-df66-4213-88de-8161d903546b"
+    },
+    {
+      "parameters": {
+        "jsCode": "const campaign = $('Pick Due WhatsApp Campaign').first().json;\nconst items = $input.all().map(i => i.json).filter(j => !j.empty);\nconst sent = items.reduce((s, j) => s + (j.sent || 0), 0);\nconst failed = items.reduce((s, j) => s + (j.failed || 0), 0);\nconst errors = items.filter(j => j.error).map(j => `chunk ${j.chunk_index}: ${j.error}`);\nconst status = failed === 0 ? 'sent' : sent > 0 ? 'partially_sent' : 'failed';\nreturn [{ json: {\n  campaign_id: campaign.campaign_id,\n  status,\n  sent_count: sent,\n  failed_count: failed,\n  notes: sent + failed === 0 ? 'No eligible recipients (opt-in, segment, frequency cap)' : errors.join(' | ').slice(0, 500),\n  sent_phones: items.flatMap(j => j.phones || []),\n  alert: status !== 'sent',\n  alert_text: `WhatsApp campaign ${campaign.campaign_id} ${status}: ${sent} sent, ${failed} failed. ${errors[0] || ''}`,\n} }];\n"
+      },
+      "id": "48764b59-ccb8-4cf6-81bd-7a78b3a4b27f",
+      "name": "Summarize Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Campaigns",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "campaign_id": "={{ $json.campaign_id }}",
+            "status": "={{ $json.status }}",
+            "sent_count": "={{ $json.sent_count }}",
+            "failed_count": "={{ $json.failed_count }}",
+            "completed_at": "={{ $now.toISO() }}",
+            "notes": "={{ $json.notes }}"
+          },
+          "matchingColumns": [
+            "campaign_id"
+          ],
+          "schema": [
+            {
+              "id": "campaign_id",
+              "displayName": "campaign_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sent_count",
+              "displayName": "sent_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "failed_count",
+              "displayName": "failed_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "be54c419-b2d6-404c-a0e2-df52f2e8154c",
+      "name": "Update Campaign Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1980,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "MarketingLog",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $now.toISO() }}",
+            "workflow": "whatsapp_broadcast",
+            "campaign_id": "={{ $('Summarize Results').item.json.campaign_id }}",
+            "event": "={{ $('Summarize Results').item.json.status }}",
+            "count": "={{ $('Summarize Results').item.json.sent_count }}",
+            "details": "={{ $('Summarize Results').item.json.notes }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "campaign_id",
+              "displayName": "campaign_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "event",
+              "displayName": "event",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "count",
+              "displayName": "count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "details",
+              "displayName": "details",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7d9991f6-1081-4f38-af51-421cbad8b368",
+      "name": "Log Broadcast",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2200,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date().toISOString();\nreturn $('Summarize Results').first().json.sent_phones.map(phone => ({ json: { phone, last_promo_at: now } }));\n"
+      },
+      "id": "4e0be22a-fd46-4e2d-94b2-fd0ebc7258bf",
+      "name": "Expand Sent Phones",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Customers",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $json.phone }}",
+            "last_promo_at": "={{ $json.last_promo_at }}"
+          },
+          "matchingColumns": [
+            "phone"
+          ],
+          "schema": [
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_promo_at",
+              "displayName": "last_promo_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "70ecec21-792f-4900-b8b3-36af2b23a14a",
+      "name": "Stamp last_promo_at",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2640,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8aaada5c-10e5-4786-bd17-20a47228a158",
+              "leftValue": "={{ $('Summarize Results').item.json.alert }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "075e971b-9f8b-443f-a2ec-50ca9e47b038",
+      "name": "Broadcast Problem?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2420,
+        -460
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return { json: { alert_text: $('Summarize Results').item.json.alert_text } };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "d29d61a7-ca29-41c8-ac66-0179903c8306",
+      "name": "Alert Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        -460
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.WATI_BASE_URL || 'https://live-server-108478.wati.io').replace(/\\/$/, '') }}/api/v1/sendTemplateMessage",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "whatsappNumber",
+              "value": "={{ String($env.ESCALATION_ALERT_WHATSAPP || $env.ADMIN_PHONE || '').replace(/\\D/g, '') }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WATI_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ template_name: $env.WATI_ALERT_TEMPLATE || 'staff_alert', broadcast_name: 'staff_alert', parameters: [{ name: '1', value: String($json.alert_text || '').slice(0, 900) }] }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "de696a4e-f3cd-473b-b1f2-9412626f85aa",
+      "name": "Alert Manager (WATI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2860,
+        -460
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## STOP / START\nCustomers who reply **STOP** are opted out (`wa_opt_out=TRUE`) and get a confirmation. **START** opts them back in.\nPhones in `Customers.phone` must be stored as `+<countrycode><number>` (e.g. `+919876543210`) to match WATI's `waId`.",
+        "width": 520,
+        "height": 200,
+        "color": 7
+      },
+      "id": "27b155ab-098f-4770-85f2-78a53e0f5fc0",
+      "name": "Consent Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wati-inbound",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "82a8c63c-2a21-4214-856c-8c093962f42b",
+      "name": "WATI Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        400
+      ],
+      "webhookId": "ecd6161c-7efc-4831-ab5a-adc217113422"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $input.first().json.body || {};\nif (b.owner === true || b.eventType && !String(b.eventType).toLowerCase().includes('message')) return [];\nconst text = String(b.text || b.data?.text || '').trim().toUpperCase().replace(/[^A-Z ]/g, '');\nconst waId = String(b.waId || b.whatsappNumber || '').replace(/\\D/g, '');\nif (!waId) return [];\nconst STOP = ['STOP', 'UNSUBSCRIBE', 'STOP PROMOTIONS', 'STOP ALL', 'OPT OUT'];\nconst START = ['START', 'SUBSCRIBE', 'UNSTOP', 'OPT IN'];\nlet action = null;\nif (STOP.includes(text)) action = 'opt_out';\nelse if (START.includes(text)) action = 'opt_in';\nif (!action) return [];\nreturn [{ json: {\n  phone: '+' + waId,\n  waId,\n  action,\n  wa_opt_out: action === 'opt_out' ? 'TRUE' : 'FALSE',\n  wa_opt_in: action === 'opt_in' ? 'TRUE' : 'FALSE',\n  consent_source: 'whatsapp_reply',\n  consent_updated_at: new Date().toISOString(),\n  reply: action === 'opt_out'\n    ? \"You're unsubscribed from offers and updates. Booking confirmations will still reach you. Reply START anytime to opt back in.\"\n    : \"You're subscribed again. We'll keep it to the good stuff. Reply STOP anytime to unsubscribe.\",\n} }];\n"
+      },
+      "id": "8bd7f8c6-bd08-4503-b8b2-75b73be2ed2d",
+      "name": "Detect STOP / START",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Customers",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $json.phone }}",
+            "wa_opt_in": "={{ $json.wa_opt_in }}",
+            "wa_opt_out": "={{ $json.wa_opt_out }}",
+            "consent_source": "={{ $json.consent_source }}",
+            "consent_updated_at": "={{ $json.consent_updated_at }}"
+          },
+          "matchingColumns": [
+            "phone"
+          ],
+          "schema": [
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "wa_opt_in",
+              "displayName": "wa_opt_in",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "wa_opt_out",
+              "displayName": "wa_opt_out",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "consent_source",
+              "displayName": "consent_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "consent_updated_at",
+              "displayName": "consent_updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "76240d9a-bea2-4811-aca8-08e904b131d2",
+      "name": "Update Consent",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.WATI_BASE_URL || 'https://live-server-108478.wati.io').replace(/\\/$/, '') }}/api/v1/sendSessionMessage/{{ $('Detect STOP / START').item.json.waId }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "messageText",
+              "value": "={{ $('Detect STOP / START').item.json.reply }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WATI_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "1b818947-f790-40d0-9e0a-a4d9203ba500",
+      "name": "Confirm via WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        400
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Read Campaigns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Campaigns": {
+      "main": [
+        [
+          {
+            "node": "Pick Due WhatsApp Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Due WhatsApp Campaign": {
+      "main": [
+        [
+          {
+            "node": "Lock Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lock Campaign": {
+      "main": [
+        [
+          {
+            "node": "Read Customers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Customers": {
+      "main": [
+        [
+          {
+            "node": "Build Audience",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Audience": {
+      "main": [
+        [
+          {
+            "node": "Has Recipients?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Recipients?": {
+      "main": [
+        [
+          {
+            "node": "Loop Chunks",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Summarize Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Chunks": {
+      "main": [
+        [
+          {
+            "node": "Summarize Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send WATI Broadcast",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WATI Broadcast": {
+      "main": [
+        [
+          {
+            "node": "Tag Chunk Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Chunk Result": {
+      "main": [
+        [
+          {
+            "node": "Throttle 5s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Throttle 5s": {
+      "main": [
+        [
+          {
+            "node": "Loop Chunks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Results": {
+      "main": [
+        [
+          {
+            "node": "Update Campaign Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Campaign Status": {
+      "main": [
+        [
+          {
+            "node": "Log Broadcast",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Broadcast": {
+      "main": [
+        [
+          {
+            "node": "Expand Sent Phones",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Broadcast Problem?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Sent Phones": {
+      "main": [
+        [
+          {
+            "node": "Stamp last_promo_at",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Broadcast Problem?": {
+      "main": [
+        [
+          {
+            "node": "Alert Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Text": {
+      "main": [
+        [
+          {
+            "node": "Alert Manager (WATI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WATI Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Detect STOP / START",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect STOP / START": {
+      "main": [
+        [
+          {
+            "node": "Update Consent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Consent": {
+      "main": [
+        [
+          {
+            "node": "Confirm via WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "Asia/Kolkata"
+  },
+  "pinData": {},
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

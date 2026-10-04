@@ -20,7 +20,11 @@ Production-ready AI voice agent for customer care and sales in hospitality busin
 ├── workflows/
 │   ├── main-voice-agent.json        # Core inbound call workflow (n8n)
 │   ├── outbound-campaign.json       # Outbound calling campaign workflow
-│   └── feedback-learning-loop.json  # Daily analytics + prompt improvement
+│   ├── feedback-learning-loop.json  # Daily analytics + prompt improvement
+│   ├── marketing-whatsapp-broadcast.json   # WATI template broadcasts + STOP/START consent
+│   ├── marketing-email-campaigns.json      # Brevo sync + Claude-written campaigns
+│   ├── marketing-social-publisher.json     # Sheets calendar → Instagram + Facebook
+│   └── marketing-instagram-auto-reply.json # Claude replies to IG comments + DMs
 ├── prompts/
 │   ├── system-prompt.md             # Full AI system prompt (multi-language)
 │   └── conversation-scripts.md      # Sample scripts in 5 languages
@@ -37,7 +41,8 @@ Production-ready AI voice agent for customer care and sales in hospitality busin
     ├── architecture.md              # Full system architecture diagram
     ├── edge-cases.md                # Edge case handling reference
     ├── scaling-guide.md             # Multi-business scaling guide
-    └── deployment-guide.md          # Step-by-step deployment instructions
+    ├── deployment-guide.md          # Step-by-step deployment instructions
+    └── marketing-automation.md      # WhatsApp / email / social / Instagram setup + guardrails
 ```
 
 ## Quick Start
@@ -60,6 +65,10 @@ See `docs/deployment-guide.md` for detailed instructions.
 - **`N8N_MCP_ACCESS_TOKEN`** (optional) → n8n instance-level MCP features (agents, resource explorer).
 
 Never point it at production workflows without a backup: validate in a copy first.
+
+## Marketing Automation
+
+Four workflows run on the same Sheet and Claude: **WhatsApp broadcasts** (WATI, consent + frequency cap), **email campaigns** (Brevo, Claude-written), **social publishing** (Instagram + Facebook from a Sheets calendar) and **Instagram auto-reply** (comments + DMs). Setup and guardrails: `docs/marketing-automation.md`.
 
 ## Key Features
 

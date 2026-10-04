@@ -1,0 +1,996 @@
+{
+  "name": "Marketing — Social Publisher (Instagram + Facebook)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Social publisher (Instagram + Facebook)\nContent calendar = `SocialPosts` sheet. Every 30 min, up to 3 rows with `status=approved` and `publish_at` due are locked and published.\n\n- `platforms`: `instagram`, `facebook` or `instagram,facebook`\n- `format`: `image` | `reel` | `text` (text = Facebook only)\n- `media_url`: **public** HTTPS URL (Instagram fetches it). For Drive, use a CDN or public link.\n- `caption` empty → Claude writes platform-specific captions from `brief` + `BusinessConfig`. Filled → used verbatim.\n\nInstagram uses **Instagram API with Instagram Login** (`IG_USER_ID`, `IG_ACCESS_TOKEN`, long-lived 60 days — refresh monthly). Facebook uses a Page token (`FB_PAGE_ID`, `FB_PAGE_TOKEN`).\nFailures → `status=failed|partially_posted`, `error` filled, manager alerted on WhatsApp.",
+        "width": 560,
+        "height": 420,
+        "color": 7
+      },
+      "id": "0532d5e5-386f-4bf8-91b4-1337ed36345b",
+      "name": "About",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "d86ac873-2263-4dc1-9314-ee24d3bac827",
+      "name": "Every 30 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "SocialPosts",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "c12fc95a-6c72-4c8f-8d36-7722e98319c4",
+      "name": "Read SocialPosts",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const truthy = v => ['true', 'yes', 'y', '1'].includes(String(v ?? '').trim().toLowerCase());\nconst TZ = $env.BUSINESS_TZ_OFFSET || '+05:30';\n// Sheets returns \"2026-10-10 19:00\", ISO strings, or a date serial. Bare times are venue-local (IST).\nfunction parseWhen(v) {\n  if (v === undefined || v === null || v === '') return null;\n  if (typeof v === 'number') {\n    const sign = TZ.startsWith('-') ? -1 : 1;\n    const [h, m] = TZ.slice(1).split(':').map(Number);\n    return new Date((v - 25569) * 864e5 - sign * (h * 60 + (m || 0)) * 6e4);\n  }\n  let s = String(v).trim().replace(' ', 'T');\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) s += 'T00:00';\n  if (!/([zZ]|[+-]\\d{2}:?\\d{2})$/.test(s)) s += TZ;\n  const d = new Date(s);\n  return isNaN(d) ? null : d;\n}\n\nconst now = new Date();\nreturn $input.all().map(i => i.json)\n  .filter(p => String(p.status).trim().toLowerCase() === 'approved' && p.post_id)\n  .map(p => ({ ...p, _when: parseWhen(p.publish_at) }))\n  .filter(p => p._when && p._when <= now)\n  .sort((a, b) => a._when - b._when)\n  .slice(0, 3)\n  .map(({ _when, ...p }) => ({ json: p }));\n"
+      },
+      "id": "ac1e2104-9f23-4e9b-bb70-dbe561430ced",
+      "name": "Pick Due Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "SocialPosts",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "post_id": "={{ $json.post_id }}",
+            "status": "processing"
+          },
+          "matchingColumns": [
+            "post_id"
+          ],
+          "schema": [
+            {
+              "id": "post_id",
+              "displayName": "post_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a41c3e65-8039-4891-a4f4-d3cf7fa34aed",
+      "name": "Lock Posts",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "BusinessConfig",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "92a5b0ed-e1ce-4bcc-acbf-0a00c1e31586",
+      "name": "Read BusinessConfig",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        0
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const biz = $input.first()?.json || {};\nconst system = `You are the social media lead for ${biz.business_name || 'a hospitality venue'} (${biz.business_type || 'restaurant/club'}, India).\nWrite scroll-stopping captions that drive visits and bookings.\nRules:\n- Use ONLY the facts provided. Never invent prices, dates, dishes or offers.\n- instagram_caption: hook in the first line (<= 8 words), 2-4 short lines, a clear CTA (\"Book via link in bio\" / \"DM us to reserve\"), then a blank line and 5-10 relevant hashtags mixing local (city/area) and niche. <= 2 emojis in the body.\n- facebook_caption: 1-3 sentences, conversational, include the booking URL if provided, max 2 hashtags.\n- Match the language of the brief (English, Hinglish, Tamil, etc.).\nReturn ONLY JSON: {\"instagram_caption\": \"...\", \"facebook_caption\": \"...\"}`;\nreturn $('Pick Due Posts').all().map(({ json: p }) => {\n  const needs_caption = !String(p.caption || '').trim();\n  return { json: { post: p, needs_caption, claude_body: needs_caption ? {\n    model: $env.CLAUDE_MARKETING_MODEL || 'claude-sonnet-5-5',\n    max_tokens: 1200,\n    system,\n    messages: [{ role: 'user', content: JSON.stringify({\n      brief: p.brief, format: p.format || 'image', platforms: p.platforms,\n      booking_url: $env.BOOKING_URL || '', menu_url: $env.MENU_URL || '',\n      venue: { name: biz.business_name, timings: biz.timings, menu_highlights: biz.menu_highlights,\n        current_offers: biz.current_offers, address: biz.address },\n    }, null, 2) }],\n  } : null } };\n});\n"
+      },
+      "id": "01aaefa4-8fa8-4013-84e1-5032a70b79f7",
+      "name": "Build Caption Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c12c9c90-771a-4c1c-957a-0d169e1249ba",
+              "leftValue": "={{ $json.needs_caption }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "580a47be-997c-4447-a524-9ab6f9e2dbe7",
+      "name": "Needs Caption?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.claude_body) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "8c4cf924-31a8-4bc5-aaea-d7a6164a1dde",
+      "name": "Claude — Write Captions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        -100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const { post: p, needs_caption } = $('Build Caption Prompt').item.json;\nlet ig = p.caption, fb = p.caption, error = '';\nif (needs_caption) {\n  try {\n    if ($json.error) throw new Error(JSON.stringify($json.error).slice(0, 200));\n    const text = ($json.content || []).filter(b => b.type === 'text').map(b => b.text).join('');\n    const j = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));\n    ig = j.instagram_caption; fb = j.facebook_caption || j.instagram_caption;\n    if (!ig) throw new Error('empty caption');\n  } catch (e) { error = 'Caption generation failed: ' + e.message; }\n}\nconst platforms = String(p.platforms || '').toLowerCase();\nconst format = String(p.format || 'image').trim().toLowerCase();\nconst media = String(p.media_url || '').trim();\nif (!error && format !== 'text' && !/^https:\\/\\//.test(media)) error = 'media_url must be a public https URL';\nconst to_instagram = platforms.includes('instagram') && format !== 'text';\nconst to_facebook = platforms.includes('facebook');\nconst ig_container_body = format === 'reel'\n  ? { media_type: 'REELS', video_url: media, caption: ig, share_to_feed: true }\n  : { image_url: media, caption: ig };\nconst fb_edge = format === 'reel' ? 'videos' : format === 'text' ? 'feed' : 'photos';\nconst fb_body = format === 'reel' ? { file_url: media, description: fb }\n  : format === 'text' ? { message: fb } : { url: media, message: fb };\nreturn { json: { post_id: p.post_id, format, to_instagram, to_facebook, caption_used: ig || '',\n  ig_container_body, fb_edge, fb_body, error, ig_error: '', fb_error: '', ig_media_id: '', fb_post_id: '' } };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "3e74b34e-dd18-419c-9eda-4f8004b2f033",
+      "name": "Finalize Captions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a51bded0-f2a6-4a90-913e-67d4130c224d",
+              "leftValue": "={{ $json.to_instagram && !$json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8757be32-d730-48c9-b08d-6236b8aef929",
+      "name": "Post to Instagram?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.instagram.com/{{ $env.META_GRAPH_VERSION || 'v23.0' }}/{{ $env.IG_USER_ID }}/media",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "access_token",
+              "value": "={{ $env.IG_ACCESS_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.ig_container_body) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "27390bcd-a281-4972-bf3b-47cd2923da68",
+      "name": "IG: Create Container",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        -120
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const post = $('Post to Instagram?').item.json;\nconst id = $json.id;\nif (!id) return { json: { ...post, ig_error: 'IG container: ' + JSON.stringify($json.error || $json).slice(0, 300) } };\n// Images are ready immediately; reels need transcoding. Poll up to ~4 min (Code node timeout is 5 min).\nconst version = $env.META_GRAPH_VERSION || 'v23.0';\nfor (let i = 0; i < 24; i++) {\n  const r = await this.helpers.httpRequest({\n    method: 'GET', url: `https://graph.instagram.com/${version}/${id}`,\n    qs: { fields: 'status_code', access_token: $env.IG_ACCESS_TOKEN }, json: true,\n  });\n  if (r.status_code === 'FINISHED') return { json: { ...post, ig_creation_id: id } };\n  if (r.status_code === 'ERROR' || r.status_code === 'EXPIRED') return { json: { ...post, ig_error: `IG container ${r.status_code}` } };\n  await new Promise(res => setTimeout(res, 10000));\n}\nreturn { json: { ...post, ig_error: 'IG container not ready after 4 min' } };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "45203265-5bc7-4455-83b3-84b3ccbcf4f2",
+      "name": "IG: Wait Until Ready",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "71b4263f-e9fb-40f8-b3d9-864589e7b01b",
+              "leftValue": "={{ !!$json.ig_creation_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4188286a-8da0-49d1-a8ca-cc9339cdc657",
+      "name": "Container Ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2640,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.instagram.com/{{ $env.META_GRAPH_VERSION || 'v23.0' }}/{{ $env.IG_USER_ID }}/media_publish",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "access_token",
+              "value": "={{ $env.IG_ACCESS_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ creation_id: $json.ig_creation_id }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "91da6a9d-0aa0-4726-aa58-a1690753f990",
+      "name": "IG: Publish",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2860,
+        -200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const post = $('IG: Wait Until Ready').item.json;\nif (post.ig_error) return { json: post };\nif ($json.id) return { json: { ...post, ig_media_id: String($json.id) } };\nreturn { json: { ...post, ig_error: 'IG publish: ' + JSON.stringify($json.error || $json).slice(0, 300) } };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "c5140688-248f-4c64-9a5d-b82d480dce4f",
+      "name": "IG: Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "573670b5-9a4c-4244-8ec5-4e1e18eb0332",
+              "leftValue": "={{ $json.to_facebook && !$json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "578c829f-3dca-4e0d-92ce-25106c17c780",
+      "name": "Post to Facebook?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3300,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/{{ $env.META_GRAPH_VERSION || 'v23.0' }}/{{ $env.FB_PAGE_ID }}/{{ $json.fb_edge }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "access_token",
+              "value": "={{ $env.FB_PAGE_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.fb_body) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "dfdb56a1-e2b5-4bbb-8876-a67642b042b7",
+      "name": "FB: Publish",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3520,
+        -100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const post = $('Post to Facebook?').item.json;\nconst id = $json.post_id || $json.id;\nif (id) return { json: { ...post, fb_post_id: String(id) } };\nreturn { json: { ...post, fb_error: 'FB publish: ' + JSON.stringify($json.error || $json).slice(0, 300) } };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "e0eb6d1c-3cc1-41fe-a5d7-0939eaaf6bf3",
+      "name": "FB: Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3740,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors = [$json.error, $json.ig_error, $json.fb_error].filter(Boolean);\nconst anyPosted = !!($json.ig_media_id || $json.fb_post_id);\nconst status = !errors.length ? 'posted' : anyPosted ? 'partially_posted' : 'failed';\nreturn { json: { ...$json, status, error_text: errors.join(' | ').slice(0, 500),\n  alert: status !== 'posted', alert_text: `Social post ${$json.post_id} ${status}: ${errors.join(' | ').slice(0, 300)}` } };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "fb06a795-b85f-45c4-b370-073a7a4596f5",
+      "name": "Final Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "SocialPosts",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "post_id": "={{ $json.post_id }}",
+            "status": "={{ $json.status }}",
+            "ig_media_id": "={{ $json.ig_media_id }}",
+            "fb_post_id": "={{ $json.fb_post_id }}",
+            "caption_used": "={{ $json.caption_used }}",
+            "posted_at": "={{ $now.toISO() }}",
+            "error": "={{ $json.error_text }}"
+          },
+          "matchingColumns": [
+            "post_id"
+          ],
+          "schema": [
+            {
+              "id": "post_id",
+              "displayName": "post_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ig_media_id",
+              "displayName": "ig_media_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fb_post_id",
+              "displayName": "fb_post_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "caption_used",
+              "displayName": "caption_used",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "posted_at",
+              "displayName": "posted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bcf237ef-04fa-4bf2-abf5-1d645c10e99b",
+      "name": "Update Post Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        4180,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c6cba636-0925-4587-927d-a9afa7f73cb2",
+              "leftValue": "={{ $('Final Status').item.json.alert }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d1415016-07d9-4a62-9f34-9b2cf436469a",
+      "name": "Failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return { json: { alert_text: $('Final Status').item.json.alert_text } };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "2f054c8f-0ddf-4e6e-b6cb-8e720008a186",
+      "name": "Alert Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4620,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.WATI_BASE_URL || 'https://live-server-108478.wati.io').replace(/\\/$/, '') }}/api/v1/sendTemplateMessage",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "whatsappNumber",
+              "value": "={{ String($env.ESCALATION_ALERT_WHATSAPP || $env.ADMIN_PHONE || '').replace(/\\D/g, '') }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WATI_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ template_name: $env.WATI_ALERT_TEMPLATE || 'staff_alert', broadcast_name: 'staff_alert', parameters: [{ name: '1', value: String($json.alert_text || '').slice(0, 900) }] }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a724c814-3a74-4bdd-9442-a3d5b1a3f952",
+      "name": "Alert Manager (WATI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4840,
+        -100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Every 30 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Read SocialPosts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read SocialPosts": {
+      "main": [
+        [
+          {
+            "node": "Pick Due Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Due Posts": {
+      "main": [
+        [
+          {
+            "node": "Lock Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lock Posts": {
+      "main": [
+        [
+          {
+            "node": "Read BusinessConfig",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read BusinessConfig": {
+      "main": [
+        [
+          {
+            "node": "Build Caption Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Caption Prompt": {
+      "main": [
+        [
+          {
+            "node": "Needs Caption?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Caption?": {
+      "main": [
+        [
+          {
+            "node": "Claude — Write Captions",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finalize Captions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude — Write Captions": {
+      "main": [
+        [
+          {
+            "node": "Finalize Captions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Captions": {
+      "main": [
+        [
+          {
+            "node": "Post to Instagram?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Instagram?": {
+      "main": [
+        [
+          {
+            "node": "IG: Create Container",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post to Facebook?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IG: Create Container": {
+      "main": [
+        [
+          {
+            "node": "IG: Wait Until Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IG: Wait Until Ready": {
+      "main": [
+        [
+          {
+            "node": "Container Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Container Ready?": {
+      "main": [
+        [
+          {
+            "node": "IG: Publish",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IG: Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IG: Publish": {
+      "main": [
+        [
+          {
+            "node": "IG: Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IG: Record": {
+      "main": [
+        [
+          {
+            "node": "Post to Facebook?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Facebook?": {
+      "main": [
+        [
+          {
+            "node": "FB: Publish",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Final Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FB: Publish": {
+      "main": [
+        [
+          {
+            "node": "FB: Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FB: Record": {
+      "main": [
+        [
+          {
+            "node": "Final Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Status": {
+      "main": [
+        [
+          {
+            "node": "Update Post Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Post Row": {
+      "main": [
+        [
+          {
+            "node": "Failed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Failed?": {
+      "main": [
+        [
+          {
+            "node": "Alert Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Text": {
+      "main": [
+        [
+          {
+            "node": "Alert Manager (WATI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "Asia/Kolkata"
+  },
+  "pinData": {},
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

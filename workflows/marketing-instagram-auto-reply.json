@@ -1,0 +1,838 @@
+{
+  "name": "Marketing — Instagram Auto-Reply (Claude)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Instagram auto-reply (comments + DMs)\nMeta webhook → signature check → dedupe → Claude decides → Graph API actions → log + escalate.\n\n**Setup (Meta App → Instagram → API setup with Instagram login):**\n1. Callback URL `https://<n8n>/webhook/instagram-webhook`, verify token = `META_VERIFY_TOKEN`.\n2. Subscribe fields: `comments`, `messages`.\n3. Permissions: `instagram_business_basic`, `instagram_business_manage_comments`, `instagram_business_manage_messages`.\n4. n8n env: `NODE_FUNCTION_ALLOW_BUILTIN=crypto` (signature check), `META_APP_SECRET`.\n\n**What it does:** comments get a short public reply; booking / price / menu questions also get a private DM; complaints get a public apology + DM + manager alert; spam/abuse is hidden. DMs get answered from `BusinessConfig` facts only.\nKill switch: `IG_AUTOREPLY_ENABLED=false`.",
+        "width": 600,
+        "height": 460,
+        "color": 7
+      },
+      "id": "3be366f1-8e4e-492b-8595-83fa3161ea8e",
+      "name": "About",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -520,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "instagram-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0e2285d0-eb12-456e-a418-c2fc1c2e796b",
+      "name": "IG Webhook Verify (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -160
+      ],
+      "webhookId": "b011fd57-282d-49c0-bb6c-439310184315"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9d60652a-4d86-4f4f-b81b-c93adf185f71",
+              "leftValue": "={{ $json.query['hub.mode'] }}",
+              "rightValue": "subscribe",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "f7a6a798-3cb5-46bb-ac82-121edea6b37c",
+              "leftValue": "={{ $json.query['hub.verify_token'] }}",
+              "rightValue": "={{ $env.META_VERIFY_TOKEN }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "fa2b62b6-9874-48cc-bd27-bd388b872525",
+      "name": "Verify Token OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query['hub.challenge'] }}",
+        "options": {}
+      },
+      "id": "6d05b356-f0ce-44a7-bf69-d5c5511bef49",
+      "name": "Return Challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "noData",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "4d2364ef-62cc-4758-a4c2-1732610976e1",
+      "name": "Reject (403)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "instagram-webhook",
+        "responseMode": "onReceived",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "8738dc60-7615-4495-b3c5-fe01dbf808a0",
+      "name": "IG Events (POST)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        200
+      ],
+      "webhookId": "fced3e69-dddc-45b4-bee6-4de8f9de2069"
+    },
+    {
+      "parameters": {
+        "jsCode": "if (String($env.IG_AUTOREPLY_ENABLED || 'true').toLowerCase() === 'false') return [];\nconst item = $input.first();\nlet body = item.json.body;\nconst secret = $env.META_APP_SECRET;\nif (secret) {\n  // Fail closed: unsigned or tampered payloads are dropped\n  const crypto = require('crypto');\n  const sig = String((item.json.headers || {})['x-hub-signature-256'] || '');\n  let raw;\n  try { raw = await this.helpers.getBinaryDataBuffer(0, 'data'); } catch (e) { return []; }\n  const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(raw).digest('hex');\n  if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return [];\n  if (!body || typeof body !== 'object' || !body.entry) body = JSON.parse(raw.toString('utf8'));\n}\nif (!body || body.object !== 'instagram') return [];\nconst myId = String($env.IG_USER_ID || '');\nconst out = [];\nfor (const entry of body.entry || []) {\n  const igId = String(entry.id || myId);\n  for (const m of entry.messaging || []) {\n    const msg = m.message;\n    const sender = String(m.sender?.id || '');\n    // Skip echoes of our own messages, deletes, reactions/read receipts and non-text\n    if (!msg || msg.is_echo || msg.is_deleted || !sender || sender === igId || sender === myId) continue;\n    const text = String(msg.text || '').trim();\n    if (!text) continue;\n    out.push({ json: { event_id: 'dm_' + msg.mid, kind: 'dm', ig_user_id: igId, sender_id: sender, username: '',\n      text: text.slice(0, 1000), comment_id: '', media_id: '', received_at: new Date(m.timestamp || Date.now()).toISOString() } });\n  }\n  for (const ch of entry.changes || []) {\n    if (ch.field !== 'comments') continue;\n    const v = ch.value || {};\n    const from = String(v.from?.id || '');\n    // Never respond to our own replies — prevents reply loops\n    if (!v.id || from === igId || from === myId) continue;\n    const text = String(v.text || '').trim();\n    if (!text) continue;\n    out.push({ json: { event_id: 'c_' + v.id, kind: 'comment', ig_user_id: igId, sender_id: from, username: v.from?.username || '',\n      text: text.slice(0, 1000), comment_id: v.id, media_id: v.media?.id || '', received_at: new Date().toISOString() } });\n  }\n}\nreturn out;\n"
+      },
+      "id": "fe9eca87-d2fd-4c7e-97c0-49e0c5139502",
+      "name": "Verify Signature & Normalize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "removeItemsSeenInPreviousExecutions",
+        "dedupeValue": "={{ $json.event_id }}",
+        "options": {
+          "historySize": 10000
+        }
+      },
+      "id": "8af7443e-1bdc-4736-b9ef-84ca47b63414",
+      "name": "Drop Meta Retries",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        440,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "BusinessConfig",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "0925cb6a-f62b-488f-a5d7-cab686357e0b",
+      "name": "Read BusinessConfig",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        200
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const biz = $input.first()?.json || {};\nconst system = `You run the Instagram inbox and comments for ${biz.business_name || 'our venue'}, a ${biz.business_type || 'restaurant/club'} in India.\nYou reply like a friendly, sharp host — human, brief, never robotic or salesy.\n\nVENUE FACTS (the ONLY facts you may state):\n- Timings: ${biz.timings || 'unknown'}\n- Menu highlights: ${biz.menu_highlights || 'unknown'}\n- Current offers: ${biz.current_offers || 'none listed'}\n- VIP options: ${biz.vip_options || 'none listed'}\n- Address: ${biz.address || 'unknown'}\n- Phone: ${biz.phone_number || 'unknown'}\n- Booking link: ${$env.BOOKING_URL || 'not available — ask them to call'}\n- Menu link: ${$env.MENU_URL || 'not available'}\n\nRULES\n1. Never invent prices, availability, dates, dishes or offers. If you don't know, say the team will confirm and set escalate=true.\n2. Never confirm a reservation yourself. Point to the booking link or phone.\n3. Reply in the user's language and script (English, Hinglish, Tanglish, Tamil, Telugu, Kannada, Malayalam, Hindi).\n4. Max one emoji. No hashtags. Never share personal data publicly.\n5. Do not promote alcohol to anyone who appears underage.\n\nFOR kind=\"comment\":\n- public_reply: <= 200 characters, 1-2 sentences, address @username naturally if given.\n- Booking / pricing / menu / availability / party or event enquiries: short public reply (\"Sent you a DM 📩\" style) AND dm_reply with the details.\n- Complaint or bad experience: public_reply = sincere apology + \"we've sent you a DM\"; dm_reply asks for date/time and a contact number; escalate=true.\n- Compliment / tag / emoji-only: warm, specific thanks. No DM.\n- Spam, scams, bots, link drops, self-promotion: hide_comment=true, no replies.\n- Abuse, hate, harassment: hide_comment=true, no replies; escalate=true only if it contains threats.\nFOR kind=\"dm\":\n- dm_reply only (public_reply empty, hide_comment false). <= 600 characters. Answer the question directly, then a clear next step.\n- Complaints, refunds, lost items, large group / corporate / event bookings, media or collab requests: helpful holding reply + escalate=true.\n\nReturn ONLY JSON:\n{\"intent\":\"booking|menu|hours_location|pricing|offer|event|complaint|compliment|spam|abuse|collab|other\",\"language\":\"en|hi|ta|te|kn|ml|other\",\"public_reply\":\"\",\"dm_reply\":\"\",\"hide_comment\":false,\"escalate\":false,\"escalation_reason\":\"\"}`;\nreturn $('Drop Meta Retries').all().map(({ json: e }) => ({ json: { event: e, claude_body: {\n  model: $env.CLAUDE_FAST_MODEL || 'claude-haiku-4-5-20251001',\n  max_tokens: 700,\n  system,\n  messages: [{ role: 'user', content: JSON.stringify({ kind: e.kind, username: e.username, text: e.text }) }],\n} } }));\n"
+      },
+      "id": "9e87b4e2-cdc7-434d-aa59-8c1d3cc2c89a",
+      "name": "Build Reply Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.claude_body) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "9dcf7dfb-cf75-4bf4-92bd-c6790f4c2851",
+      "name": "Claude — Decide Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const e = $('Build Reply Prompt').item.json.event;\nlet d;\ntry {\n  if ($json.error) throw new Error('claude_error');\n  const text = ($json.content || []).filter(b => b.type === 'text').map(b => b.text).join('');\n  d = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));\n} catch (err) {\n  // Safe fallback: acknowledge DMs, stay silent on comments, always escalate\n  d = { intent: 'other', language: 'en', public_reply: '', hide_comment: false, escalate: true,\n    dm_reply: e.kind === 'dm' ? \"Thanks for reaching out! Our team will get back to you shortly.\" : '',\n    escalation_reason: 'AI reply failed: ' + err.message };\n}\nconst s = v => String(v || '').trim();\nconst decision = {\n  intent: s(d.intent) || 'other', language: s(d.language) || 'en',\n  public_reply: e.kind === 'comment' ? s(d.public_reply).slice(0, 300) : '',\n  dm_reply: s(d.dm_reply).slice(0, 1000),\n  hide_comment: e.kind === 'comment' && d.hide_comment === true,\n  escalate: d.escalate === true, escalation_reason: s(d.escalation_reason),\n};\nif (decision.hide_comment) { decision.public_reply = ''; decision.dm_reply = ''; }\nreturn { json: { ...e, ...decision,\n  alert_text: `IG ${e.kind} from @${e.username || e.sender_id}: \"${e.text.slice(0, 200)}\" — ${decision.escalation_reason || decision.intent}` } };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "f875a794-b307-454c-9679-27b21871a42a",
+      "name": "Parse Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const v = $env.META_GRAPH_VERSION || 'v23.0';\nconst base = `https://graph.instagram.com/${v}`;\nconst calls = [];\nfor (const { json: d } of $input.all()) {\n  const meta = { event_id: d.event_id, kind: d.kind, username: d.username, sender_id: d.sender_id, text: d.text };\n  if (d.kind === 'dm' && d.dm_reply) {\n    calls.push({ ...meta, action: 'dm', url: `${base}/${d.ig_user_id}/messages`,\n      body: { recipient: { id: d.sender_id }, message: { text: d.dm_reply } } });\n  }\n  if (d.kind === 'comment') {\n    if (d.hide_comment) calls.push({ ...meta, action: 'hide', url: `${base}/${d.comment_id}`, body: { hide: true } });\n    if (d.public_reply) calls.push({ ...meta, action: 'public_reply', url: `${base}/${d.comment_id}/replies`, body: { message: d.public_reply } });\n    // Private reply: one DM per comment, allowed within 7 days of the comment\n    if (d.dm_reply) calls.push({ ...meta, action: 'private_reply', url: `${base}/${d.ig_user_id}/messages`,\n      body: { recipient: { comment_id: d.comment_id }, message: { text: d.dm_reply } } });\n  }\n}\nreturn calls.map(json => ({ json }));\n"
+      },
+      "id": "ba3a94ff-9109-4efa-b2a8-e47b6d19f956",
+      "name": "Plan Graph Calls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "access_token",
+              "value": "={{ $env.IG_ACCESS_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "be2e8acf-7076-4f58-b454-22e244eafebc",
+      "name": "Execute Graph Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const calls = $('Plan Graph Calls').all();\nreturn $input.all()\n  .map((r, i) => ({ r: r.json, c: calls[i]?.json || {} }))\n  .filter(({ r }) => r.error || !(r.id || r.message_id || r.success))\n  .map(({ r, c }) => ({ json: { ...c, status: 'api_error:' + c.action,\n    error: JSON.stringify(r.error || r).slice(0, 300),\n    alert_text: `IG ${c.action} failed for @${c.username || c.sender_id}: ${JSON.stringify(r.error?.message || r.error || r).slice(0, 200)}` } }));\n"
+      },
+      "id": "314c9e7a-fa7a-4425-b25b-d06f45f30f1d",
+      "name": "Collect Failures",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "InstagramLog",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $now.toISO() }}",
+            "event_id": "={{ $json.event_id }}",
+            "kind": "={{ $json.kind }}",
+            "username": "={{ $json.username }}",
+            "sender_id": "={{ $json.sender_id }}",
+            "text": "={{ $json.text }}",
+            "status": "={{ $json.status }}",
+            "error": "={{ $json.error }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "event_id",
+              "displayName": "event_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kind",
+              "displayName": "kind",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "username",
+              "displayName": "username",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sender_id",
+              "displayName": "sender_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "text",
+              "displayName": "text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2a749bcd-75df-4ace-ab79-1ee2a520b5b6",
+      "name": "Log Failures",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2200,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "InstagramLog",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $now.toISO() }}",
+            "event_id": "={{ $json.event_id }}",
+            "kind": "={{ $json.kind }}",
+            "username": "={{ $json.username }}",
+            "sender_id": "={{ $json.sender_id }}",
+            "text": "={{ $json.text }}",
+            "intent": "={{ $json.intent }}",
+            "language": "={{ $json.language }}",
+            "public_reply": "={{ $json.public_reply }}",
+            "dm_reply": "={{ $json.dm_reply }}",
+            "hidden": "={{ $json.hide_comment }}",
+            "escalated": "={{ $json.escalate }}",
+            "status": "handled"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "event_id",
+              "displayName": "event_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kind",
+              "displayName": "kind",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "username",
+              "displayName": "username",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sender_id",
+              "displayName": "sender_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "text",
+              "displayName": "text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "intent",
+              "displayName": "intent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "language",
+              "displayName": "language",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "public_reply",
+              "displayName": "public_reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "dm_reply",
+              "displayName": "dm_reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "hidden",
+              "displayName": "hidden",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "escalated",
+              "displayName": "escalated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7fb13b92-17b1-4f06-b5ad-e4378f67bf01",
+      "name": "Log Decision",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1540,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "21094394-7bdf-4174-94b8-67748dfe5084",
+              "leftValue": "={{ $json.escalate }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9b6d6ff7-ab9c-4cce-87ee-27a36f69cad7",
+      "name": "Escalate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1540,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.WATI_BASE_URL || 'https://live-server-108478.wati.io').replace(/\\/$/, '') }}/api/v1/sendTemplateMessage",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "whatsappNumber",
+              "value": "={{ String($env.ESCALATION_ALERT_WHATSAPP || $env.ADMIN_PHONE || '').replace(/\\D/g, '') }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WATI_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ template_name: $env.WATI_ALERT_TEMPLATE || 'staff_alert', broadcast_name: 'staff_alert', parameters: [{ name: '1', value: String($json.alert_text || '').slice(0, 900) }] }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "4864ce03-3b06-4b0a-be55-409f5b1b2727",
+      "name": "Alert Manager (WATI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        440
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "IG Webhook Verify (GET)": {
+      "main": [
+        [
+          {
+            "node": "Verify Token OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Token OK?": {
+      "main": [
+        [
+          {
+            "node": "Return Challenge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject (403)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IG Events (POST)": {
+      "main": [
+        [
+          {
+            "node": "Verify Signature & Normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Signature & Normalize": {
+      "main": [
+        [
+          {
+            "node": "Drop Meta Retries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drop Meta Retries": {
+      "main": [
+        [
+          {
+            "node": "Read BusinessConfig",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read BusinessConfig": {
+      "main": [
+        [
+          {
+            "node": "Build Reply Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Reply Prompt": {
+      "main": [
+        [
+          {
+            "node": "Claude — Decide Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude — Decide Reply": {
+      "main": [
+        [
+          {
+            "node": "Parse Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Decision": {
+      "main": [
+        [
+          {
+            "node": "Plan Graph Calls",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Decision",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Escalate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Graph Calls": {
+      "main": [
+        [
+          {
+            "node": "Execute Graph Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Graph Call": {
+      "main": [
+        [
+          {
+            "node": "Collect Failures",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Failures": {
+      "main": [
+        [
+          {
+            "node": "Log Failures",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalate?": {
+      "main": [
+        [
+          {
+            "node": "Alert Manager (WATI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "Asia/Kolkata"
+  },
+  "pinData": {},
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
