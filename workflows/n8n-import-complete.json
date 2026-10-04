@@ -407,7 +407,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 300,\n  \"system\": {{ JSON.stringify($json.system_prompt) }},\n  \"messages\": {{ JSON.stringify($json.ai_messages) }}\n}",
+        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5\",\n  \"max_tokens\": 300,\n  \"system\": {{ JSON.stringify($json.system_prompt) }},\n  \"messages\": {{ JSON.stringify($json.ai_messages) }}\n}",
         "options": {
           "timeout": 12000
         }
