@@ -63,8 +63,8 @@
     "applicationSubCategory": "AI Agent Manager",
     "operatingSystem": "macOS 13+, Windows, Linux",
     "url": "https://agency.marvice.tech/",
-    "downloadUrl": "https://github.com/msitarzewski/agency-agents-app/releases/latest",
-    "softwareVersion": "0.2.0",
+    "downloadUrl": "https://agency.marvice.tech/#get-it",
+    "softwareVersion": "0.3.2",
     "license": "https://opensource.org/licenses/MIT",
     "author": {
       "@type": "Person",
@@ -91,10 +91,11 @@
       <p class="tagline">A native installer for AI agents.</p>
       <p class="sub">Browse the agent catalog by division and role. Inspect a persona before you install it. Deploy deterministic renders into <strong>Claude Code, Codex, Cursor, Gemini CLI, Qwen, opencode, Copilot, and Osaurus</strong> — then track what the app wrote, detect drift, update, or back it out. A small, fast <strong>Tauri 2</strong> app (Rust + Svelte 5). The local install database your AI tools don't share.</p>
       <div class="cta-row">
-        <a class="btn btn-primary" href="https://github.com/msitarzewski/agency-agents-app/releases/latest">Download</a>
+        <a class="btn btn-primary" id="dl-primary" href="/download/Agency_Agents_0.3.2_aarch64.dmg" download>Download for macOS (Apple Silicon)</a>
+        <a class="btn btn-secondary" href="#get-it">All platforms</a>
         <a class="btn btn-secondary" href="https://github.com/msitarzewski/agency-agents-app">Source on GitHub</a>
       </div>
-      <p class="small-note">macOS 13+ · Windows · Linux · Apple Silicon &amp; Intel · MIT · no telemetry, no accounts</p>
+      <p class="small-note">v0.3.2 · macOS 13+ · Windows · Linux · Apple Silicon &amp; Intel · MIT · no telemetry, no accounts</p>
     </div>
   </header>
 
@@ -199,16 +200,20 @@
       </ul>
     </section>
 
-    <section class="section section-bordered">
+    <section class="section section-bordered" id="get-it">
       <h2>Get it</h2>
-      <p><strong>Direct download (recommended):</strong> grab the build for your platform from the <a href="https://github.com/msitarzewski/agency-agents-app/releases/latest">latest release</a>.</p>
-      <p><strong>Which download?</strong></p>
+      <p><strong>Direct download — v0.3.2.</strong> Pick your platform; the file downloads straight from this site.</p>
       <ul class="posture">
-        <li><strong>Apple Silicon (M-series), macOS 13+.</strong> <code>Agency Agents_&lt;version&gt;_aarch64.dmg</code> — signed &amp; notarized.</li>
-        <li><strong>Intel Mac, macOS 13+.</strong> <code>Agency Agents_&lt;version&gt;_x64.dmg</code> — signed &amp; notarized.</li>
-        <li><strong>Windows (x64 / ARM64).</strong> the <code>.exe</code> installer. Not code-signed yet — on first launch SmartScreen shows "Windows protected your PC"; click <strong>More info → Run anyway</strong>.</li>
-        <li><strong>Linux.</strong> <code>.deb</code> (Debian/Ubuntu), <code>.rpm</code> (Fedora/RHEL/openSUSE), or the portable <code>.AppImage</code>.</li>
+        <li><strong>macOS 13+, Apple Silicon (M-series).</strong> <a href="/download/Agency_Agents_0.3.2_aarch64.dmg" download>Agency_Agents_0.3.2_aarch64.dmg</a> (10.6 MB) — signed &amp; notarized.</li>
+        <li><strong>macOS 13+, Intel.</strong> <a href="/download/Agency_Agents_0.3.2_x64.dmg" download>Agency_Agents_0.3.2_x64.dmg</a> (11 MB) — signed &amp; notarized.</li>
+        <li><strong>Windows x64.</strong> <a href="/download/Agency_Agents_0.3.2_x64-setup.exe" download>Agency_Agents_0.3.2_x64-setup.exe</a> (8 MB)</li>
+        <li><strong>Windows ARM64.</strong> <a href="/download/Agency_Agents_0.3.2_arm64-setup.exe" download>Agency_Agents_0.3.2_arm64-setup.exe</a> (7.5 MB)</li>
+        <li><strong>Linux, Debian/Ubuntu.</strong> <a href="/download/Agency_Agents_0.3.2_amd64.deb" download>Agency_Agents_0.3.2_amd64.deb</a> (10.9 MB)</li>
+        <li><strong>Linux, Fedora/RHEL/openSUSE.</strong> <a href="/download/Agency_Agents-0.3.2-1.x86_64.rpm" download>Agency_Agents-0.3.2-1.x86_64.rpm</a> (10.9 MB)</li>
+        <li><strong>Linux, any distro.</strong> <a href="/download/Agency_Agents_0.3.2_amd64.AppImage" download>Agency_Agents_0.3.2_amd64.AppImage</a> (85 MB, portable)</li>
       </ul>
+      <p class="small-note">Verify: <a href="/download/SHA256SUMS.txt">SHA-256 checksums</a>. Mirrored unmodified from the <a href="https://github.com/msitarzewski/agency-agents-app/releases/tag/v0.3.2">upstream v0.3.2 release</a>.</p>
+      <p class="small-note">Windows builds aren't code-signed yet: on first launch SmartScreen shows "Windows protected your PC" — click <strong>More info → Run anyway</strong>.</p>
       <p>Or install with <strong>Homebrew</strong> (macOS):</p>
       <pre><code>brew tap msitarzewski/agency-agents
 brew install --cask agency-agents</code></pre>
@@ -222,6 +227,20 @@ npm run tauri build      # bundles for your platform in src-tauri/target/release
     </section>
 
   </main>
+
+  <script>
+    (function () {
+      var a = document.getElementById("dl-primary"), ua = navigator.userAgent, base = "/download/Agency_Agents_0.3.2_";
+      function set(file, label) { a.href = base + file; a.textContent = "Download for " + label; }
+      if (/Windows/.test(ua)) set(/ARM64|aarch64/i.test(ua) ? "arm64-setup.exe" : "x64-setup.exe", "Windows");
+      else if (/Linux/.test(ua) && !/Android/.test(ua)) set("amd64.AppImage", "Linux (AppImage)");
+      else if (/Mac/.test(ua) && navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+        navigator.userAgentData.getHighEntropyValues(["architecture"]).then(function (v) {
+          if (v.architecture === "x86") set("x64.dmg", "macOS (Intel)");
+        }).catch(function () {});
+      }
+    })();
+  </script>
 
   <footer>
     <div class="footer-inner">

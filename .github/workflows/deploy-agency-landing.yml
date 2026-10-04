@@ -26,6 +26,7 @@ permissions:
 
 env:
   DOMAIN: agency.marvice.tech
+  UPSTREAM: msitarzewski/agency-agents-app
 
 jobs:
   deploy:
@@ -51,6 +52,27 @@ jobs:
           echo "$DOMAIN" > _site/CNAME
           touch _site/.nojekyll
 
+      - name: Fetch release downloads
+        run: |
+          # Self-host every installer index.html links under /download/, so buttons
+          # download from agency.marvice.tech instead of bouncing to GitHub.
+          # The version comes from the links themselves; bump them in index.html to upgrade.
+          mkdir -p _site/download
+          files=$(grep -oE 'href="/download/[^"]+"' _site/index.html | sed -E 's#href="/download/([^"]+)"#\1#' | sort -u)
+          [ -n "$files" ] || { echo "::error::No /download/ links found in index.html"; exit 1; }
+          tag=$(echo "$files" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | sort -u)
+          [ "$(echo "$tag" | wc -l)" = 1 ] || { echo "::error::Download links mix versions: $tag"; exit 1; }
+          for f in $files; do
+            curl -fsSL --retry 3 -o "_site/download/$f" \
+              "https://github.com/${UPSTREAM}/releases/download/v${tag}/$f" \
+              || { echo "::error::$f not found in ${UPSTREAM} release v${tag}"; exit 1; }
+            echo "$(du -h "_site/download/$f" | cut -f1)  $f"
+          done
+          # Pages rejects files over 100 MB.
+          big=$(find _site/download -size +100M)
+          [ -z "$big" ] || { echo "::error::Over the 100 MB Pages limit: $big"; exit 1; }
+          (cd _site/download && sha256sum $files > SHA256SUMS.txt)
+
       - name: Publish to gh-pages
         env:
           TOKEN: ${{ github.token }}
@@ -75,11 +97,14 @@ jobs:
 
       - name: Smoke test
         run: |
-          # Pages takes ~1 min to rebuild after the push.
-          for i in $(seq 1 12); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "https://$DOMAIN/")
-            echo "attempt $i: HTTP $code"
-            [ "$code" = "200" ] && exit 0
+          # Pages takes ~1 min to rebuild after the push. Probe a download too:
+          # the old build also answers 200 on "/", but not for a new file.
+          file=$(awk 'NR==1{print $2}' _site/download/SHA256SUMS.txt)
+          for i in $(seq 1 18); do
+            home=$(curl -s -o /dev/null -w '%{http_code}' "https://$DOMAIN/")
+            dl=$(curl -sI -o /dev/null -w '%{http_code}' "https://$DOMAIN/download/$file")
+            echo "attempt $i: / HTTP $home, /download/$file HTTP $dl"
+            [ "$home" = 200 ] && [ "$dl" = 200 ] && exit 0
             sleep 10
           done
           exit 1
