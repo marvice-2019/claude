@@ -80,11 +80,12 @@ In n8n, add each as a variable:
 
 1. Open n8n editor
 2. Click "Import from File"
-3. Import in this order:
-   - `workflows/main-voice-agent.json` (core workflow)
-   - `workflows/outbound-campaign.json` (outbound calls)
-   - `workflows/feedback-learning-loop.json` (daily analytics)
-4. Activate all three workflows
+3. Import `workflows/n8n-import-complete.json` — inbound calls, outbound campaign and daily analytics in one workflow.
+   Alternative split set: `n8n-import-call-handler.json` + `n8n-import-ai-brain.json` + `n8n-import-crm-whatsapp.json`.
+4. Activate the workflow(s)
+
+> `main-voice-agent.json`, `outbound-campaign.json` and `feedback-learning-loop.json` are design blueprints
+> (no `typeVersion`, string connections). n8n won't import them; use the `n8n-import-*` files.
 
 ---
 
