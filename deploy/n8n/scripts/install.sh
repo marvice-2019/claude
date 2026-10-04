@@ -27,8 +27,14 @@ fi
 if [[ "${SKIP_WIPE:-0}" != 1 ]] && command -v docker >/dev/null; then
   log "Removing all existing Docker containers, volumes and images"
   docker ps -aq | xargs -r docker rm -f
+  docker volume ls -q | xargs -r docker volume rm -f   # named volumes too (prune skips them)
   docker system prune -af --volumes
   docker network prune -f
+  # Hostinger Docker Manager / one-click template projects
+  if [[ -d /docker ]]; then
+    echo "removing /docker: $(ls /docker | tr '\n' ' ')"
+    rm -rf /docker
+  fi
 fi
 for svc in nginx apache2 caddy traefik; do
   systemctl disable --now "$svc" 2>/dev/null || true
