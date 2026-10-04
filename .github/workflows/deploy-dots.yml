@@ -1,14 +1,15 @@
-# Deploys dots/ (static, no build step) to dots.marvice.tech on the Marvice VPS
-# (srv1373084.hstgr.cloud, the Docker + Traefik box that also runs n8n) via rsync over SSH.
-# An nginx container behind the existing Traefik serves /var/www/dots.marvice.tech; Traefik handles SSL.
-# GitHub Pages can't host it: this repo's Pages site already serves agency.marvice.tech.
+# Redeploys dots.marvice.tech on push. The site is a Coolify app on the Marvice VPS
+# (srv1373084, "Ubuntu 24.04 with Coolify"): Coolify builds dots/ from this public repo
+# and its proxy handles SSL, so there's no SSH or server setup here.
 #
-# One-time setup on the VPS, as root (hPanel → VPS → Browser terminal works):
-#   curl -fsSL https://raw.githubusercontent.com/marvice-2019/claude/main/scripts/vps-setup-dots.sh | bash
-# It prints the secrets below.
+# One-time, in https://coolify.marvice.tech:
+#   + New → Public Repository → https://github.com/marvice-2019/claude, branch main
+#   Build Pack: Static · Base Directory: /dots · Domain: https://dots.marvice.tech → Deploy
 #
-# DNS (Hostinger → Domains → marvice.tech → DNS records):  A  dots  →  91.108.110.216
-# Repo secrets: VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_KNOWN_HOSTS. Optional variable: VPS_PORT.
+# Then, for auto-deploy on push, add under repo Settings → Secrets and variables → Actions:
+#   secret   COOLIFY_TOKEN      Coolify → Keys & Tokens → API tokens (needs "deploy")
+#   variable COOLIFY_DOTS_UUID  the app's UUID (from its Coolify URL)
+# Without them this job only warns; redeploy from Coolify by hand.
 
 name: Deploy dots.marvice.tech
 
@@ -29,13 +30,11 @@ permissions:
 
 env:
   DOMAIN: dots.marvice.tech
+  COOLIFY_URL: https://coolify.marvice.tech
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: dots-marvice-tech
-      url: https://dots.marvice.tech/
     steps:
       - uses: actions/checkout@v4
 
@@ -47,45 +46,29 @@ jobs:
             echo "::error::Upstream marketing domain referenced in dots/"; exit 1
           fi
 
-      - name: Configure SSH
+      - name: Trigger Coolify deploy
+        id: deploy
         env:
-          HOST: ${{ secrets.VPS_HOST }}
-          USER: ${{ secrets.VPS_USER }}
-          KEY: ${{ secrets.VPS_SSH_KEY }}
-          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          UUID: ${{ vars.COOLIFY_DOTS_UUID }}
         run: |
-          missing=""
-          [ -n "$HOST" ] || missing="$missing VPS_HOST"
-          [ -n "$USER" ] || missing="$missing VPS_USER"
-          [ -n "$KEY" ] || missing="$missing VPS_SSH_KEY"
-          [ -n "$KNOWN_HOSTS" ] || missing="$missing VPS_KNOWN_HOSTS"
-          if [ -n "$missing" ]; then
-            echo "::error::Missing repo secrets:$missing (run scripts/vps-setup-dots.sh on the VPS; see top of this workflow)"; exit 1
+          if [ -z "$TOKEN" ] || [ -z "$UUID" ]; then
+            echo "::warning::COOLIFY_TOKEN / COOLIFY_DOTS_UUID not set; skipping auto-deploy. Redeploy in Coolify, or see the top of this workflow."
+            echo "triggered=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
-          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
-
-      - name: Rsync to VPS
-        env:
-          HOST: ${{ secrets.VPS_HOST }}
-          USER: ${{ secrets.VPS_USER }}
-          PORT: ${{ vars.VPS_PORT || '22' }}
-        run: |
-          # README is repo docs, not site content. --delete removes files dropped from dots/.
-          rsync -az --delete --exclude README.md \
-            --chmod=D755,F644 \
-            -e "ssh -p $PORT -o StrictHostKeyChecking=yes" \
-            dots/ "$USER@$HOST:/var/www/$DOMAIN/"
+          curl -fsS -H "Authorization: Bearer $TOKEN" "$COOLIFY_URL/api/v1/deploy?uuid=$UUID&force=false"
+          echo "triggered=true" >> "$GITHUB_OUTPUT"
 
       - name: Smoke test
+        if: steps.deploy.outputs.triggered == 'true'
         run: |
-          for i in $(seq 1 6); do
+          # Static builds take ~30-60s in Coolify.
+          for i in $(seq 1 18); do
             code=$(curl -s -o /dev/null -w '%{http_code}' "https://$DOMAIN/")
             echo "attempt $i: HTTP $code"
             [ "$code" = "200" ] && exit 0
             sleep 10
           done
-          echo "::error::Files are on the VPS, but https://$DOMAIN/ isn't returning 200. Check the dots A record points at the VPS and the container is up: docker ps --filter name=dots-marvice-tech"
+          echo "::error::https://$DOMAIN/ not returning 200. Check the deployment log in Coolify."
           exit 1
