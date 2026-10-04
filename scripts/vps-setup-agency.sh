@@ -1,24 +1,18 @@
 #!/usr/bin/env bash
-# One-time VPS setup for a static marvice.tech site (Ubuntu/Debian, run as root).
-# Defaults to agency.marvice.tech; set DOMAIN for another site on the same VPS:
+# One-time VPS setup for agency.marvice.tech (Ubuntu/Debian, run as root).
 #
 #   curl -fsSL https://raw.githubusercontent.com/marvice-2019/claude/main/scripts/vps-setup-agency.sh | bash
-#   curl -fsSL https://raw.githubusercontent.com/marvice-2019/claude/main/scripts/vps-setup-agency.sh | DOMAIN=dots.marvice.tech NOINDEX=1 bash
 #
-# Optional env: CERTBOT_EMAIL=you@example.com (expiry notices), DOMAIN, DEPLOY_USER,
-# NOINDEX=1 (send X-Robots-Tag: noindex for internal sites).
-#
-# All sites share one deploy user and one GitHub Actions key, so the VPS_* secrets are set once.
+# Optional env: CERTBOT_EMAIL=you@example.com (expiry notices), DOMAIN, DEPLOY_USER.
 #
 # Safe to re-run. Adds its own nginx site only; never touches other sites.
-# Prints the GitHub secrets the deploy workflows need.
+# Prints the three GitHub secrets the deploy workflow needs.
 set -euo pipefail
 
 DOMAIN="${DOMAIN:-agency.marvice.tech}"
 DEPLOY_USER="${DEPLOY_USER:-deploy}"
 WEBROOT="/var/www/${DOMAIN}"
 SITE="/etc/nginx/sites-available/${DOMAIN}"
-SUBDOMAIN="${DOMAIN%%.*}"
 
 [ "$(id -u)" -eq 0 ] || { echo "Run as root (sudo -i first)." >&2; exit 1; }
 command -v apt-get >/dev/null || { echo "Needs Ubuntu/Debian (apt-get)." >&2; exit 1; }
@@ -54,7 +48,6 @@ add_header X-Content-Type-Options "nosniff" always;
 add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 add_header X-Frame-Options "SAMEORIGIN" always;
 NGINX
-[ "${NOINDEX:-0}" = 1 ] && echo 'add_header X-Robots-Tag "noindex, nofollow" always;' >> "$SNIPPET"
 # Only write the site once: certbot edits it in place to add the 443 block.
 if [ ! -f "$SITE" ]; then
 cat > "$SITE" <<NGINX
@@ -101,7 +94,7 @@ if [ -n "$PUBLIC_IP" ] && [ "$DNS_IP" = "$PUBLIC_IP" ]; then
   SSL_OK=1
 else
   echo "!! ${DOMAIN} resolves to '${DNS_IP:-nothing}', this server is '${PUBLIC_IP:-unknown}'."
-  echo "!! Add DNS A record: ${SUBDOMAIN} -> ${PUBLIC_IP:-<this VPS IP>}, wait a few minutes, re-run this script for SSL."
+  echo "!! Add DNS A record: agency -> ${PUBLIC_IP:-<this VPS IP>}, wait a few minutes, re-run this script for SSL."
   SSL_OK=0
 fi
 
@@ -112,8 +105,7 @@ touch "$SSH_DIR/authorized_keys"
 KEY_COMMENT="github-actions-${DOMAIN}"
 TMPKEY="$(mktemp -d)/id_ed25519"
 NEW_KEY=0
-# Any earlier github-actions-* key (e.g. from another site's run) already covers this deploy user.
-if ! grep -q "github-actions-" "$SSH_DIR/authorized_keys"; then
+if ! grep -q "$KEY_COMMENT" "$SSH_DIR/authorized_keys"; then
   ssh-keygen -q -t ed25519 -N "" -C "$KEY_COMMENT" -f "$TMPKEY"
   cat "${TMPKEY}.pub" >> "$SSH_DIR/authorized_keys"
   NEW_KEY=1
@@ -145,8 +137,8 @@ if [ "$NEW_KEY" = 1 ]; then
   rm -rf "$(dirname "$TMPKEY")"
   echo " This private key is NOT stored on the server. Copy it now."
 else
-  echo " VPS_SSH_KEY      already issued on an earlier run (same key for every site). If you"
-  echo "                  lost it, delete the github-actions-* line in ${SSH_DIR}/authorized_keys and re-run."
+  echo " VPS_SSH_KEY      already issued on an earlier run. If you lost it, delete the"
+  echo "                  '${KEY_COMMENT}' line in ${SSH_DIR}/authorized_keys and re-run."
 fi
 [ "$SSL_OK" = 1 ] || echo " SSL NOT issued yet: fix DNS, then re-run this script."
 echo "================================================================"

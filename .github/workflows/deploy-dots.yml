@@ -1,13 +1,13 @@
-# Deploys dots/ (static, no build step) to dots.marvice.tech on the Marvice VPS via rsync over SSH.
-# GitHub Pages can't host it: this repo's Pages site already serves agency.marvice.tech,
-# and Pages allows one custom domain per repo.
+# Deploys dots/ (static, no build step) to dots.marvice.tech on the Marvice VPS
+# (srv1373084.hstgr.cloud, the Docker + Traefik box that also runs n8n) via rsync over SSH.
+# An nginx container behind the existing Traefik serves /var/www/dots.marvice.tech; Traefik handles SSL.
+# GitHub Pages can't host it: this repo's Pages site already serves agency.marvice.tech.
 #
-# One-time setup (Ubuntu/Debian VPS, as root):
-#   curl -fsSL https://raw.githubusercontent.com/marvice-2019/claude/main/scripts/vps-setup-agency.sh | DOMAIN=dots.marvice.tech NOINDEX=1 bash
-# It installs nginx + certbot, creates /var/www/dots.marvice.tech, issues SSL once DNS points at
-# the VPS, and prints the secrets below. They're shared with any other site on that VPS.
+# One-time setup on the VPS, as root (hPanel → VPS → Browser terminal works):
+#   curl -fsSL https://raw.githubusercontent.com/marvice-2019/claude/main/scripts/vps-setup-dots.sh | bash
+# It prints the secrets below.
 #
-# DNS (Hostinger → Domains → marvice.tech → DNS records):  A  dots  →  <VPS IP>
+# DNS (Hostinger → Domains → marvice.tech → DNS records):  A  dots  →  91.108.110.216
 # Repo secrets: VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_KNOWN_HOSTS. Optional variable: VPS_PORT.
 
 name: Deploy dots.marvice.tech
@@ -60,7 +60,7 @@ jobs:
           [ -n "$KEY" ] || missing="$missing VPS_SSH_KEY"
           [ -n "$KNOWN_HOSTS" ] || missing="$missing VPS_KNOWN_HOSTS"
           if [ -n "$missing" ]; then
-            echo "::error::Missing repo secrets:$missing (run scripts/vps-setup-agency.sh on the VPS; see top of this workflow)"; exit 1
+            echo "::error::Missing repo secrets:$missing (run scripts/vps-setup-dots.sh on the VPS; see top of this workflow)"; exit 1
           fi
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
@@ -87,5 +87,5 @@ jobs:
             [ "$code" = "200" ] && exit 0
             sleep 10
           done
-          echo "::error::Files are on the VPS, but https://$DOMAIN/ isn't returning 200. Check the A record points at the VPS and re-run the setup script to issue SSL."
+          echo "::error::Files are on the VPS, but https://$DOMAIN/ isn't returning 200. Check the dots A record points at the VPS and the container is up: docker ps --filter name=dots-marvice-tech"
           exit 1
