@@ -1,0 +1,199 @@
+{
+  "name": "Voice Agent — Audio Server",
+  "nodes": [
+    {
+      "id": "as1",
+      "name": "Audio Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "voice-agent-audio",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "voice-agent/audio",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "as2",
+      "name": "Find Audio",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        0
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "voice_audio_cache"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "cache_key",
+              "condition": "eq",
+              "keyValue": "={{ ($json.query.k || '').replace(/[^a-z0-9_]/g, '') || 'none' }}"
+            }
+          ]
+        },
+        "limit": 1
+      }
+    },
+    {
+      "id": "as3",
+      "name": "To Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nif (!r.audio_b64) return [{ json: { found: false } }];\nreturn [{ json: { found: true }, binary: { data: { data: r.audio_b64, mimeType: r.mime || 'audio/wav', fileName: r.cache_key + '.wav' } } }];"
+      }
+    },
+    {
+      "id": "as4",
+      "name": "Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "f",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "as5",
+      "name": "Send Audio",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        880,
+        -100
+      ],
+      "parameters": {
+        "respondWith": "binary",
+        "responseDataSource": "set",
+        "inputFieldName": "data",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Cache-Control",
+                "value": "public, max-age=86400"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "as6",
+      "name": "Not Found",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        880,
+        100
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "not found",
+        "options": {
+          "responseCode": 404
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Audio Request": {
+      "main": [
+        [
+          {
+            "node": "Find Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Audio": {
+      "main": [
+        [
+          {
+            "node": "To Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "To Binary": {
+      "main": [
+        [
+          {
+            "node": "Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Found?": {
+      "main": [
+        [
+          {
+            "node": "Send Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "timezone": "Asia/Kolkata"
+  }
+}

@@ -92,7 +92,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ═══════════════════════════════════════════════\n// GREETING GENERATOR — Time-aware, Language-aware\n// ═══════════════════════════════════════════════\nconst hour = new Date().getHours();\nconst prevData = $input.first().json;\n\n// ── Parse CRM caller data ──\nlet callerName = '';\nlet callerLang = 'en';\ntry {\n  const crmRows = prevData.values || [];\n  // Find caller by phone number (Column A = phone)\n  for (let i = 1; i < crmRows.length; i++) {\n    if (crmRows[i] && crmRows[i][0] === prevData.caller_number) {\n      callerName = crmRows[i][1] || '';\n      callerLang = crmRows[i][2] || 'en';\n      break;\n    }\n  }\n} catch(e) {}\n\n// ── Parse business config ──\nlet bizConfig = { business_name: 'our venue', timings: '', menu_highlights: '', current_offers: '', vip_options: '', address: '', escalation_number: '' };\ntry {\n  // Business config comes from second input of merge\n  // Try to find it in the merged data\n  const allItems = $input.all();\n  for (const item of allItems) {\n    if (item.json && item.json.values) {\n      const rows = item.json.values;\n      if (rows.length > 1 && rows[0]) {\n        const headers = rows[0].map(h => h.toLowerCase().replace(/[\\s]+/g, '_'));\n        const vals = rows[1] || [];\n        headers.forEach((h, i) => {\n          if (vals[i]) bizConfig[h] = vals[i];\n        });\n      }\n    }\n  }\n} catch(e) {}\n\nconst businessName = bizConfig.business_name || 'our venue';\n\n// ── Greeting by time + language ──\nconst greetings = {\n  en: { morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening' },\n  ta: { morning: 'காலை வணக்கம்', afternoon: 'மதிய வணக்கம்', evening: 'மாலை வணக்கம்' },\n  te: { morning: 'శుభోదయం', afternoon: 'శుభ మధ్యాహ్నం', evening: 'శుభ సాయంత్రం' },\n  kn: { morning: 'ಶುಭೋದಯ', afternoon: 'ಶುಭ ಮಧ್ಯಾಹ್ನ', evening: 'ಶುಭ ಸಂಜೆ' },\n  ml: { morning: 'സുപ്രഭാതം', afternoon: 'ശുഭ ഉച്ചയ്ക്ക്', evening: 'ശുഭ സന്ധ്യ' }\n};\n\nlet slot = 'morning';\nif (hour >= 12 && hour < 17) slot = 'afternoon';\nif (hour >= 17) slot = 'evening';\n\nconst g = (greetings[callerLang] || greetings.en)[slot];\n\nlet message;\nif (callerName) {\n  message = `${g}! Welcome back ${callerName}! This is ${businessName}. How can I help you today?`;\n} else {\n  message = `${g}! Thank you for calling ${businessName}. My name is Priya. How may I assist you?`;\n}\n\nreturn [{ json: {\n  session_id: prevData.session_id || prevData.body?.CallSid || '',\n  caller_number: prevData.caller_number || prevData.body?.From || '',\n  business_number: prevData.business_number || prevData.body?.To || '',\n  detected_language: callerLang,\n  caller_name: callerName,\n  emotion_state: 'neutral',\n  turn_count: 0,\n  silence_count: 0,\n  detected_intent: 'unknown',\n  needs_escalation: false,\n  conversation_history: [],\n  collected_data: {},\n  business_config: bizConfig,\n  greeting_message: message\n}}];\n"
+        "jsCode": "// ═══════════════════════════════════════════════\n// GREETING GENERATOR — Time-aware, Language-aware\n// ═══════════════════════════════════════════════\nconst hour = new Date().getHours();\n// Read each input from its own node: the merge drops session fields and both Sheets\n// responses use the same 'values' key, so one would overwrite the other\nconst session = $('2. Init Session').first().json;\nconst crm = $('3a. Lookup Caller CRM').first().json;\nconst cfg = $('3b. Fetch Business Config').first().json;\nconst prevData = { ...session, values: crm.values };\n\n// ── Parse CRM caller data ──\nlet callerName = '';\nlet callerLang = 'en';\ntry {\n  const crmRows = prevData.values || [];\n  // Find caller by phone number (Column A = phone)\n  for (let i = 1; i < crmRows.length; i++) {\n    if (crmRows[i] && crmRows[i][0] === prevData.caller_number) {\n      callerName = crmRows[i][1] || '';\n      callerLang = crmRows[i][2] || 'en';\n      break;\n    }\n  }\n} catch(e) {}\n\n// ── Parse business config ──\nlet bizConfig = { business_name: 'our venue', timings: '', menu_highlights: '', current_offers: '', vip_options: '', address: '', escalation_number: '' };\ntry {\n  // Business config comes from second input of merge\n  // Try to find it in the merged data\n  const allItems = [{ json: cfg }];\n  for (const item of allItems) {\n    if (item.json && item.json.values) {\n      const rows = item.json.values;\n      if (rows.length > 1 && rows[0]) {\n        const headers = rows[0].map(h => h.toLowerCase().replace(/[\\s]+/g, '_'));\n        const vals = rows[1] || [];\n        headers.forEach((h, i) => {\n          if (vals[i]) bizConfig[h] = vals[i];\n        });\n      }\n    }\n  }\n} catch(e) {}\n\nconst businessName = bizConfig.business_name || 'our venue';\n\n// ── Greeting by time + language ──\nconst greetings = {\n  en: { morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening' },\n  ta: { morning: 'காலை வணக்கம்', afternoon: 'மதிய வணக்கம்', evening: 'மாலை வணக்கம்' },\n  te: { morning: 'శుభోదయం', afternoon: 'శుభ మధ్యాహ్నం', evening: 'శుభ సాయంత్రం' },\n  kn: { morning: 'ಶುಭೋದಯ', afternoon: 'ಶುಭ ಮಧ್ಯಾಹ್ನ', evening: 'ಶುಭ ಸಂಜೆ' },\n  ml: { morning: 'സുപ്രഭാതം', afternoon: 'ശുഭ ഉച്ചയ്ക്ക്', evening: 'ശുഭ സന്ധ്യ' }\n};\n\nlet slot = 'morning';\nif (hour >= 12 && hour < 17) slot = 'afternoon';\nif (hour >= 17) slot = 'evening';\n\nconst g = (greetings[callerLang] || greetings.en)[slot];\n\nlet message;\nif (callerName) {\n  message = `${g}! Welcome back ${callerName}! This is ${businessName}. How can I help you today?`;\n} else {\n  message = `${g}! Thank you for calling ${businessName}. My name is Priya. How may I assist you?`;\n}\n\nreturn [{ json: {\n  session_id: prevData.session_id || prevData.body?.CallSid || '',\n  caller_number: prevData.caller_number || prevData.body?.From || '',\n  business_number: prevData.business_number || prevData.body?.To || '',\n  detected_language: callerLang,\n  caller_name: callerName,\n  emotion_state: 'neutral',\n  turn_count: 0,\n  silence_count: 0,\n  detected_intent: 'unknown',\n  needs_escalation: false,\n  conversation_history: [],\n  collected_data: {},\n  business_config: bizConfig,\n  greeting_message: message\n}}];\n"
       },
       "id": "00000000-0001-4000-8000-000000000006",
       "name": "5. Generate Greeting",
@@ -105,42 +105,7 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "=https://api.elevenlabs.io/v1/text-to-speech/{{ $env.ELEVENLABS_VOICE_ID }}/stream",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "xi-api-key",
-              "value": "={{ $env.ELEVENLABS_API_KEY }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"text\": {{ JSON.stringify($json.greeting_message) }},\n  \"model_id\": \"eleven_multilingual_v2\",\n  \"voice_settings\": {\n    \"stability\": 0.5,\n    \"similarity_boost\": 0.75,\n    \"style\": 0.4,\n    \"use_speaker_boost\": true\n  }\n}",
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "file"
-            }
-          },
-          "timeout": 8000
-        }
-      },
-      "id": "00000000-0001-4000-8000-000000000007",
-      "name": "6. TTS Greeting",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1100,
-        300
-      ],
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Build TwiML: play greeting, then record caller's response\n// TTS returns audio, not the session, so read the call context from the node before it\nconst s = $('5. Generate Greeting').first().json;\nconst sid = s.session_id;\nconst base = $env.N8N_BASE_URL || 'https://your-n8n.com';\nconst msg = (s.greeting_message || 'Welcome! How can I help you?').replace(/[\"<>&]/g, '');\n\n// Check if ElevenLabs returned audio binary\nconst hasBinary = Object.keys($input.first().binary || {}).length > 0;\n\nlet playSection;\nif (hasBinary) {\n  // In production: upload binary to S3/GCS, get URL, use <Play>\n  // Fallback to <Say> for now (reliable across all setups)\n  playSection = `<Say voice=\"Polly.Aditi\" language=\"en-IN\">${msg}</Say>`;\n} else {\n  playSection = `<Say voice=\"Polly.Aditi\" language=\"en-IN\">${msg}</Say>`;\n}\n\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  ${playSection}\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n</Response>`;\n\nreturn [{ json: { ...s, twiml_response: twiml } }];\n"
+        "jsCode": "// Build TwiML: play greeting (Sarvam audio from cache, Polly fallback), then record caller's response\nconst s = $('5. Generate Greeting').first().json;\nconst sid = s.session_id;\nconst base = $env.N8N_BASE_URL || 'https://your-n8n.com';\nconst msg = s.greeting_message || 'Welcome! How can I help you?';\nconst audioKey = $('6a. Greeting Audio Key').first().json.cache_key;\nconst haveAudio = !!$('6b. Greeting Cache Lookup').first().json.audio_b64 || $('6f. Store Greeting Audio').isExecuted;\nconst xmlEsc = t => String(t).replace(/[<>&\"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','\"':'&quot;',\"'\":'&apos;'}[c]));\nconst voice = (text) => haveAudio\n  ? `<Play>${base}/webhook/voice-agent/audio?k=${audioKey}</Play>`\n  : `<Say voice=\"Polly.Aditi\" language=\"en-IN\">${xmlEsc(text)}</Say>`;\n\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  ${voice(msg)}\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n</Response>`;\n\nreturn [{ json: { ...s, twiml_response: twiml } }];"
       },
       "id": "00000000-0001-4000-8000-000000000008",
       "name": "7. Build Greeting TwiML",
@@ -280,41 +245,7 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "=https://api.deepgram.com/v1/listen?model=nova-2&language=multi&detect_language=true&smart_format=true&punctuate=true",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Token {{ $env.DEEPGRAM_API_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"url\": \"{{ $json.recording_url }}.wav\"\n}",
-        "options": {
-          "timeout": 10000
-        }
-      },
-      "id": "00000000-0002-4000-8000-000000000006",
-      "name": "14. Deepgram STT",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        660,
-        700
-      ],
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "jsCode": "// ═══ PARSE STT + DETECT LANGUAGE ═══\nconst input = $input.first().json;\n// Deepgram's response has no call context; take it from the turn data\nconst ctx = $('12. Has Recording?').first().json;\nlet transcript = '', lang = 'en', confidence = 0;\n\ntry {\n  const ch = input.results.channels[0];\n  const alt = ch.alternatives[0];\n  transcript = alt.transcript || '';\n  confidence = alt.confidence || 0;\n  lang = ch.detected_language || 'en';\n} catch(e) { transcript = ''; }\n\n// Normalize lang code\nconst norm = { 'ta': 'ta','ta-IN':'ta','te':'te','te-IN':'te','kn':'kn','kn-IN':'kn','ml':'ml','ml-IN':'ml','en':'en','en-IN':'en','en-US':'en','hi':'hi','hi-IN':'hi' };\nconst names = { ta:'Tamil', te:'Telugu', kn:'Kannada', ml:'Malayalam', en:'English', hi:'Hindi' };\nconst nl = norm[lang] || 'en';\n\nreturn [{ json: {\n  session_id: ctx.session_id || '',\n  caller_number: ctx.caller_number || '',\n  business_number: ctx.business_number || '',\n  recording_url: ctx.recording_url || '',\n  caller_transcript: transcript,\n  detected_language: nl,\n  language_name: names[nl] || 'English',\n  stt_confidence: confidence,\n  is_empty: transcript.trim() === ''\n}}];\n"
+        "jsCode": "// ═══ PARSE STT (Sarvam Saaras v4) + DETECT LANGUAGE ═══\nconst input = $input.first().json;\n// Sarvam's response has no call context; take it from the turn data\nconst ctx = $('12. Has Recording?').first().json;\nconst transcript = (input.transcript || '').trim();\nconst lang = input.language_code || 'en-IN';\nconst confidence = input.language_probability ?? (transcript ? 1 : 0);\n\n// Normalize lang code\nconst norm = { 'ta': 'ta','ta-IN':'ta','te': 'te','te-IN':'te','kn':'kn','kn-IN':'kn','ml':'ml','ml-IN':'ml','en':'en','en-IN':'en','en-US':'en','hi':'hi','hi-IN':'hi' };\nconst names = { ta:'Tamil', te:'Telugu', kn:'Kannada', ml:'Malayalam', en:'English', hi:'Hindi' };\nconst nl = norm[lang] || 'en';\n\nreturn [{ json: {\n  session_id: ctx.session_id || '',\n  caller_number: ctx.caller_number || '',\n  business_number: ctx.business_number || '',\n  recording_url: ctx.recording_url || '',\n  caller_transcript: transcript,\n  detected_language: nl,\n  language_name: names[nl] || 'English',\n  stt_confidence: confidence,\n  is_empty: transcript === ''\n}}];"
       },
       "id": "00000000-0002-4000-8000-000000000007",
       "name": "15. Parse STT Result",
@@ -519,42 +450,7 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "=https://api.elevenlabs.io/v1/text-to-speech/{{ $env.ELEVENLABS_VOICE_ID }}/stream",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "xi-api-key",
-              "value": "={{ $env.ELEVENLABS_API_KEY }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"text\": {{ JSON.stringify($json.ai_response_humanized) }},\n  \"model_id\": \"eleven_multilingual_v2\",\n  \"voice_settings\": {\n    \"stability\": 0.45,\n    \"similarity_boost\": 0.78,\n    \"style\": 0.35,\n    \"use_speaker_boost\": true\n  }\n}",
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "file"
-            }
-          },
-          "timeout": 8000
-        }
-      },
-      "id": "00000000-0002-4000-8000-000000000017",
-      "name": "24. TTS Response",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2640,
-        720
-      ],
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "jsCode": "// ═══ BUILD TWIML — Play response + record next turn ═══\n// TTS returns audio, not the session, so read the call context from the node before it\nconst s = $('23. Humanization Engine').first().json;\nconst sid = s.session_id;\nconst base = $env.N8N_BASE_URL || 'https://your-n8n.com';\nconst endCall = s.should_end_call || false;\nconst spoken = (s.ai_response || 'Could you repeat that?').replace(/[\"<>&]/g, c => ({'\"':'&quot;','<':'&lt;','>':'&gt;','&':'&amp;'}[c]));\n\nlet twiml;\nif (endCall) {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spoken}</Say>\n  <Hangup/>\n</Response>`;\n} else {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spoken}</Say>\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n</Response>`;\n}\n\nreturn [{ json: { ...s, twiml_response: twiml } }];\n"
+        "jsCode": "// ═══ BUILD TWIML — Play response (Sarvam audio from cache, Polly fallback) + record next turn ═══\nconst s = $('23. Humanization Engine').first().json;\nconst sid = s.session_id;\nconst base = $env.N8N_BASE_URL || 'https://your-n8n.com';\nconst endCall = s.should_end_call || false;\nconst spoken = s.ai_response_humanized || s.ai_response || 'Could you repeat that?';\nconst audioKey = $('24a. Response Audio Key').first().json.cache_key;\nconst haveAudio = !!$('24b. Response Cache Lookup').first().json.audio_b64 || $('24f. Store Response Audio').isExecuted;\nconst xmlEsc = t => String(t).replace(/[<>&\"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','\"':'&quot;',\"'\":'&apos;'}[c]));\nconst voice = (text) => haveAudio\n  ? `<Play>${base}/webhook/voice-agent/audio?k=${audioKey}</Play>`\n  : `<Say voice=\"Polly.Aditi\" language=\"en-IN\">${xmlEsc(text)}</Say>`;\n\nlet twiml;\nif (endCall) {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  ${voice(spoken)}\n  <Hangup/>\n</Response>`;\n} else {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  ${voice(spoken)}\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n</Response>`;\n}\n\nreturn [{ json: { ...s, twiml_response: twiml } }];"
       },
       "id": "00000000-0002-4000-8000-000000000018",
       "name": "25. Build Response TwiML",
@@ -649,7 +545,109 @@
             "intent": "booking",
             "language": "={{ $json.detected_language }}",
             "status": "confirmed"
-          }
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "time",
+              "displayName": "time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "guests",
+              "displayName": "guests",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "special_requests",
+              "displayName": "special_requests",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "intent",
+              "displayName": "intent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "language",
+              "displayName": "language",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
         },
         "options": {}
       },
@@ -730,7 +728,82 @@
             "emotion": "={{ $json.emotion_state }}",
             "caller_said": "={{ $json.caller_transcript }}",
             "agent_said": "={{ $json.ai_response }}"
-          }
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "intent",
+              "displayName": "intent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "language",
+              "displayName": "language",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "emotion",
+              "displayName": "emotion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "caller_said",
+              "displayName": "caller_said",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "agent_said",
+              "displayName": "agent_said",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
         },
         "options": {}
       },
@@ -872,7 +945,82 @@
             "emotion": "",
             "caller_said": "={{ $json.call_status }}",
             "agent_said": "=duration: {{ $json.call_duration }}s, dropped: {{ $json.was_dropped }}"
-          }
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "intent",
+              "displayName": "intent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "language",
+              "displayName": "language",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "emotion",
+              "displayName": "emotion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "caller_said",
+              "displayName": "caller_said",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "agent_said",
+              "displayName": "agent_said",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
         },
         "options": {}
       },
@@ -1178,7 +1326,55 @@
             "intents": "={{ JSON.stringify($json.intent_breakdown || {}) }}",
             "analysis": "={{ $json.content ? $json.content[0].text : 'No analysis' }}",
             "status": "reviewed"
-          }
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_turns",
+              "displayName": "total_turns",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "intents",
+              "displayName": "intents",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "analysis",
+              "displayName": "analysis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
         },
         "options": {}
       },
@@ -1267,6 +1463,497 @@
       ],
       "onError": "continueRegularOutput",
       "notes": "Alerts the manager on WhatsApp when a caller asked for a human but no valid escalation number was configured. Needs ESCALATION_ALERT_WHATSAPP and an approved WATI template 'missed_escalation_alert'."
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.recording_url }}.wav",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Basic ' + ($env.TWILIO_ACCOUNT_SID + ':' + $env.TWILIO_AUTH_TOKEN).base64Encode() }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "name": "14a. Download Recording",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        700
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sarvam.ai/speech-to-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api-subscription-key",
+              "value": "={{ $env.SARVAM_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "model",
+              "value": "saaras:v4"
+            },
+            {
+              "name": "mode",
+              "value": "transcribe"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "name": "14b. Sarvam STT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        860,
+        700
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Cache key for this phrase: same text + voice + language -> same audio, generated once\nconst s = $input.first().json;\nconst text = String(s.greeting_message || '').trim();\nconst LANG = { en: 'en-IN', ta: 'ta-IN', te: 'te-IN', kn: 'kn-IN', ml: 'ml-IN', hi: 'hi-IN' };\nconst lang = LANG[s.detected_language] || 'en-IN';\nconst speaker = $env.SARVAM_SPEAKER || 'priya';\nfunction h(str) {\n  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;\n  for (let i = 0; i < str.length; i++) {\n    const ch = str.charCodeAt(i);\n    h1 = Math.imul(h1 ^ ch, 2654435761);\n    h2 = Math.imul(h2 ^ ch, 1597334677);\n  }\n  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);\n  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);\n  return (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0');\n}\nconst cache_key = 'v1_' + h(['bulbul:v3', speaker, '8000', lang, text].join('|'));\nreturn [{ json: { ...s, cache_key, tts_text: text, tts_lang: lang, tts_speaker: speaker } }];"
+      },
+      "name": "6a. Greeting Audio Key",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "voice_audio_cache"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "cache_key",
+              "condition": "eq",
+              "keyValue": "={{ $json.cache_key }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "name": "6b. Greeting Cache Lookup",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1300,
+        300
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c",
+              "leftValue": "={{ !!$json.audio_b64 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "6c. Greeting Cached?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sarvam.ai/text-to-speech",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api-subscription-key",
+              "value": "={{ $env.SARVAM_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $('6a. Greeting Audio Key').first().json.tts_text.slice(0, 2500), language_code: $('6a. Greeting Audio Key').first().json.tts_lang, speaker: $('6a. Greeting Audio Key').first().json.tts_speaker, model: 'bulbul:v3', speech_sample_rate: 8000 }) }}",
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "name": "6d. Greeting Sarvam TTS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1700,
+        420
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c",
+              "leftValue": "={{ Array.isArray($json.audios) && $json.audios.length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "6e. Greeting TTS OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1900,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "voice_audio_cache"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "cache_key",
+              "displayName": "cache_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "phrase",
+              "displayName": "phrase",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "mime",
+              "displayName": "mime",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "audio_b64",
+              "displayName": "audio_b64",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "value": {
+            "cache_key": "={{ $('6a. Greeting Audio Key').first().json.cache_key }}",
+            "phrase": "={{ $('6a. Greeting Audio Key').first().json.tts_text }}",
+            "mime": "audio/wav",
+            "audio_b64": "={{ $json.audios[0] }}"
+          }
+        },
+        "options": {}
+      },
+      "name": "6f. Store Greeting Audio",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2100,
+        360
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Cache key for this phrase: same text + voice + language -> same audio, generated once\nconst s = $input.first().json;\nconst text = String(s.ai_response_humanized || s.ai_response || '').trim();\nconst LANG = { en: 'en-IN', ta: 'ta-IN', te: 'te-IN', kn: 'kn-IN', ml: 'ml-IN', hi: 'hi-IN' };\nconst lang = LANG[s.detected_language] || 'en-IN';\nconst speaker = $env.SARVAM_SPEAKER || 'priya';\nfunction h(str) {\n  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;\n  for (let i = 0; i < str.length; i++) {\n    const ch = str.charCodeAt(i);\n    h1 = Math.imul(h1 ^ ch, 2654435761);\n    h2 = Math.imul(h2 ^ ch, 1597334677);\n  }\n  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);\n  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);\n  return (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0');\n}\nconst cache_key = 'v1_' + h(['bulbul:v3', speaker, '8000', lang, text].join('|'));\nreturn [{ json: { ...s, cache_key, tts_text: text, tts_lang: lang, tts_speaker: speaker } }];"
+      },
+      "name": "24a. Response Audio Key",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "voice_audio_cache"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "cache_key",
+              "condition": "eq",
+              "keyValue": "={{ $json.cache_key }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "name": "24b. Response Cache Lookup",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2840,
+        720
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c",
+              "leftValue": "={{ !!$json.audio_b64 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "24c. Response Cached?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3040,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sarvam.ai/text-to-speech",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api-subscription-key",
+              "value": "={{ $env.SARVAM_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $('24a. Response Audio Key').first().json.tts_text.slice(0, 2500), language_code: $('24a. Response Audio Key').first().json.tts_lang, speaker: $('24a. Response Audio Key').first().json.tts_speaker, model: 'bulbul:v3', speech_sample_rate: 8000 }) }}",
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "name": "24d. Response Sarvam TTS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3240,
+        840
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c",
+              "leftValue": "={{ Array.isArray($json.audios) && $json.audios.length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "24e. Response TTS OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3440,
+        840
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "voice_audio_cache"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "cache_key",
+              "displayName": "cache_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "phrase",
+              "displayName": "phrase",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "mime",
+              "displayName": "mime",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "audio_b64",
+              "displayName": "audio_b64",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "value": {
+            "cache_key": "={{ $('24a. Response Audio Key').first().json.cache_key }}",
+            "phrase": "={{ $('24a. Response Audio Key').first().json.tts_text }}",
+            "mime": "audio/wav",
+            "audio_b64": "={{ $json.audios[0] }}"
+          }
+        },
+        "options": {}
+      },
+      "name": "24f. Store Response Audio",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3640,
+        780
+      ],
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -1334,18 +2021,7 @@
       "main": [
         [
           {
-            "node": "6. TTS Greeting",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "6. TTS Greeting": {
-      "main": [
-        [
-          {
-            "node": "7. Build Greeting TwiML",
+            "node": "6a. Greeting Audio Key",
             "type": "main",
             "index": 0
           }
@@ -1389,7 +2065,7 @@
       "main": [
         [
           {
-            "node": "14. Deepgram STT",
+            "node": "14a. Download Recording",
             "type": "main",
             "index": 0
           }
@@ -1397,17 +2073,6 @@
         [
           {
             "node": "13a. Handle Silence",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "14. Deepgram STT": {
-      "main": [
-        [
-          {
-            "node": "15. Parse STT Result",
             "type": "main",
             "index": 0
           }
@@ -1548,18 +2213,7 @@
       "main": [
         [
           {
-            "node": "24. TTS Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "24. TTS Response": {
-      "main": [
-        [
-          {
-            "node": "25. Build Response TwiML",
+            "node": "24a. Response Audio Key",
             "type": "main",
             "index": 0
           }
@@ -1755,6 +2409,188 @@
         [
           {
             "node": "65. Save Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "14a. Download Recording": {
+      "main": [
+        [
+          {
+            "node": "14b. Sarvam STT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "14b. Sarvam STT": {
+      "main": [
+        [
+          {
+            "node": "15. Parse STT Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6a. Greeting Audio Key": {
+      "main": [
+        [
+          {
+            "node": "6b. Greeting Cache Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6b. Greeting Cache Lookup": {
+      "main": [
+        [
+          {
+            "node": "6c. Greeting Cached?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6c. Greeting Cached?": {
+      "main": [
+        [
+          {
+            "node": "7. Build Greeting TwiML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "6d. Greeting Sarvam TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6d. Greeting Sarvam TTS": {
+      "main": [
+        [
+          {
+            "node": "6e. Greeting TTS OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6e. Greeting TTS OK?": {
+      "main": [
+        [
+          {
+            "node": "6f. Store Greeting Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "7. Build Greeting TwiML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6f. Store Greeting Audio": {
+      "main": [
+        [
+          {
+            "node": "7. Build Greeting TwiML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "24a. Response Audio Key": {
+      "main": [
+        [
+          {
+            "node": "24b. Response Cache Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "24b. Response Cache Lookup": {
+      "main": [
+        [
+          {
+            "node": "24c. Response Cached?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "24c. Response Cached?": {
+      "main": [
+        [
+          {
+            "node": "25. Build Response TwiML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "24d. Response Sarvam TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "24d. Response Sarvam TTS": {
+      "main": [
+        [
+          {
+            "node": "24e. Response TTS OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "24e. Response TTS OK?": {
+      "main": [
+        [
+          {
+            "node": "24f. Store Response Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "25. Build Response TwiML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "24f. Store Response Audio": {
+      "main": [
+        [
+          {
+            "node": "25. Build Response TwiML",
             "type": "main",
             "index": 0
           }

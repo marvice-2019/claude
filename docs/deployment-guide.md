@@ -78,6 +78,17 @@ In n8n, add each as a variable:
 
 ## Step 6: Import Workflows into n8n
 
+**Recommended: the complete system (Sarvam voice + audio cache)**
+
+1. In n8n → Data tables, create `voice_audio_cache` with four string columns: `cache_key`, `phrase`, `mime`, `audio_b64`
+2. Import `workflows/n8n-import-audio-server.json` and activate it. It serves cached audio to Twilio at `/webhook/voice-agent/audio?k=…`
+3. Import `workflows/n8n-import-complete.json`, attach your Google service-account credential to the Sheets nodes and the two Sheets HTTP lookups (3a, 3b), then activate it
+4. Set `N8N_BASE_URL` to your public n8n URL — every Twilio callback and audio URL is built from it
+
+Each phrase the agent speaks is generated once with Sarvam Bulbul v3 and stored in the table; repeat phrases (greetings, "could you repeat that?") are served from the cache. Caller audio is transcribed with Sarvam Saaras v4.
+
+**Legacy: separate workflows**
+
 1. Open n8n editor
 2. Click "Import from File"
 3. Import in this order:
