@@ -40,21 +40,21 @@ jobs:
           fi
 
       - name: Check deploy secrets
-        id: creds
         env:
           FTP_HOST: ${{ secrets.HOSTINGER_FTP_HOST }}
           FTP_USER: ${{ secrets.HOSTINGER_FTP_USER }}
           FTP_PASS: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
         run: |
-          if [ -n "$FTP_HOST" ] && [ -n "$FTP_USER" ] && [ -n "$FTP_PASS" ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::HOSTINGER_FTP_* secrets not set; skipping deploy."
+          missing=""
+          [ -n "$FTP_HOST" ] || missing="$missing HOSTINGER_FTP_HOST"
+          [ -n "$FTP_USER" ] || missing="$missing HOSTINGER_FTP_USER"
+          [ -n "$FTP_PASS" ] || missing="$missing HOSTINGER_FTP_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repo secrets:$missing. Nothing was deployed."
+            exit 1
           fi
 
       - name: Upload via FTPS
-        if: steps.creds.outputs.ready == 'true'
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.HOSTINGER_FTP_HOST }}
@@ -69,7 +69,6 @@ jobs:
             README.md
 
       - name: Smoke test
-        if: steps.creds.outputs.ready == 'true'
         run: |
           sleep 5
           code=$(curl -s -o /dev/null -w '%{http_code}' https://agency.marvice.tech/)
