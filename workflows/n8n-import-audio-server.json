@@ -2,7 +2,12 @@
   "name": "Voice Agent — Audio Server",
   "nodes": [
     {
-      "id": "as1",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "voice-agent/audio",
+        "responseMode": "responseNode",
+        "options": {}
+      },
       "name": "Audio Request",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -10,24 +15,21 @@
         0,
         0
       ],
-      "webhookId": "voice-agent-audio",
-      "parameters": {
-        "httpMethod": "GET",
-        "path": "voice-agent/audio",
-        "responseMode": "responseNode",
-        "options": {}
-      }
+      "webhookId": "voice-agent-audio"
     },
     {
-      "id": "as2",
-      "name": "Find Audio",
-      "type": "n8n-nodes-base.dataTable",
-      "typeVersion": 1.1,
+      "parameters": {
+        "jsCode": "const q = $json.query || {};\nconst PHRASES = {\n  \"still_here\": \"I am still here if you need anything.\",\n  \"still_here_short\": \"I am still here.\",\n  \"silence_prompt\": \"I didn't quite catch that. Could you please go ahead? I'm listening.\",\n  \"silence_check\": \"Hello? Are you still there? Take your time, I'm here whenever you're ready.\",\n  \"silence_end\": \"It seems like we're having trouble connecting. I'll send you a WhatsApp message so you can reach us easily. Thank you for calling!\",\n  \"transfer\": \"I completely understand. Let me connect you with my colleague right away. Please hold for just a moment.\",\n  \"transfer_failed\": \"I am sorry, our team member is unavailable right now. We will call you back within 15 minutes. Thank you for your patience.\",\n  \"outbound_still_here\": \"Hello? I am here whenever you are ready.\"\n};\nconst phrase = PHRASES[q.p] || null;\nconst lang = 'en-IN';\nconst speaker = $env.SARVAM_SPEAKER || 'priya';\nfunction h(str) {\n  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;\n  for (let i = 0; i < str.length; i++) {\n    const ch = str.charCodeAt(i);\n    h1 = Math.imul(h1 ^ ch, 2654435761);\n    h2 = Math.imul(h2 ^ ch, 1597334677);\n  }\n  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);\n  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);\n  return (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0');\n}\nconst cache_key = phrase\n  ? 'v1_' + h(['bulbul:v3', speaker, '8000', lang, phrase].join('|'))\n  : (String(q.k || '').replace(/[^a-z0-9_]/g, '') || 'none');\nreturn [{ json: { cache_key, phrase, lang, speaker } }];"
+      },
+      "name": "Resolve",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
-        220,
+        200,
         0
-      ],
-      "alwaysOutputData": true,
+      ]
+    },
+    {
       "parameters": {
         "resource": "row",
         "operation": "get",
@@ -42,45 +44,45 @@
             {
               "keyName": "cache_key",
               "condition": "eq",
-              "keyValue": "={{ ($json.query.k || '').replace(/[^a-z0-9_]/g, '') || 'none' }}"
+              "keyValue": "={{ $json.cache_key }}"
             }
           ]
         },
         "limit": 1
-      }
+      },
+      "name": "Find Audio",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        400,
+        0
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
     },
     {
-      "id": "as3",
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nif (!r.audio_b64) return [{ json: { found: false } }];\nreturn [{ json: { found: true }, binary: { data: { data: r.audio_b64, mimeType: r.mime || 'audio/wav', fileName: r.cache_key + '.wav' } } }];"
+      },
       "name": "To Binary",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        440,
+        600,
         0
-      ],
-      "parameters": {
-        "jsCode": "const r = $input.first().json;\nif (!r.audio_b64) return [{ json: { found: false } }];\nreturn [{ json: { found: true }, binary: { data: { data: r.audio_b64, mimeType: r.mime || 'audio/wav', fileName: r.cache_key + '.wav' } } }];"
-      }
+      ]
     },
     {
-      "id": "as4",
-      "name": "Found?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        660,
-        0
-      ],
       "parameters": {
         "conditions": {
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict"
+            "typeValidation": "loose"
           },
           "conditions": [
             {
-              "id": "f",
+              "id": "c",
               "leftValue": "={{ $json.found }}",
               "rightValue": true,
               "operator": {
@@ -93,17 +95,16 @@
           "combinator": "and"
         },
         "options": {}
-      }
+      },
+      "name": "Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        0
+      ]
     },
     {
-      "id": "as5",
-      "name": "Send Audio",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.4,
-      "position": [
-        880,
-        -100
-      ],
       "parameters": {
         "respondWith": "binary",
         "responseDataSource": "set",
@@ -118,28 +119,222 @@
             ]
           }
         }
-      }
-    },
-    {
-      "id": "as6",
-      "name": "Not Found",
+      },
+      "name": "Send Audio",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
       "position": [
-        880,
-        100
+        1800,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c",
+              "leftValue": "={{ !!$('Resolve').first().json.phrase }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Fixed Phrase?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1000,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sarvam.ai/text-to-speech",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api-subscription-key",
+              "value": "={{ $env.SARVAM_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $('Resolve').first().json.phrase, language_code: $('Resolve').first().json.lang, speaker: $('Resolve').first().json.speaker, model: 'bulbul:v3', speech_sample_rate: 8000 }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Sarvam TTS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        60
       ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c",
+              "leftValue": "={{ Array.isArray($json.audios) && $json.audios.length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "TTS OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1400,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "voice_audio_cache"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "cache_key",
+              "displayName": "cache_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "phrase",
+              "displayName": "phrase",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "mime",
+              "displayName": "mime",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "audio_b64",
+              "displayName": "audio_b64",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "value": {
+            "cache_key": "={{ $('Resolve').first().json.cache_key }}",
+            "phrase": "={{ $('Resolve').first().json.phrase }}",
+            "mime": "audio/wav",
+            "audio_b64": "={{ $json.audios[0] }}"
+          }
+        },
+        "options": {}
+      },
+      "name": "Store Audio",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1600,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const a = $('Sarvam TTS').first().json.audios[0];\nreturn [{ json: {}, binary: { data: { data: a, mimeType: 'audio/wav', fileName: $('Resolve').first().json.cache_key + '.wav' } } }];"
+      },
+      "name": "Generated To Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1700,
+        0
+      ]
+    },
+    {
       "parameters": {
         "respondWith": "text",
         "responseBody": "not found",
         "options": {
           "responseCode": 404
         }
-      }
+      },
+      "name": "Not Found",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1800,
+        200
+      ]
     }
   ],
   "connections": {
     "Audio Request": {
+      "main": [
+        [
+          {
+            "node": "Resolve",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve": {
       "main": [
         [
           {
@@ -183,7 +378,76 @@
         ],
         [
           {
+            "node": "Fixed Phrase?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fixed Phrase?": {
+      "main": [
+        [
+          {
+            "node": "Sarvam TTS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sarvam TTS": {
+      "main": [
+        [
+          {
+            "node": "TTS OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TTS OK?": {
+      "main": [
+        [
+          {
+            "node": "Store Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Audio": {
+      "main": [
+        [
+          {
+            "node": "Generated To Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generated To Binary": {
+      "main": [
+        [
+          {
+            "node": "Send Audio",
             "type": "main",
             "index": 0
           }
