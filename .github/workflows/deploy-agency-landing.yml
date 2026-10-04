@@ -1,13 +1,14 @@
 # Deploys agency-agents-app/landing (static, no build step) to agency.marvice.tech
-# on Hostinger over FTPS.
+# on a VPS (nginx) over rsync+SSH.
 #
+# One-time server setup: scripts/vps-setup-agency.sh (prints the values below).
 # Required repo secrets (Settings → Secrets and variables → Actions):
-#   HOSTINGER_FTP_HOST      e.g. ftp.marvice.tech (hPanel → Files → FTP Accounts)
-#   HOSTINGER_FTP_USER      FTP user scoped to the agency subdomain
-#   HOSTINGER_FTP_PASSWORD
+#   VPS_HOST          VPS public IP or hostname
+#   VPS_USER          deploy user (default from the setup script: "deploy")
+#   VPS_SSH_KEY       private key printed by the setup script
+#   VPS_KNOWN_HOSTS   host key line printed by the setup script (pins the server)
 # Optional repo variable:
-#   AGENCY_FTP_DIR          remote dir, default "./" (a subdomain-scoped FTP user
-#                           lands in its document root already). Must end with "/".
+#   VPS_PORT          SSH port, default 22
 
 name: Deploy agency.marvice.tech
 
@@ -41,36 +42,46 @@ jobs:
 
       - name: Check deploy secrets
         env:
-          FTP_HOST: ${{ secrets.HOSTINGER_FTP_HOST }}
-          FTP_USER: ${{ secrets.HOSTINGER_FTP_USER }}
-          FTP_PASS: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
           missing=""
-          [ -n "$FTP_HOST" ] || missing="$missing HOSTINGER_FTP_HOST"
-          [ -n "$FTP_USER" ] || missing="$missing HOSTINGER_FTP_USER"
-          [ -n "$FTP_PASS" ] || missing="$missing HOSTINGER_FTP_PASSWORD"
+          [ -n "$VPS_HOST" ] || missing="$missing VPS_HOST"
+          [ -n "$VPS_USER" ] || missing="$missing VPS_USER"
+          [ -n "$VPS_SSH_KEY" ] || missing="$missing VPS_SSH_KEY"
+          [ -n "$VPS_KNOWN_HOSTS" ] || missing="$missing VPS_KNOWN_HOSTS"
           if [ -n "$missing" ]; then
-            echo "::error::Missing repo secrets:$missing. Nothing was deployed."
+            echo "::error::Missing repo secrets:$missing. Run scripts/vps-setup-agency.sh on the VPS to get them. Nothing was deployed."
             exit 1
           fi
 
-      - name: Upload via FTPS
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.HOSTINGER_FTP_HOST }}
-          username: ${{ secrets.HOSTINGER_FTP_USER }}
-          password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
-          protocol: ftps
-          local-dir: ./agency-agents-app/landing/
-          server-dir: ${{ vars.AGENCY_FTP_DIR || './' }}
-          exclude: |
-            **/.git*
-            **/.git*/**
-            README.md
+      - name: Configure SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+
+      - name: Upload via rsync
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ vars.VPS_PORT || '22' }}
+        run: |
+          # --delete keeps the web root in sync; P(rotect) keeps files placed by hand.
+          rsync -rlptz --delete --chmod=D755,F644 \
+            --exclude='.htaccess' --exclude='README.md' --exclude='.git*' \
+            --filter='P updater.json' \
+            -e "ssh -i $HOME/.ssh/deploy_key -o UserKnownHostsFile=$HOME/.ssh/known_hosts -p $VPS_PORT -o StrictHostKeyChecking=yes -o BatchMode=yes" \
+            agency-agents-app/landing/ "$VPS_USER@$VPS_HOST:/var/www/agency.marvice.tech/"
 
       - name: Smoke test
         run: |
-          sleep 5
-          code=$(curl -s -o /dev/null -w '%{http_code}' https://agency.marvice.tech/)
+          code=$(curl -s -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 5 --retry-all-errors https://agency.marvice.tech/)
           echo "HTTP $code"
           test "$code" = "200"

@@ -47,8 +47,10 @@ Caddy config + DNS (`agencyagents.app`) are managed on the host.
 
 Deployed by `.github/workflows/deploy-agency-landing.yml` (repo root) on every push to
 `main` that touches `agency-agents-app/landing/**`, or manually via *Run workflow*.
-Uploads over FTPS to the subdomain's document root on Hostinger. `.htaccess` here forces
-HTTPS and sets security/cache headers.
+rsyncs this folder over SSH to `/var/www/agency.marvice.tech/` on the VPS, served by
+nginx. One-time server setup (nginx site, Let's Encrypt SSL, deploy user and key):
+`scripts/vps-setup-agency.sh` at the repo root. Its nginx config mirrors the security and
+cache headers in `.htaccess` (kept here for Apache/LiteSpeed hosts; not uploaded).
 
-The FTP action only deletes files it uploaded itself, so `updater.json` or anything else
-placed in the web root by hand is never removed.
+rsync runs with `--delete` but protects `updater.json`, so the auto-update feed can be
+placed in the web root by hand without the next deploy removing it.
