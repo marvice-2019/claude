@@ -1,0 +1,61 @@
+# Deploys agency-agents-app/landing (static, no build step) to agency.marvice.tech
+# on Hostinger over FTPS.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   HOSTINGER_FTP_HOST      e.g. ftp.marvice.tech (hPanel → Files → FTP Accounts)
+#   HOSTINGER_FTP_USER      FTP user scoped to the agency subdomain
+#   HOSTINGER_FTP_PASSWORD
+# Optional repo variable:
+#   AGENCY_FTP_DIR          remote dir, default "./" (a subdomain-scoped FTP user
+#                           lands in its document root already). Must end with "/".
+
+name: Deploy agency.marvice.tech
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "agency-agents-app/landing/**"
+      - ".github/workflows/deploy-agency-landing.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-agency-landing
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: agency-marvice-tech
+      url: https://agency.marvice.tech/
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sanity check landing
+        run: |
+          test -f agency-agents-app/landing/index.html
+          if grep -rn 'agencyagents\.app' agency-agents-app/landing --include='*.html' --include='*.xml' --include='*.txt'; then
+            echo "::error::Upstream domain still referenced in landing files"; exit 1
+          fi
+
+      - name: Upload via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.HOSTINGER_FTP_HOST }}
+          username: ${{ secrets.HOSTINGER_FTP_USER }}
+          password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./agency-agents-app/landing/
+          server-dir: ${{ vars.AGENCY_FTP_DIR || './' }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            README.md
+
+      - name: Smoke test
+        run: |
+          sleep 5
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://agency.marvice.tech/)
+          echo "HTTP $code"
+          test "$code" = "200"
