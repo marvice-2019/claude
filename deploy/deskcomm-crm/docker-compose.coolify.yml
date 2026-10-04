@@ -1,0 +1,159 @@
+# DeskcommCRM on Coolify — crm.marvice.tech
+# Adapted from upstream docker-compose.prod.yml (release 1.72.0, commit 69a09fb):
+#   - Caddy removed: Coolify's Traefik terminates TLS (domain set on the `app` service in Coolify).
+#   - env_file replaced with explicit ${VAR} refs so Coolify manages them as service env vars.
+#   - `dbinit` one-shot applies supabase/baseline.sql from the same commit on a fresh database.
+# Secrets live only in Coolify's env vars, never in this file.
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-app-env: &app-env
+  NODE_ENV: production
+  APP_VERSION: "1.72.0"
+  DOMAIN: ${DOMAIN}
+  NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+  NEXT_PUBLIC_ADMIN_URL: ${NEXT_PUBLIC_APP_URL}
+  NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+  SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+  SUPABASE_DB_URL: ${SUPABASE_DB_URL}
+  SUPABASE_DB_ADMIN_URL: ""
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  INTERNAL_SECRET: ${INTERNAL_SECRET}
+  INTERNAL_CRON_SECRET: ${INTERNAL_CRON_SECRET}
+  CPF_ENCRYPTION_KEY: ${CPF_ENCRYPTION_KEY}
+  AI_CRED_AES_KEY: ${AI_CRED_AES_KEY}
+  WAHA_BYO_ENCRYPTION_KEY: ${WAHA_BYO_ENCRYPTION_KEY}
+  IMPERSONATE_COOKIE_SECRET: ${IMPERSONATE_COOKIE_SECRET}
+  LGPD_SIGNING_KEY: ${LGPD_SIGNING_KEY}
+  NUVEMSHOP_ENABLED: "false"
+  NUVEMSHOP_OAUTH_ENCRYPTION_KEY: ${NUVEMSHOP_OAUTH_ENCRYPTION_KEY}
+  WAHA_API_BASE_URL: http://waha:3000
+  WAHA_WEBHOOK_BASE_URL: http://app:3000
+  WAHA_API_KEY: ${WAHA_API_KEY}
+  WAHA_HMAC_SECRET: ${WAHA_HMAC_SECRET}
+  UPSTASH_REDIS_REST_URL: http://srh:80
+  UPSTASH_REDIS_REST_TOKEN: ${SRH_TOKEN}
+  INTERNAL_AGENT_RUN_STUB: "false"
+  AGENT_DISPATCH_CONSUMER: engine
+  OWNER_EMAIL: ${OWNER_EMAIL}
+  SENTRY_DSN: "off"
+
+services:
+  dbinit:
+    image: postgres:17-alpine
+    restart: "no"
+    environment:
+      DB_ADMIN_URL: ${SUPABASE_DB_ADMIN_URL}
+      BASELINE_URL: https://raw.githubusercontent.com/melgarafael/DeskcommCRM/69a09fb3da81e4ee76aca3209af8e929dab85f27/supabase/baseline.sql
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        has=$$(psql "$$DB_ADMIN_URL" -tAc "select 1 from information_schema.tables where table_schema='public' and table_name='organizations'" | tr -d '[:space:]')
+        if [ "$$has" = "1" ]; then echo "schema already present — skipping baseline"; exit 0; fi
+        wget -qO /tmp/baseline.sql "$$BASELINE_URL"
+        psql "$$DB_ADMIN_URL" -v ON_ERROR_STOP=1 -c "create extension if not exists vector with schema public; create extension if not exists citext with schema public; create extension if not exists pg_trgm with schema public;"
+        psql "$$DB_ADMIN_URL" -v ON_ERROR_STOP=1 -q -f /tmp/baseline.sql
+        echo "baseline applied: $$(psql "$$DB_ADMIN_URL" -tAc "select count(*) from information_schema.tables where table_schema='public'") public tables"
+    logging: *default-logging
+
+  app:
+    image: ghcr.io/melgarafael/deskcommcrm:1.72.0
+    mem_limit: 768m
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      SERVICE_FQDN_APP_3000: ${SERVICE_FQDN_APP_3000:-}
+    depends_on:
+      dbinit:
+        condition: service_completed_successfully
+      srh:
+        condition: service_started
+      waha:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').connect(3000,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    logging: *default-logging
+
+  worker:
+    image: ghcr.io/melgarafael/deskcomm-worker:1.72.0
+    mem_limit: 512m
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+    depends_on:
+      dbinit:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8787/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging: *default-logging
+
+  waha:
+    image: devlikeapro/waha:latest-2026.7.2
+    mem_limit: 1280m
+    restart: unless-stopped
+    environment:
+      WAHA_API_KEY: "sha512:${WAHA_API_KEY_SHA512}"
+      WHATSAPP_HOOK_URL: http://app:3000/api/v1/webhooks/waha
+      WHATSAPP_HOOK_EVENTS: "message.any,message.ack,message.edited,message.revoked,session.status,state.change"
+      WHATSAPP_HOOK_HMAC_KEY: ${WAHA_HMAC_SECRET}
+      WHATSAPP_DEFAULT_ENGINE: NOWEB
+      WAHA_DASHBOARD_ENABLED: "false"
+      WHATSAPP_RESTART_ALL_SESSIONS: "True"
+    volumes:
+      - waha-data:/app/.sessions
+      - waha-media:/app/.media
+    logging: *default-logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    logging: *default-logging
+
+  srh:
+    image: hiett/serverless-redis-http@sha256:5b0bb9239fce53abf87b2018a7a0deb9ec7bd900c5360738fe5fbeeb426f9150
+    restart: unless-stopped
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: ${SRH_TOKEN}
+      SRH_CONNECTION_STRING: "redis://redis:6379"
+    depends_on:
+      redis:
+        condition: service_healthy
+    logging: *default-logging
+
+  scheduler:
+    image: ghcr.io/melgarafael/deskcomm-scheduler:1.72.0
+    restart: unless-stopped
+    environment:
+      TZ: UTC
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+    depends_on:
+      app:
+        condition: service_healthy
+    logging: *default-logging
+
+volumes:
+  waha-data:
+  waha-media:
