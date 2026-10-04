@@ -58,7 +58,7 @@ chmod 600 .env
 
 # 6. Up
 log "Starting n8n"
-docker compose pull -q
+for i in 1 2 3 4 5; do docker compose pull -q && break; echo "pull failed, retry $i in $((i*20))s"; sleep $((i*20)); done
 docker compose up -d
 for i in $(seq 1 60); do
   [[ "$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q n8n)" 2>/dev/null)" == healthy ]] && break
