@@ -8,7 +8,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 apt-get update -y
 apt-get upgrade -y
-apt-get install -y ca-certificates curl git ufw fail2ban unattended-upgrades
+apt-get install -y ca-certificates curl git cron ufw fail2ban unattended-upgrades
 
 # Docker (skip if the Hostinger "Ubuntu 24.04 with Docker" template already has it)
 if ! command -v docker >/dev/null; then

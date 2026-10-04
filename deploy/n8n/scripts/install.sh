@@ -78,8 +78,12 @@ docker compose exec -T n8n n8n import:workflow --input=/tmp/wf.json || echo "imp
 rm -f /tmp/wf.json
 
 # 8. Backups
-( crontab -l 2>/dev/null | grep -v n8n/scripts/backup.sh
-  echo "15 3 * * * $STACK/scripts/backup.sh >> /var/log/n8n-backup.log 2>&1" ) | crontab -
+if command -v crontab >/dev/null; then
+  { crontab -l 2>/dev/null | grep -v n8n/scripts/backup.sh || true
+    echo "15 3 * * * $STACK/scripts/backup.sh >> /var/log/n8n-backup.log 2>&1"; } | crontab -
+else
+  echo "cron not installed — backups not scheduled (apt-get install cron, then rerun)"
+fi
 
 # 9. TLS check
 if [[ "${SKIP_TLS_CHECK:-0}" != 1 ]]; then
