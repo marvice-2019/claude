@@ -17,6 +17,7 @@ Production-ready AI voice agent for customer care and sales in hospitality busin
 ## Project Structure
 
 ```
+├── deploy/n8n/                      # Production docker-compose, VPS bootstrap, backups
 ├── workflows/
 │   ├── main-voice-agent.json        # Core inbound call workflow (n8n)
 │   ├── outbound-campaign.json       # Outbound calling campaign workflow
@@ -39,9 +40,9 @@ Production-ready AI voice agent for customer care and sales in hospitality busin
 
 ## Quick Start
 
-1. Set up n8n (cloud or self-hosted)
-2. Import the 3 workflows from `workflows/`
-3. Configure API keys from `configs/env-template.env`
+1. Deploy n8n with [`deploy/n8n/`](deploy/n8n/README.md) (queue mode, Postgres, auto-HTTPS)
+2. Import `workflows/n8n-import-complete.json`
+3. Put API keys in `deploy/n8n/.env` (read by workflows as `$env.*`)
 4. Set up Google Sheets from `configs/google-sheets-schema.md`
 5. Configure Twilio webhook → your n8n URL
 6. Test with a phone call
