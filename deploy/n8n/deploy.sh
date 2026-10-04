@@ -18,14 +18,16 @@ if [[ ! -f .env ]]; then
   chmod 600 .env
   log "Created .env with fresh secrets. Back up N8N_ENCRYPTION_KEY now."
 fi
+setenv() { export "$1=$2"; if grep -q "^$1=" .env; then sed -i "s|^$1=.*|$1=$2|" .env; else echo "$1=$2" >> .env; fi; }
 set -a; source .env; set +a
-
-setenv() { grep -q "^$1=" .env && sed -i "s|^$1=.*|$1=$2|" .env || echo "$1=$2" >> .env; }
+if [[ -z "${ACME_EMAIL:-}" ]]; then
+  ACME_EMAIL="admin@$(awk -F. '{print $(NF-1)"."$NF}' <<<"$N8N_DOMAIN")"; setenv ACME_EMAIL "$ACME_EMAIL"
+fi
 
 # --- DNS sanity check ---
 public_ip=$(curl -fsS4 --max-time 5 https://api.ipify.org || true)
 dns_ip=$(getent ahostsv4 "$N8N_DOMAIN" | awk 'NR==1{print $1}' || true)
-if [[ -n "$public_ip" && "$dns_ip" != "$public_ip" ]]; then
+if [[ -z "${SKIP_DNS_CHECK:-}" && -n "$public_ip" && "$dns_ip" != "$public_ip" ]]; then
   die "$N8N_DOMAIN resolves to '${dns_ip:-nothing}', this host is $public_ip. Fix the A record first (Let's Encrypt will fail otherwise)."
 fi
 
@@ -34,14 +36,38 @@ existing=$(docker ps --format '{{.Names}} {{.Image}}' | awk 'tolower($2) ~ /trae
 args=""
 if [[ -n "$existing" ]]; then args=$(docker inspect "$existing" --format '{{join .Config.Cmd " "}} {{join .Args " "}}'); fi
 
+# Docker Engine 29 dropped API <1.44; Traefik <3.6.1 then silently loses every route (404 + self-signed cert).
+fix_stale_traefik() {
+  local c=$1 img dir files
+  img=$(docker inspect "$c" --format '{{.Config.Image}}')
+  docker logs --tail 300 "$c" 2>&1 | grep -qiE 'client version [0-9.]+ is too old' || return 0
+  log "Traefik '$c' ($img) can't talk to this Docker Engine — upgrading it to traefik:v3.6"
+  dir=$(docker inspect "$c" --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}')
+  files=$(docker inspect "$c" --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}')
+  [[ -n "$dir" && -n "$files" ]] || die "'$c' isn't compose-managed. Change its image to traefik:v3.6 and recreate it, then re-run."
+  local f; IFS=, read -ra fl <<<"$files"
+  for f in "${fl[@]}"; do
+    [[ -f "$f" ]] || continue
+    cp "$f" "$f.bak-$(date +%s)"
+    sed -Ei 's#(image:[[:space:]]*["'"'"']?)(docker\.io/)?(library/)?traefik(:[^"'"'"'[:space:]]*)?#\1traefik:v3.6#' "$f"
+  done
+  local svc proj
+  svc=$(docker inspect "$c" --format '{{index .Config.Labels "com.docker.compose.service"}}')
+  proj=$(docker inspect "$c" --format '{{index .Config.Labels "com.docker.compose.project"}}')
+  (cd "$dir" && docker compose -p "$proj" $(printf -- '-f %s ' "${fl[@]}") up -d "$svc")
+  sleep 5
+}
+
 if [[ -n "$existing" && "$existing" != n8n-traefik-* ]]; then
   log "Found existing Traefik container: $existing — attaching n8n to it"
+  fix_stale_traefik "$existing"
   net=$(docker inspect "$existing" --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' | tr ' ' '\n' | grep -v '^bridge$' | grep -v '^$' | head -1)
   [[ -n "$net" ]] || die "Could not determine $existing's docker network"
   ep=$(grep -oE 'entrypoints\.[A-Za-z0-9_-]+\.address=:443' <<<"$args" | head -1 | cut -d. -f2 || true)
+  hep=$(grep -oE 'entrypoints\.[A-Za-z0-9_-]+\.address=:80' <<<"$args" | head -1 | cut -d. -f2 || true)
   cr=$(grep -oE 'certificatesresolvers\.[A-Za-z0-9_-]+\.' <<<"$args" | head -1 | cut -d. -f2 || true)
   [[ -n "$ep" && -n "$cr" ]] || die "Traefik '$existing' is configured via file, not CLI flags. Set TRAEFIK_ENTRYPOINT / TRAEFIK_CERTRESOLVER in .env to match its config, set TRAEFIK_NETWORK=$net, and re-run."
-  setenv TRAEFIK_NETWORK "$net"; setenv TRAEFIK_ENTRYPOINT "$ep"; setenv TRAEFIK_CERTRESOLVER "$cr"
+  setenv TRAEFIK_NETWORK "$net"; setenv TRAEFIK_ENTRYPOINT "$ep"; setenv TRAEFIK_CERTRESOLVER "$cr"; setenv TRAEFIK_HTTP_ENTRYPOINT "${hep:-web}"
   cat > docker-compose.override.yml <<YML
 networks:
   edge:
@@ -53,7 +79,7 @@ else
     die "Ports 80/443 are held by a non-Traefik process: $(ss -ltnpH '( sport = :80 or sport = :443 )' | awk '{print $NF}' | sort -u | tr '\n' ' '). Stop it or put n8n behind it manually."
   fi
   log "Using bundled Traefik (ports 80/443)"
-  setenv TRAEFIK_NETWORK n8n_edge; setenv TRAEFIK_ENTRYPOINT websecure; setenv TRAEFIK_CERTRESOLVER le
+  setenv TRAEFIK_NETWORK n8n_edge; setenv TRAEFIK_ENTRYPOINT websecure; setenv TRAEFIK_CERTRESOLVER le; setenv TRAEFIK_HTTP_ENTRYPOINT web
   rm -f docker-compose.override.yml
   profile_args=(--profile proxy)
 fi
