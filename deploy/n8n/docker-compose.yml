@@ -1,0 +1,150 @@
+# Production n8n for the voice agent — queue mode, Postgres, Redis, auto-TLS.
+# Self-contained (Caddyfile is inlined) so it deploys either with
+# `docker compose up -d` or by pasting into Hostinger's Docker Manager / API.
+#
+#   cp .env.example .env   # fill it in
+#   docker compose up -d
+#   docker compose up -d --scale n8n-worker=2   # more throughput
+
+x-n8n: &n8n
+  image: n8nio/n8n:${N8N_VERSION:-2.41.6}
+  restart: unless-stopped
+  env_file: .env
+  environment: &n8n-env
+    # Database
+    DB_TYPE: postgresdb
+    DB_POSTGRESDB_HOST: postgres
+    DB_POSTGRESDB_PORT: 5432
+    DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-n8n}
+    DB_POSTGRESDB_USER: ${POSTGRES_USER:-n8n}
+    DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    # Queue mode
+    EXECUTIONS_MODE: queue
+    QUEUE_BULL_REDIS_HOST: redis
+    QUEUE_BULL_REDIS_PORT: 6379
+    QUEUE_HEALTH_CHECK_ACTIVE: "true"
+    OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: "true"
+    # URLs — Twilio callbacks are built from these, they must be the public https URL
+    N8N_HOST: ${N8N_HOST:?set N8N_HOST}
+    N8N_PROTOCOL: https
+    N8N_PORT: 5678
+    N8N_LISTEN_ADDRESS: 0.0.0.0
+    N8N_WORKER_SERVER_ADDRESS: 0.0.0.0
+    N8N_PROXY_HOPS: 1
+    WEBHOOK_URL: https://${N8N_HOST}/
+    N8N_EDITOR_BASE_URL: https://${N8N_HOST}/
+    N8N_BASE_URL: https://${N8N_HOST}
+    # Security
+    N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?set N8N_ENCRYPTION_KEY}
+    N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+    # Workflows read API keys via $env.* — n8n 2.x blocks this by default
+    N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+    # Housekeeping
+    GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Asia/Kolkata}
+    TZ: ${GENERIC_TIMEZONE:-Asia/Kolkata}
+    EXECUTIONS_DATA_PRUNE: "true"
+    EXECUTIONS_DATA_MAX_AGE: ${EXECUTIONS_DATA_MAX_AGE:-336}
+    EXECUTIONS_DATA_PRUNE_MAX_COUNT: 50000
+    N8N_DIAGNOSTICS_ENABLED: "false"
+    N8N_PERSONALIZATION_ENABLED: "false"
+    N8N_METRICS: "true"
+  volumes:
+    - n8n_data:/home/node/.n8n
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      N8N_HOST: ${N8N_HOST}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - n8n
+
+  n8n:
+    <<: *n8n
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5678/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  n8n-worker:
+    <<: *n8n
+    command: worker --concurrency=${WORKER_CONCURRENCY:-10}
+    depends_on:
+      n8n:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-n8n}
+      POSTGRES_USER: ${POSTGRES_USER:-n8n}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-n8n} -d ${POSTGRES_DB:-n8n}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory-policy noeviction
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+configs:
+  caddyfile:
+    content: |
+      {
+        email {$$ACME_EMAIL}
+      }
+
+      {$$N8N_HOST} {
+        encode zstd gzip
+        # /metrics stays internal
+        @metrics path /metrics*
+        respond @metrics 404
+        reverse_proxy n8n:5678 {
+          flush_interval -1
+        }
+        header {
+          Strict-Transport-Security "max-age=31536000; includeSubDomains"
+          X-Content-Type-Options nosniff
+          Referrer-Policy strict-origin-when-cross-origin
+          -Server
+        }
+      }
+
+volumes:
+  n8n_data:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:

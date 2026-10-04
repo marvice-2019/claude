@@ -13,21 +13,17 @@
 ### Option A: n8n Cloud (Quickest)
 1. Sign up at n8n.io
 2. Import workflows from `workflows/` directory
-3. Set environment variables in n8n Settings → Variables
+3. Note: these workflows read keys via `$env`, which n8n Cloud restricts. Use Option B for production
 
-### Option B: Self-Hosted (Production)
+### Option B: Self-Hosted (Production — recommended)
+Use the tested stack in [`deploy/n8n/`](../deploy/n8n/README.md): n8n in queue mode + Postgres 17 + Redis + Caddy auto-HTTPS, with a VPS hardening script and nightly backups.
+
 ```bash
-docker run -d \
-  --name n8n \
-  --restart always \
-  -p 5678:5678 \
-  -e N8N_ENCRYPTION_KEY=your-secret-key \
-  -e EXECUTIONS_MODE=queue \
-  -e QUEUE_BULL_REDIS_HOST=redis \
-  -e GENERIC_TIMEZONE=Asia/Kolkata \
-  -v n8n_data:/home/node/.n8n \
-  n8nio/n8n:latest
+cd deploy/n8n && cp .env.example .env   # fill in N8N_HOST + keys
+docker compose up -d
 ```
+
+The stack derives `N8N_BASE_URL` (used by workflows to build Twilio callback URLs) from `N8N_HOST`. If you run n8n any other way, set it to your public https URL with no trailing slash.
 
 ---
 
@@ -54,10 +50,10 @@ docker run -d \
 
 ## Step 4: Configure API Keys
 
-Copy `configs/env-template.env` to `.env` and fill in all values.
+Workflows read keys as `$env.KEY`, so they must be **environment variables of the n8n container**. Do not add them under Settings → Variables (that is `$vars`, a paid feature the workflows don't read).
 
-In n8n, add each as a variable:
-- Settings → Variables → Add each key
+- Self-hosted: put them in `deploy/n8n/.env`, then `docker compose up -d`
+- n8n Cloud: `$env` access is restricted, so use self-hosted for this project
 
 ---
 
@@ -78,13 +74,16 @@ In n8n, add each as a variable:
 
 ## Step 6: Import Workflows into n8n
 
-1. Open n8n editor
-2. Click "Import from File"
-3. Import in this order:
-   - `workflows/main-voice-agent.json` (core workflow)
-   - `workflows/outbound-campaign.json` (outbound calls)
-   - `workflows/feedback-learning-loop.json` (daily analytics)
-4. Activate all three workflows
+Import **one** set (they share webhook paths), via Editor → Workflows → Import from File:
+
+| Set | Files | Twilio Voice webhook |
+|---|---|---|
+| **Complete (recommended)** | `workflows/n8n-import-complete.json` | `/webhook/voice-agent/incoming` |
+| Split | `n8n-import-call-handler.json`, `n8n-import-ai-brain.json`, `n8n-import-crm-whatsapp.json` | `/webhook/voice/incoming` |
+
+Attach the Google Sheets credential to every Sheets node, then activate.
+
+`main-voice-agent.json`, `outbound-campaign.json` and `feedback-learning-loop.json` are reference designs. n8n 2.x rejects them on import.
 
 ---
 
