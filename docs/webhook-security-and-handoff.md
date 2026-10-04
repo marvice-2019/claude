@@ -9,11 +9,13 @@ Applies to the split stack: `n8n-import-call-handler.json`, `n8n-import-ai-brain
 | `voice/incoming`, `voice/turn` | Anyone with the URL could start calls, burn Deepgram/ElevenLabs/Claude credits, write fake bookings | `X-Twilio-Signature` verified (HMAC-SHA1 of URL + sorted params). Bad requests get `403` |
 | `crm-action` | Anyone could make it save rows and send WhatsApp templates to any number | Requires `X-Internal-Token`. Missing or wrong token gets `401` |
 | `ai-brain` | Anyone could spend Claude credits, and trigger booking confirmations through it | Requires `X-Internal-Token`, sent by the call handler. Missing or wrong token gets `401` |
+| `voice/outbound-greeting`, `voice/outbound-status` (outbound campaign) | — | Same Twilio signature check as the call handler |
 
 **Bot pause.** When the AI transfers a caller to a human, or a complaint is logged, the guest gets an `active` row in the `Handoffs` sheet for `HANDOFF_PAUSE_HOURS` (default 24). While it's active:
 
 - **Their next call** skips the AI and dials `ESCALATION_PHONE` directly. If no valid number is set, the AI answers as before, so the line never goes dead.
 - **Automated lead follow-ups** on WhatsApp are skipped and logged as `followup_skipped_handoff`.
+- **Outbound campaign calls** to them are skipped and the queue row is marked `skipped_handoff`. If the `Handoffs` sheet can't be read, that run dials nobody.
 - **Booking confirmations** still send, because the guest needs them.
 
 Staff end a pause by setting `status` to `released` in the sheet.

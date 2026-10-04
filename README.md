@@ -21,8 +21,8 @@ Production-ready AI voice agent for customer care and sales in hospitality busin
 │   ├── n8n-import-call-handler.json # Deploy: Twilio calls, STT/TTS, TwiML, transfers
 │   ├── n8n-import-ai-brain.json     # Deploy: Claude conversation logic
 │   ├── n8n-import-crm-whatsapp.json # Deploy: Sheets, WhatsApp, bot pause
-│   ├── outbound-campaign.json       # Optional: outbound calling campaign
-│   ├── feedback-learning-loop.json  # Optional: daily analytics + prompt improvement
+│   ├── outbound-campaign.json       # Optional: outbound calls from OutboundQueue, respects bot pause
+│   ├── feedback-learning-loop.json  # Optional: daily report from CallTurns + AI review
 │   └── (main-voice-agent, n8n-import-complete/-1-/-2-)  # Earlier versions, don't import with the above
 ├── prompts/
 │   ├── system-prompt.md             # Full AI system prompt (multi-language)

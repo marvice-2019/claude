@@ -4,10 +4,11 @@ Row 1 of each sheet holds the column names below. The split stack's Sheets nodes
 
 | Sheet | Used by |
 |---|---|
-| Bookings, Leads, Complaints, ActivityLog, Handoffs | Split stack (`n8n-import-crm-whatsapp.json`, call handler) |
+| Bookings, Leads, Complaints, ActivityLog, Handoffs | Split stack (`n8n-import-crm-whatsapp.json`, call handler; Handoffs also read by `outbound-campaign.json`) |
+| CallTurns | Written by the AI brain every turn, read by `feedback-learning-loop.json` |
 | OutboundQueue | `outbound-campaign.json` |
-| ConversationLogs, DailyReports | `feedback-learning-loop.json` (the split stack doesn't write ConversationLogs yet) |
-| BusinessConfig, Customers | Earlier workflow versions only; the split stack keeps venue details in the AI brain's `Load Business Config` node |
+| DailyReports | `feedback-learning-loop.json` |
+| BusinessConfig, Customers, ConversationLogs | Earlier workflow versions only. The split stack keeps venue details in the AI brain's `Load Business Config` node |
 
 ## Sheet 1: BusinessConfig
 
@@ -67,6 +68,8 @@ Row 1 of each sheet holds the column names below. The split stack's Sheets nodes
 
 ## Sheet 5: OutboundQueue
 
+You fill A–H; the outbound workflow fills the rest. `phone` must be in `+<country><number>` format. `purpose` is one of `booking_reminder`, `follow_up`, `event_promo`, `feedback`, `offer`. A blank `scheduled_time` means "as soon as possible". To retry a call, set `status` back to `pending`.
+
 | Column | Field | Type | Example |
 |--------|-------|------|---------|
 | A | phone | string | `+919876543210` |
@@ -75,8 +78,12 @@ Row 1 of each sheet holds the column names below. The split stack's Sheets nodes
 | D | language_pref | string | `en` |
 | E | scheduled_time | datetime | `2026-03-19T10:00:00Z` |
 | F | business_id | string | `biz_001` |
-| G | template | string | `event_promo` |
-| H | status | string | `pending` |
+| G | template | string | `event_promo` (unused by the split stack) |
+| H | status | string | `pending` → `dialing`/`calling` → `completed`, `voicemail`, `no-answer`, `busy`, `failed`, `canceled`; or `skipped_handoff`, `invalid_phone`, `invalid_schedule`, `dial_failed` |
+| I | call_sid | string | `CA0123…` |
+| J | last_attempt_at | datetime | `2026-03-19T10:05:12.000+05:30` |
+| K | call_duration | number | `95` (seconds) |
+| L | error | string | Twilio's message when `dial_failed` |
 
 ## Sheet 6: Leads
 
@@ -134,3 +141,35 @@ One row per guest per venue. Written by `n8n-import-crm-whatsapp.json` (action `
 | I | released_by | string | `Anita (manager)` |
 
 Staff end a pause early by setting `status` to `released`. A blank or unreadable `paused_until` keeps the pause on until released. To pause a guest by hand, add a row with `handoff_key` in the exact format above.
+
+## Sheet 10: CallTurns
+
+One row per conversation turn, appended by the AI brain after it replies (so it never slows the call). The daily report groups rows by `session_id`. Each logged turn costs about three Sheets API requests, and Google's default quota is 60 requests a minute per user, shared with every other Sheets node. Expect trouble above roughly 15 turns a minute across all live calls (about 3 busy calls at once); move this log to a database before that volume. Logging failures never affect the call.
+
+| Column | Field | Type | Example |
+|--------|-------|------|---------|
+| A | timestamp | datetime | `2026-03-18T14:30:00.000Z` |
+| B | session_id | string | `CA1234567890` (Twilio CallSid) |
+| C | business_id | string | `biz_001` |
+| D | phone | string | `+919876543210` |
+| E | language | string | `ta` |
+| F | caller_text | string | `Table for four tomorrow at 8` |
+| G | reply_text | string | `Sure! May I have your name?` |
+| H | intent | string | `booking` |
+| I | emotion | string | `happy` |
+| J | action | string | `continue`, `transfer`, `end_call`, `confirm_booking` |
+| K | booking_complete | string | `yes` / `no` |
+| L | escalated | string | `yes` / `no` |
+
+## Sheet 11: DailyReports
+
+| Column | Field | Type | Example |
+|--------|-------|------|---------|
+| A | date | date | `2026-03-18` (the day covered, venue timezone) |
+| B | total_calls | number | `42` |
+| C | bookings_completed | number | `11` |
+| D | booking_rate | string | `61.1%` (completed bookings / calls with booking intent) |
+| E | escalation_rate | string | `7.1%` |
+| F | metrics_json | JSON string | intent, language and emotion breakdowns |
+| G | ai_analysis | string | Claude's review of the day's transcripts |
+| H | status | string | `pending_review` |

@@ -1,129 +1,629 @@
 {
-  "name": "AI Voice Agent — Outbound Campaign Workflow",
+  "name": "AI Voice Agent — Outbound Campaign",
   "nodes": [
     {
-      "id": "trigger-schedule",
-      "name": "Campaign Schedule Trigger",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "position": [250, 300],
       "parameters": {
         "rule": {
-          "interval": [{ "field": "hours", "hoursInterval": 1 }]
+          "interval": [
+            { "field": "hours", "hoursInterval": 1, "triggerAtMinute": 5 }
+          ]
         }
       },
-      "notes": "Runs hourly to check for pending outbound calls. Can also be triggered manually or via webhook."
+      "id": "c217e01a-dd34-498b-a8ce-eeb48314510e",
+      "name": "Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300]
     },
     {
-      "id": "fetch-call-queue",
-      "name": "Fetch Pending Outbound Calls",
-      "type": "n8n-nodes-base.googleSheets",
-      "position": [450, 300],
       "parameters": {
         "operation": "read",
-        "sheetId": "={{$env.GSHEET_ID}}",
-        "range": "OutboundQueue!A:H",
-        "options": {
-          "filters": {
-            "column": "status",
-            "value": "pending"
-          }
+        "documentId": { "__rl": true, "mode": "id", "value": "={{ $env.GSHEET_ID }}" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "OutboundQueue" },
+        "options": {},
+        "filtersUI": {
+          "values": [
+            { "lookupColumn": "status", "lookupValue": "pending" }
+          ]
         }
       },
-      "notes": "Fetches pending outbound calls from the queue sheet. Columns: phone, name, purpose, language_pref, scheduled_time, business_id, template, status."
-    },
-    {
-      "id": "filter-ready-calls",
-      "name": "Filter Calls Ready to Execute",
-      "type": "n8n-nodes-base.code",
-      "position": [650, 300],
-      "parameters": {
-        "jsCode": "const now = new Date();\nconst hour = now.getHours();\n\n// Only call between 10 AM and 8 PM IST\nif (hour < 10 || hour > 20) {\n  return []; // No calls outside business hours\n}\n\nconst items = $input.all();\nreturn items.filter(item => {\n  const scheduled = new Date(item.json.scheduled_time);\n  return scheduled <= now && item.json.status === 'pending';\n});\n"
-      },
-      "notes": "Filters to only calls scheduled for now or past, and only during business hours (10 AM - 8 PM IST)."
-    },
-    {
-      "id": "initiate-outbound-call",
-      "name": "Initiate Outbound Call via Twilio",
-      "type": "n8n-nodes-base.httpRequest",
-      "position": [850, 300],
-      "parameters": {
-        "url": "https://api.twilio.com/2010-04-01/Accounts/{{$env.TWILIO_ACCOUNT_SID}}/Calls.json",
-        "method": "POST",
-        "authentication": "basicAuth",
-        "body": {
-          "contentType": "form-urlencoded",
-          "form": {
-            "parameter": [
-              { "name": "To", "value": "={{$json.phone}}" },
-              { "name": "From", "value": "={{$env.TWILIO_PHONE_NUMBER}}" },
-              { "name": "Url", "value": "={{$env.N8N_BASE_URL}}/webhook/voice-agent/outbound-greeting?name={{encodeURIComponent($json.name)}}&purpose={{$json.purpose}}&lang={{$json.language_pref}}" },
-              { "name": "StatusCallback", "value": "={{$env.N8N_BASE_URL}}/webhook/voice-agent/call-status" },
-              { "name": "MachineDetection", "value": "DetectMessageEnd" },
-              { "name": "Timeout", "value": "30" }
-            ]
-          }
-        }
-      },
-      "notes": "Initiates outbound call via Twilio. Includes answering machine detection. Webhook URL passes caller context."
-    },
-    {
-      "id": "outbound-greeting-webhook",
-      "name": "Outbound Greeting Webhook",
-      "type": "n8n-nodes-base.webhook",
-      "position": [250, 600],
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "voice-agent/outbound-greeting",
-        "responseMode": "responseNode"
-      },
-      "notes": "Twilio hits this when the outbound call connects. Generates a purpose-specific greeting."
-    },
-    {
-      "id": "generate-outbound-greeting",
-      "name": "Generate Outbound Greeting",
-      "type": "n8n-nodes-base.code",
-      "position": [450, 600],
-      "parameters": {
-        "jsCode": "const name = $input.first().json.query.name || '';\nconst purpose = $input.first().json.query.purpose || 'follow_up';\nconst lang = $input.first().json.query.lang || 'en';\nconst machineDetected = $input.first().json.body.AnsweredBy;\n\n// If voicemail detected, leave a short message\nif (machineDetected === 'machine_end_other' || machineDetected === 'machine_end_beep') {\n  return [{ json: {\n    greeting: `Hi ${name}, this is Priya calling from the venue. We have a special offer for you this weekend. Please call us back at your convenience. Thank you!`,\n    is_voicemail: true\n  }}];\n}\n\nconst templates = {\n  booking_reminder: `Hi ${name}! This is Priya from the venue. I'm calling to confirm your reservation for tomorrow. Do you have a quick moment?`,\n  follow_up: `Hello ${name}! This is Priya calling from the venue. We noticed you enquired about our services recently. I just wanted to check if you'd like to go ahead with a booking?`,\n  event_promo: `Hi ${name}! This is Priya from the venue. We have an exciting event coming up this weekend and I thought of you. Do you have a minute?`,\n  feedback: `Hi ${name}! This is Priya from the venue. You visited us recently and we'd love your quick feedback. Do you have 2 minutes?`,\n  offer: `Hello ${name}! This is Priya from the venue. We have an exclusive offer just for our valued customers. Can I share the details with you?`\n};\n\nconst greeting = templates[purpose] || templates.follow_up;\n\nreturn [{ json: { greeting, is_voicemail: false, purpose, caller_name: name, detected_language: lang } }];\n"
-      },
-      "notes": "Generates context-specific greeting for outbound calls. Handles voicemail detection — leaves a short message instead of running the full agent."
-    },
-    {
-      "id": "update-call-status",
-      "name": "Call Status Webhook",
-      "type": "n8n-nodes-base.webhook",
-      "position": [250, 900],
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "voice-agent/call-status"
-      },
-      "notes": "Receives call status updates from Twilio (completed, failed, busy, no-answer). Updates the queue sheet."
-    },
-    {
-      "id": "update-queue-status",
-      "name": "Update Queue Status",
+      "id": "402beab6-0f97-4c68-a5f7-a1a64dbd8708",
+      "name": "Read Pending Queue",
       "type": "n8n-nodes-base.googleSheets",
-      "position": [450, 900],
+      "typeVersion": 4.5,
+      "position": [220, 300],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pending OutboundQueue rows that are due, inside calling hours, capped per run.\n// Rows that can never be dialled are marked so they don't come back every hour.\nconst tz = $env.BUSINESS_TIMEZONE || 'Asia/Kolkata';\nconst startHour = Number($env.OUTBOUND_START_HOUR || 10);\nconst endHour = Number($env.OUTBOUND_END_HOUR || 20);   // last call starts before this hour\nconst maxPerRun = Number($env.OUTBOUND_MAX_PER_RUN) > 0 ? Number($env.OUTBOUND_MAX_PER_RUN) : 20;\n\nconst hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', hourCycle: 'h23' }).format(new Date()));\nif (hour < startHour || hour >= endHour) return [];\n\nconst now = Date.now();\nconst out = [];\nfor (const { json: r } of $input.all()) {\n  if (!r.row_number || String(r.status || '').trim().toLowerCase() !== 'pending') continue;\n  const phone = String(r.phone || '').replace(/[\\s()-]/g, '');\n  const when = String(r.scheduled_time || '').trim();\n  const due = when === '' ? now : Date.parse(when);\n  const base = {\n    row_number: r.row_number, phone, name: String(r.name || '').trim(), purpose: String(r.purpose || 'follow_up').trim(),\n    language_pref: String(r.language_pref || 'en').trim(), business_id: String(r.business_id || 'default').trim()\n  };\n  if (!/^\\+[1-9]\\d{7,14}$/.test(phone)) out.push({ ...base, outcome: 'invalid_phone' });\n  else if (Number.isNaN(due)) out.push({ ...base, outcome: 'invalid_schedule' });\n  else if (due <= now) out.push({ ...base, outcome: 'dial' });\n}\n\nconst dial = out.filter(c => c.outcome === 'dial').slice(0, maxPerRun);\nconst invalid = out.filter(c => c.outcome !== 'dial');\nreturn [...dial, ...invalid].map(json => ({ json }));\n"
+      },
+      "id": "79ed4a4a-7831-442a-9180-e5fc3eb86591",
+      "name": "Select Due Calls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300],
+      "notes": "Calling hours OUTBOUND_START_HOUR-OUTBOUND_END_HOUR (default 10-20) in BUSINESS_TIMEZONE; at most OUTBOUND_MAX_PER_RUN (default 20) per run."
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "mode": "id", "value": "={{ $env.GSHEET_ID }}" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "Handoffs" },
+        "options": {}
+      },
+      "id": "df2f9013-f0d5-4d00-9b9c-539b3d602a88",
+      "name": "Read Handoffs",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [660, 300],
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Don't call a guest whom staff are handling (active row in Handoffs). If the Handoffs sheet\n// can't be read, dial nobody this run: the queue is retried next hour, a wrong call can't be undone.\nconst handoffs = $input.all().map(i => i.json);\nif (handoffs.some(h => h.error)) return [];\n\nconst now = Date.now();\nconst paused = new Set(handoffs\n  .filter(h => String(h.status || '').trim().toLowerCase() === 'active')\n  .filter(h => { const t = Date.parse(String(h.paused_until || '')); return Number.isNaN(t) || t > now; })\n  .map(h => String(h.handoff_key || '')));\n\nconst base = String($env.N8N_BASE_URL || '').trim().replace(/\\/+$/, '');\nconst q = obj => Object.entries(obj).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');\n\nreturn $('Select Due Calls').all().map(({ json: c }) => {\n  const key = `${c.business_id}:${c.phone.replace(/\\D/g, '')}`;\n  let outcome = c.outcome;\n  if (outcome === 'dial' && paused.has(key)) outcome = 'skipped_handoff';\n  if (outcome === 'dial' && !base) outcome = 'base_url_not_configured';\n  return { json: {\n    ...c,\n    outcome,\n    queue_status: outcome === 'dial' ? 'dialing' : outcome,\n    // Query order and encoding must match what the signature check rebuilds\n    greeting_url: `${base}/webhook/voice/outbound-greeting?${q({ row: c.row_number, biz: c.business_id, purpose: c.purpose, lang: c.language_pref, name: c.name })}`,\n    status_url: `${base}/webhook/voice/outbound-status?${q({ row: c.row_number })}`\n  } };\n});\n"
+      },
+      "id": "dd22746f-b88b-4b14-a03b-344dfd2872ba",
+      "name": "Apply Bot Pause",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "3c5a3e70-500f-48c1-90f0-1f10e94601df",
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "dial",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7b55cad7-d934-45da-8bf0-528d7780cf30",
+      "name": "Dial?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.twilio.com/2010-04-01/Accounts/{{ $env.TWILIO_ACCOUNT_SID }}/Calls.json",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Basic ' + (String($env.TWILIO_ACCOUNT_SID || '') + ':' + String($env.TWILIO_AUTH_TOKEN || '')).base64Encode() }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "To", "value": "={{ $json.phone }}" },
+            { "name": "From", "value": "={{ $env.TWILIO_PHONE_NUMBER }}" },
+            { "name": "Url", "value": "={{ $json.greeting_url }}" },
+            { "name": "StatusCallback", "value": "={{ $json.status_url }}" },
+            { "name": "MachineDetection", "value": "DetectMessageEnd" },
+            { "name": "Timeout", "value": "30" }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "batching": {
+            "batch": { "batchSize": 1, "batchInterval": 1000 }
+          }
+        }
+      },
+      "id": "cc5cdb82-68f0-4554-94d1-7d6808e31e23",
+      "name": "Place Outbound Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 200],
+      "onError": "continueRegularOutput",
+      "notes": "One call per second keeps well under Twilio's default call-creation rate."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Twilio answers a created call with its sid; anything else is a failed attempt.\nconst call = $('Dial?').item.json;\nconst res = $json;\nconst ok = typeof res.sid === 'string' && res.sid.startsWith('CA');\nreturn { json: {\n  row_number: call.row_number,\n  queue_status: ok ? 'calling' : 'dial_failed',\n  call_sid: ok ? res.sid : '',\n  error: ok ? '' : String(res.error ? (res.error.message || JSON.stringify(res.error)) : 'no call sid').slice(0, 300)\n} };\n"
+      },
+      "id": "224b3cb5-db0f-48d5-9d59-8ffd86c61b43",
+      "name": "Record Dial Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 200]
+    },
+    {
       "parameters": {
         "operation": "update",
-        "sheetId": "={{$env.GSHEET_ID}}",
-        "range": "OutboundQueue!A:H",
-        "options": {
-          "valueInputOption": "RAW"
-        }
+        "documentId": { "__rl": true, "mode": "id", "value": "={{ $env.GSHEET_ID }}" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "OutboundQueue" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $json.row_number }}",
+            "status": "={{ $json.queue_status }}",
+            "call_sid": "={{ $json.call_sid }}",
+            "last_attempt_at": "={{ $now.toISO() }}",
+            "error": "={{ $json.error }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "call_sid",
+              "displayName": "call_sid",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_attempt_at",
+              "displayName": "last_attempt_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
       },
-      "notes": "Updates the outbound queue with call result: completed, failed, busy, voicemail, no-answer, etc."
+      "id": "6ab7ff7d-395e-4c79-ac30-b42ec7ba44f9",
+      "name": "Mark Dialled",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.3,
+      "position": [1760, 200],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": { "__rl": true, "mode": "id", "value": "={{ $env.GSHEET_ID }}" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "OutboundQueue" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $json.row_number }}",
+            "status": "={{ $json.queue_status }}",
+            "last_attempt_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_attempt_at",
+              "displayName": "last_attempt_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "eea523f3-4dea-429a-aa10-d4b6870a9555",
+      "name": "Mark Skipped",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.3,
+      "position": [1320, 420],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice/outbound-greeting",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a9b14947-6dab-4f37-916e-a867c86cf6a9",
+      "name": "Outbound Greeting Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 700],
+      "webhookId": "1134313f-4032-4e19-a5b3-6fcd63c4afb9"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reject requests that did not come from Twilio before any call logic runs.\n// Twilio signs: full request URL + every POST param sorted by name (name + value),\n// HMAC-SHA1 with the account auth token, base64. The URL is rebuilt from N8N_BASE_URL,\n// the same base the TwiML action URLs use, so it matches what Twilio requested.\n// TWILIO_SIGNATURE_MODE: enforce (default) = reject | log = let through, flagged | off = skip.\n// Needs the 'crypto' built-in: N8N_RUNNERS_ALLOWED_BUILT_IN_MODULES=crypto (legacy: NODE_FUNCTION_ALLOW_BUILTIN).\nconst WEBHOOK_PATH = '/webhook/voice/outbound-greeting';\nconst req = $input.first().json;\nconst mode = String($env.TWILIO_SIGNATURE_MODE || 'enforce').trim().toLowerCase();\nconst token = String($env.TWILIO_AUTH_TOKEN || '');\nconst base = String($env.N8N_BASE_URL || '').trim().replace(/\\/+$/, '');\nconst query = req.query || {};\nconst qs = Object.keys(query)\n  .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(query[k])}`)\n  .join('&');\nconst url = base + WEBHOOK_PATH + (qs ? `?${qs}` : '');\nconst provided = String((req.headers || {})['x-twilio-signature'] || '');\n\nlet crypto = null;\ntry { crypto = require('crypto'); } catch (e) { crypto = null; }\n\nlet valid = false;\nlet reason = 'ok';\nif (mode === 'off') reason = 'check_disabled';\nelse if (!token) reason = 'auth_token_not_configured';\nelse if (!base) reason = 'base_url_not_configured';\nelse if (!provided) reason = 'missing_signature_header';\nelse if (!crypto) reason = 'crypto_module_not_allowed';\nelse {\n  const body = req.body || {};\n  const payload = url + Object.keys(body).sort()\n    .map(k => [].concat(body[k] ?? '').slice().sort().map(v => k + v).join(''))\n    .join('');\n  const expected = Buffer.from(crypto.createHmac('sha1', token).update(payload, 'utf8').digest('base64'));\n  const got = Buffer.from(provided);\n  valid = expected.length === got.length && crypto.timingSafeEqual(expected, got);\n  if (!valid) reason = 'signature_mismatch';\n}\n\nreturn [{ json: {\n  ...req,\n  signature_valid: valid,\n  signature_reason: reason,\n  signature_url: url,\n  request_allowed: valid || mode === 'off' || mode === 'log'\n} }];\n"
+      },
+      "id": "d7e63ef6-8123-424a-94f9-5b18606a8707",
+      "name": "Verify Twilio Signature (Greeting)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 700]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "2c4801d0-6824-4d22-969b-957017f2133e",
+              "leftValue": "={{ $json.request_allowed }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "df6bcbe5-7f38-49cf-be15-facca6d0c992",
+      "name": "Signature OK? (Greeting)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [440, 700]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Twilio fetches this when the guest picks up. A voicemail gets a short message; a person gets\n// the purpose greeting, then the normal call loop (voice/turn in the call handler) takes over.\nconst req = $input.first().json;\nconst q = req.query || {};\nconst b = req.body || {};\nconst clean = t => String(t || '').replace(/[&<>\"']/g, '').slice(0, 60);\nconst name = clean(q.name);\nconst hi = name ? `Hi ${name}!` : 'Hi!';\nconst venue = clean($env.BUSINESS_NAME) || 'the venue';\nconst answeredBy = String(b.AnsweredBy || '');\nconst voicemail = answeredBy.startsWith('machine_') || answeredBy === 'fax';\n\nconst base = String($env.N8N_BASE_URL || 'https://YOUR_N8N_URL').trim().replace(/\\/+$/, '');\nconst turnUrl = `${base}/webhook/voice/turn?sid=${encodeURIComponent(b.CallSid || '')}&amp;biz=${encodeURIComponent(q.biz || 'default')}`;\n\nconst templates = {\n  booking_reminder: `${hi} This is Priya from ${venue}. I'm calling to confirm your reservation. Do you have a quick moment?`,\n  follow_up: `${hi} This is Priya from ${venue}. You enquired with us recently, and I wanted to check if you'd like to go ahead with a booking?`,\n  event_promo: `${hi} This is Priya from ${venue}. We have an exciting event coming up and I thought of you. Do you have a minute?`,\n  feedback: `${hi} This is Priya from ${venue}. You visited us recently and we'd love your quick feedback. Do you have two minutes?`,\n  offer: `${hi} This is Priya from ${venue}. We have an exclusive offer for our regular guests. Can I share the details?`\n};\nconst purpose = templates[q.purpose] ? q.purpose : 'follow_up';\n\nconst twiml = voicemail\n  ? `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${hi} This is Priya from ${venue}. Sorry we missed you. Please call us back when it suits you. Thank you!</Say>\n  <Hangup/>\n</Response>`\n  : `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${templates[purpose]}</Say>\n  <Record maxLength=\"15\" timeout=\"4\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${turnUrl}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${turnUrl}\" />\n</Response>`;\n\nreturn [{ json: { twiml_response: twiml, voicemail, purpose, row_number: q.row || '' } }];\n"
+      },
+      "id": "a4884635-10e1-4486-bcea-2bb84f4905d8",
+      "name": "Build Outbound TwiML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 640]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Content-Type", "value": "application/xml" }
+            ]
+          }
+        },
+        "responseBody": "={{ $json.twiml_response }}"
+      },
+      "id": "778ad018-cb39-48c3-a19d-4369792d1b32",
+      "name": "Respond TwiML",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [880, 640]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "options": { "responseCode": 403 },
+        "responseBody": "={{ JSON.stringify({ error: 'invalid_signature', reason: $json.signature_reason }) }}"
+      },
+      "id": "7a6e2a20-6f11-40e8-a84b-54266a8c378b",
+      "name": "Reject Unsigned Greeting",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 860]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice/outbound-status",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "5bf65edd-7f4b-446e-8a32-2cc369367621",
+      "name": "Call Status Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 1100],
+      "webhookId": "2d1e1fe5-a677-4d96-b068-651b95334f5f"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reject requests that did not come from Twilio before any call logic runs.\n// Twilio signs: full request URL + every POST param sorted by name (name + value),\n// HMAC-SHA1 with the account auth token, base64. The URL is rebuilt from N8N_BASE_URL,\n// the same base the TwiML action URLs use, so it matches what Twilio requested.\n// TWILIO_SIGNATURE_MODE: enforce (default) = reject | log = let through, flagged | off = skip.\n// Needs the 'crypto' built-in: N8N_RUNNERS_ALLOWED_BUILT_IN_MODULES=crypto (legacy: NODE_FUNCTION_ALLOW_BUILTIN).\nconst WEBHOOK_PATH = '/webhook/voice/outbound-status';\nconst req = $input.first().json;\nconst mode = String($env.TWILIO_SIGNATURE_MODE || 'enforce').trim().toLowerCase();\nconst token = String($env.TWILIO_AUTH_TOKEN || '');\nconst base = String($env.N8N_BASE_URL || '').trim().replace(/\\/+$/, '');\nconst query = req.query || {};\nconst qs = Object.keys(query)\n  .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(query[k])}`)\n  .join('&');\nconst url = base + WEBHOOK_PATH + (qs ? `?${qs}` : '');\nconst provided = String((req.headers || {})['x-twilio-signature'] || '');\n\nlet crypto = null;\ntry { crypto = require('crypto'); } catch (e) { crypto = null; }\n\nlet valid = false;\nlet reason = 'ok';\nif (mode === 'off') reason = 'check_disabled';\nelse if (!token) reason = 'auth_token_not_configured';\nelse if (!base) reason = 'base_url_not_configured';\nelse if (!provided) reason = 'missing_signature_header';\nelse if (!crypto) reason = 'crypto_module_not_allowed';\nelse {\n  const body = req.body || {};\n  const payload = url + Object.keys(body).sort()\n    .map(k => [].concat(body[k] ?? '').slice().sort().map(v => k + v).join(''))\n    .join('');\n  const expected = Buffer.from(crypto.createHmac('sha1', token).update(payload, 'utf8').digest('base64'));\n  const got = Buffer.from(provided);\n  valid = expected.length === got.length && crypto.timingSafeEqual(expected, got);\n  if (!valid) reason = 'signature_mismatch';\n}\n\nreturn [{ json: {\n  ...req,\n  signature_valid: valid,\n  signature_reason: reason,\n  signature_url: url,\n  request_allowed: valid || mode === 'off' || mode === 'log'\n} }];\n"
+      },
+      "id": "f21712f1-a0f3-4945-bbc5-5c23a30d4176",
+      "name": "Verify Twilio Signature (Status)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 1100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "5407286d-3d12-4d33-a02b-2d80d5ec578c",
+              "leftValue": "={{ $json.request_allowed }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "05803c80-d5f3-4c40-9b32-ad9a1008330d",
+      "name": "Signature OK? (Status)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [440, 1100]
+    },
+    {
+      "parameters": {
+        "respondWith": "noData",
+        "options": { "responseCode": 204 }
+      },
+      "id": "67ad31a3-4916-4be3-8e03-22c38cf13b80",
+      "name": "Acknowledge Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 1040]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Twilio's final status for an outbound call -> the queue row's result.\nconst req = $('Signature OK? (Status)').first().json;\nconst b = req.body || {};\nconst row = parseInt((req.query || {}).row, 10);\nif (!(row > 1)) return [];   // row 1 is the header; anything else isn't one of our calls\n\nconst status = String(b.CallStatus || '').toLowerCase();\nconst machine = String(b.AnsweredBy || '').startsWith('machine_');\nconst result = status === 'completed' ? (machine ? 'voicemail' : 'completed')\n  : ['busy', 'no-answer', 'failed', 'canceled'].includes(status) ? status : (status || 'unknown');\n\nreturn [{ json: { row_number: row, queue_status: result, call_sid: b.CallSid || '', call_duration: b.CallDuration || '' } }];\n"
+      },
+      "id": "90c572c6-5976-4e8e-b73f-69484bef90f1",
+      "name": "Map Call Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 1040]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": { "__rl": true, "mode": "id", "value": "={{ $env.GSHEET_ID }}" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "OutboundQueue" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $json.row_number }}",
+            "status": "={{ $json.queue_status }}",
+            "call_duration": "={{ $json.call_duration }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "call_duration",
+              "displayName": "call_duration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fda868e7-f38c-40eb-9590-0411f04544c3",
+      "name": "Save Call Result",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.3,
+      "position": [1100, 1040],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "options": { "responseCode": 403 },
+        "responseBody": "={{ JSON.stringify({ error: 'invalid_signature', reason: $json.signature_reason }) }}"
+      },
+      "id": "e68a6e31-cb7e-4ff6-92ea-1ab6a85d8b8f",
+      "name": "Reject Unsigned Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 1260]
     }
   ],
   "connections": {
-    "Campaign Schedule Trigger": { "main": [["Fetch Pending Outbound Calls"]] },
-    "Fetch Pending Outbound Calls": { "main": [["Filter Calls Ready to Execute"]] },
-    "Filter Calls Ready to Execute": { "main": [["Initiate Outbound Call via Twilio"]] },
-    "Outbound Greeting Webhook": { "main": [["Generate Outbound Greeting"]] },
-    "Call Status Webhook": { "main": [["Update Queue Status"]] }
+    "Every Hour": {
+      "main": [
+        [
+          { "node": "Read Pending Queue", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Read Pending Queue": {
+      "main": [
+        [
+          { "node": "Select Due Calls", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Select Due Calls": {
+      "main": [
+        [
+          { "node": "Read Handoffs", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Read Handoffs": {
+      "main": [
+        [
+          { "node": "Apply Bot Pause", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Apply Bot Pause": {
+      "main": [
+        [
+          { "node": "Dial?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Dial?": {
+      "main": [
+        [
+          { "node": "Place Outbound Call", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Mark Skipped", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Place Outbound Call": {
+      "main": [
+        [
+          { "node": "Record Dial Result", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Record Dial Result": {
+      "main": [
+        [
+          { "node": "Mark Dialled", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Outbound Greeting Webhook": {
+      "main": [
+        [
+          { "node": "Verify Twilio Signature (Greeting)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Verify Twilio Signature (Greeting)": {
+      "main": [
+        [
+          { "node": "Signature OK? (Greeting)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Signature OK? (Greeting)": {
+      "main": [
+        [
+          { "node": "Build Outbound TwiML", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Reject Unsigned Greeting", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Build Outbound TwiML": {
+      "main": [
+        [
+          { "node": "Respond TwiML", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Call Status Webhook": {
+      "main": [
+        [
+          { "node": "Verify Twilio Signature (Status)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Verify Twilio Signature (Status)": {
+      "main": [
+        [
+          { "node": "Signature OK? (Status)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Signature OK? (Status)": {
+      "main": [
+        [
+          { "node": "Acknowledge Status", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Reject Unsigned Status", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Acknowledge Status": {
+      "main": [
+        [
+          { "node": "Map Call Result", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Map Call Result": {
+      "main": [
+        [
+          { "node": "Save Call Result", "type": "main", "index": 0 }
+        ]
+      ]
+    }
   },
-  "settings": {
-    "executionOrder": "v1",
-    "timezone": "Asia/Kolkata"
-  }
+  "active": false,
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true, "timezone": "Asia/Kolkata" },
+  "tags": []
 }

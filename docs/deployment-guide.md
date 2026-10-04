@@ -16,9 +16,12 @@ Deploy the **split stack**. These three workflows call each other over webhooks 
 | `workflows/n8n-import-ai-brain.json` | `ai-brain` | Claude conversation logic, booking detection |
 | `workflows/n8n-import-crm-whatsapp.json` | `crm-action` | Sheets writes, WATI messages, bot pause |
 
-**Optional:**
-- `outbound-campaign.json` places outbound calls from `OutboundQueue`.
-- `feedback-learning-loop.json` sends the daily report. It reads `ConversationLogs`, which the split stack doesn't write yet, so its reports come out empty until that's added.
+**Optional, built to work with the split stack:**
+
+| File | Webhook / trigger | Role |
+|---|---|---|
+| `workflows/outbound-campaign.json` | hourly; `voice/outbound-greeting`, `voice/outbound-status` | Dials due `OutboundQueue` rows, skips guests paused in `Handoffs`, hands answered calls to the call handler's turn loop |
+| `workflows/feedback-learning-loop.json` | daily 2 AM | Reads the `CallTurns` the AI brain logs, writes `DailyReports`, WhatsApps the admin |
 
 **Don't import alongside the split stack:** `main-voice-agent.json`, `n8n-import-complete.json`, `n8n-import-1-greeting-flow.json` and `n8n-import-2-conversation-loop.json` are earlier versions. They reuse `voice-agent/*` webhook paths (they'd collide with `outbound-campaign.json`) and lack the webhook security and bot pause.
 
@@ -61,7 +64,7 @@ docker run -d \
 ## Step 3: Set Up Google Sheets
 
 1. Create a new Google Sheet
-2. Add sheets with exact names: `Bookings`, `Leads`, `Complaints`, `ActivityLog`, `Handoffs` (split stack), plus `OutboundQueue`, `ConversationLogs` and `DailyReports` if you use the optional workflows
+2. Add sheets with exact names: `Bookings`, `Leads`, `Complaints`, `ActivityLog`, `Handoffs`, `CallTurns` (split stack), plus `OutboundQueue` and `DailyReports` for the optional workflows
 3. Add column headers in row 1 as per `configs/google-sheets-schema.md`. Writes map by header name, so column order doesn't matter, but a missing header means that field is silently dropped
 4. Venue details (name, timings, offers) live in the AI brain's `Load Business Config` node. Edit them there
 5. Create a Google Cloud service account → Share the sheet with it
@@ -120,11 +123,12 @@ Call your Twilio number. Verify:
 - [ ] `Verify Twilio Signature` shows `signature_valid: true` in both executions (incoming + turn)
 
 ### Test 2: Outbound Call
-Add a row to `OutboundQueue` sheet with status "pending". Wait for schedule trigger (or trigger manually). Verify:
-- [ ] Call is initiated
-- [ ] Appropriate greeting plays based on purpose
-- [ ] Voicemail detection works
-- [ ] Queue status is updated
+Add a row to `OutboundQueue` with your own phone, `status` = `pending` and a past `scheduled_time`. Run the workflow manually during calling hours. Verify:
+- [ ] The row goes to `calling` with a `call_sid`
+- [ ] Answering plays the greeting for the row's `purpose`, then the AI continues the conversation
+- [ ] After hanging up, the row shows `completed` and `call_duration`
+- [ ] Let it ring out: the row shows `no-answer`. Let it hit voicemail: the row shows `voicemail`
+- [ ] Add an active `Handoffs` row for that number, reset the queue row to `pending`, run again: it shows `skipped_handoff` and no call is placed
 
 ### Test 3: Edge Cases
 - [ ] Stay silent → silence handling works
@@ -138,6 +142,6 @@ Add a row to `OutboundQueue` sheet with status "pending". Wait for schedule trig
 
 1. Switch `TWILIO_SIGNATURE_MODE` to `enforce` and restart n8n
 2. Monitor first 10 calls in real-time (n8n Executions + `ActivityLog`)
-3. Review Daily Report next morning (only if `ConversationLogs` is being written, see "Which workflows to deploy")
+3. Review the `DailyReports` row and admin WhatsApp next morning (run `feedback-learning-loop.json` manually any time to check it)
 4. Tune prompts based on AI analysis suggestions
 5. Gradually increase call volume

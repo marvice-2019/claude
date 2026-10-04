@@ -245,6 +245,159 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [660, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One row per conversation turn in the CallTurns sheet. Runs after the reply has gone back\n// to the call handler, so logging never slows the caller down. The daily report groups rows by call.\nconst r = $input.first().json;\nconst ctx = $('Build AI Prompt').first().json;\nconst action = (r.action && r.action.type) || 'continue';\nconst clip = (t, n) => String(t || '').slice(0, n);\n\nreturn [{ json: {\n  timestamp: new Date().toISOString(),\n  session_id: r.session_id || ctx.session_id || '',\n  business_id: r.business_id || ctx.business_id || 'default',\n  phone: r.caller_number || ctx.caller_number || '',\n  language: r.detected_language || ctx.detected_language || '',\n  caller_text: clip(ctx.caller_transcript, 2000),\n  reply_text: clip(r.reply_text, 2000),\n  intent: r.intent || 'unknown',\n  emotion: r.emotion || 'neutral',\n  action,\n  // yes/no rather than booleans: Sheets turns TRUE/FALSE into its own type and reads it back differently\n  booking_complete: r.booking_complete ? 'yes' : 'no',\n  escalated: (action === 'transfer' || ctx.needs_escalation === true) ? 'yes' : 'no'\n} }];\n"
+      },
+      "id": "6ee09946-fdce-4551-a585-6189ba9ee3b6",
+      "name": "Build Turn Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2640, -60]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "mode": "id", "value": "={{ $env.GSHEET_ID }}" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "CallTurns" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $json.timestamp }}",
+            "session_id": "={{ $json.session_id }}",
+            "business_id": "={{ $json.business_id }}",
+            "phone": "={{ $json.phone }}",
+            "language": "={{ $json.language }}",
+            "caller_text": "={{ $json.caller_text }}",
+            "reply_text": "={{ $json.reply_text }}",
+            "intent": "={{ $json.intent }}",
+            "emotion": "={{ $json.emotion }}",
+            "action": "={{ $json.action }}",
+            "booking_complete": "={{ $json.booking_complete }}",
+            "escalated": "={{ $json.escalated }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "business_id",
+              "displayName": "business_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "language",
+              "displayName": "language",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "caller_text",
+              "displayName": "caller_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reply_text",
+              "displayName": "reply_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "intent",
+              "displayName": "intent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "emotion",
+              "displayName": "emotion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "action",
+              "displayName": "action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "booking_complete",
+              "displayName": "booking_complete",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "escalated",
+              "displayName": "escalated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "efd9bc90-071f-4ada-a5cb-802586819717",
+      "name": "Log Turn",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.3,
+      "position": [2860, -60],
+      "onError": "continueRegularOutput",
+      "notes": "Feeds the daily report. Runs after the reply is sent; a Sheets error never affects the call."
     }
   ],
   "connections": {
@@ -334,6 +487,20 @@
         ],
         [
           { "node": "Reject Unauthorized", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Respond with AI Result": {
+      "main": [
+        [
+          { "node": "Build Turn Log", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Build Turn Log": {
+      "main": [
+        [
+          { "node": "Log Turn", "type": "main", "index": 0 }
         ]
       ]
     }

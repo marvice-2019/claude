@@ -1,159 +1,289 @@
 {
-  "name": "AI Voice Agent — Feedback & Learning Loop",
+  "name": "AI Voice Agent — Daily Report",
   "nodes": [
     {
-      "id": "daily-analysis-trigger",
-      "name": "Daily Analysis Trigger (2 AM IST)",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "position": [250, 300],
       "parameters": {
         "rule": {
-          "interval": [{ "field": "cronExpression", "expression": "0 2 * * *" }]
+          "interval": [
+            { "field": "cronExpression", "expression": "0 2 * * *" }
+          ]
         }
       },
-      "notes": "Runs daily at 2 AM IST to analyze previous day's conversations."
+      "id": "406ff51c-dfc7-4d15-814c-44dd0fe04fc4",
+      "name": "Daily at 2 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300],
+      "notes": "Runs in the workflow timezone (Asia/Kolkata)."
     },
     {
-      "id": "fetch-yesterdays-logs",
-      "name": "Fetch Yesterday's Conversation Logs",
-      "type": "n8n-nodes-base.googleSheets",
-      "position": [450, 300],
       "parameters": {
         "operation": "read",
-        "sheetId": "={{$env.GSHEET_ID}}",
-        "range": "ConversationLogs!A:H"
+        "documentId": { "__rl": true, "mode": "id", "value": "={{ $env.GSHEET_ID }}" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "CallTurns" },
+        "options": {}
       },
-      "notes": "Fetches all conversation logs from the past 24 hours."
+      "id": "8c027c8d-7c7b-4b4e-bdac-633b9d4fdad0",
+      "name": "Read Call Turns",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [220, 300],
+      "alwaysOutputData": true,
+      "notes": "Every turn the AI brain logged. The summary keeps the last 24 hours."
     },
     {
-      "id": "filter-recent",
-      "name": "Filter Last 24 Hours",
+      "parameters": {
+        "jsCode": "// Last 24 hours of CallTurns rows -> one record per call -> metrics + a transcript digest for Claude.\nconst tz = $env.BUSINESS_TIMEZONE || 'Asia/Kolkata';\nconst since = Date.now() - 24 * 3600 * 1000;\nconst rows = $input.all().map(i => i.json)\n  .filter(r => r.session_id && Date.parse(r.timestamp) >= since)\n  .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));\n\nconst INTENT_RANK = ['unknown', 'general', 'enquiry', 'booking', 'complaint'];\nconst EMOTION_RANK = ['neutral', 'happy', 'confused', 'urgent', 'angry', 'wants_escalation'];\nconst higher = (rank, a, b) => (rank.indexOf(b) > rank.indexOf(a) ? b : a);\nconst yes = v => String(v).trim().toLowerCase() === 'yes';\n\nconst calls = new Map();\nfor (const r of rows) {\n  if (!calls.has(r.session_id)) {\n    calls.set(r.session_id, { session_id: r.session_id, phone: r.phone, started: r.timestamp, turns: [],\n      intent: 'unknown', emotion: 'neutral', languages: {}, booked: false, escalated: false });\n  }\n  const c = calls.get(r.session_id);\n  c.turns.push(r);\n  c.intent = higher(INTENT_RANK, c.intent, String(r.intent || 'unknown'));\n  c.emotion = higher(EMOTION_RANK, c.emotion, String(r.emotion || 'neutral'));\n  if (r.language) c.languages[r.language] = (c.languages[r.language] || 0) + 1;\n  c.booked = c.booked || yes(r.booking_complete);\n  c.escalated = c.escalated || yes(r.escalated);\n}\n\nconst list = [...calls.values()];\nconst count = (key) => list.reduce((acc, c) => { acc[key(c)] = (acc[key(c)] || 0) + 1; return acc; }, {});\nconst pct = (n, d) => (d > 0 ? ((n / d) * 100).toFixed(1) + '%' : 'N/A');\nconst mainLang = c => Object.entries(c.languages).sort((a, b) => b[1] - a[1])[0]?.[0] || 'unknown';\nconst totalTurns = list.reduce((n, c) => n + c.turns.length, 0);\nconst bookingCalls = list.filter(c => c.intent === 'booking' || c.booked).length;\nconst booked = list.filter(c => c.booked).length;\nconst escalated = list.filter(c => c.escalated).length;\n\nconst metrics = {\n  total_calls: list.length,\n  total_turns: totalTurns,\n  avg_turns: list.length ? Math.round((totalTurns / list.length) * 10) / 10 : 0,\n  intent_breakdown: count(c => c.intent),\n  language_breakdown: count(mainLang),\n  emotion_breakdown: count(c => c.emotion),\n  bookings_completed: booked,\n  booking_conversion_rate: pct(booked, bookingCalls),\n  escalation_rate: pct(escalated, list.length)\n};\n\n// Transcript digest for the AI review, capped well under Claude's input and a Sheets cell\nconst MAX = 60000;\nlet digest = '';\nfor (const [i, c] of list.entries()) {\n  const head = `Call ${i + 1} (${mainLang(c)}, ${c.intent}${c.booked ? ', booked' : ''}${c.escalated ? ', escalated' : ''}):\\n`;\n  const body = c.turns.map(t => `Guest: ${t.caller_text || ''}\\nPriya: ${t.reply_text || ''}`).join('\\n');\n  const block = head + body + '\\n\\n';\n  if (digest.length + block.length > MAX) { digest += `[${list.length - i} more calls not included]`; break; }\n  digest += block;\n}\n\n// The report covers the previous day in the venue's timezone (it runs just after midnight)\nconst reportDate = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(Date.now() - 24 * 3600 * 1000));\n\nreturn [{ json: { report_date: reportDate, has_calls: list.length > 0, metrics, digest } }];\n"
+      },
+      "id": "125c2b41-892c-4b8e-8f60-9181fa5ce83f",
+      "name": "Build Daily Summary",
       "type": "n8n-nodes-base.code",
-      "position": [650, 300],
-      "parameters": {
-        "jsCode": "const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);\nreturn $input.all().filter(item => {\n  return new Date(item.json.timestamp) >= yesterday;\n});\n"
-      }
+      "typeVersion": 2,
+      "position": [440, 300]
     },
     {
-      "id": "analyze-with-ai",
-      "name": "AI Analysis — Identify Improvements",
-      "type": "n8n-nodes-base.httpRequest",
-      "position": [850, 300],
       "parameters": {
-        "url": "https://api.anthropic.com/v1/messages",
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "089446ac-660e-4b40-80b7-c24b374c79cd",
+              "leftValue": "={{ $json.has_calls === true }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "73ccc552-0f78-40c2-9c66-9e07ce8d0d16",
+      "name": "Any Calls?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
         "method": "POST",
-        "headers": {
-          "parameter": [
-            { "name": "x-api-key", "value": "={{$env.ANTHROPIC_API_KEY}}" },
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
             { "name": "anthropic-version", "value": "2023-06-01" },
             { "name": "Content-Type", "value": "application/json" }
           ]
         },
-        "body": {
-          "json": {
-            "model": "claude-sonnet-4-6",
-            "max_tokens": 2000,
-            "system": "You are a conversation quality analyst. Analyze these customer service call transcripts and provide: 1) Common issues/patterns, 2) Moments where the AI struggled, 3) Specific prompt improvements, 4) Customer satisfaction signals, 5) Upsell success rate, 6) Language handling quality. Be specific and actionable.",
-            "messages": [
-              {
-                "role": "user",
-                "content": "Analyze these conversations from the last 24 hours:\n\n={{JSON.stringify($json.conversations)}}"
-              }
-            ]
-          }
-        }
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: 'claude-sonnet-4-6',\n  max_tokens: 2000,\n  system: 'You are a conversation quality analyst for a hospitality voice agent. From these call transcripts, give: 1) common issues and patterns, 2) moments the agent struggled, 3) specific prompt improvements, 4) customer satisfaction signals, 5) upsell attempts and outcomes, 6) language handling quality. Be specific and actionable. Plain text, no tables.',\n  messages: [{ role: 'user', content: 'Metrics: ' + JSON.stringify($json.metrics) + '\\n\\nCalls from the last 24 hours:\\n\\n' + $json.digest }]\n}) }}",
+        "options": { "timeout": 60000 }
       },
-      "notes": "Uses Claude to analyze all conversations and identify improvement areas."
+      "id": "e82f2fcf-b5a9-49c2-a838-b7ec209af460",
+      "name": "AI Review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 200],
+      "onError": "continueRegularOutput"
     },
     {
-      "id": "generate-metrics",
-      "name": "Calculate Performance Metrics",
-      "type": "n8n-nodes-base.code",
-      "position": [850, 500],
       "parameters": {
-        "jsCode": "const conversations = $input.all();\nconst total = conversations.length;\n\nlet metrics = {\n  total_calls: total,\n  avg_turns: 0,\n  intent_breakdown: {},\n  language_breakdown: {},\n  emotion_breakdown: {},\n  escalation_rate: 0,\n  booking_conversion_rate: 0,\n  avg_call_duration_turns: 0\n};\n\nif (total === 0) return [{ json: metrics }];\n\nlet totalTurns = 0;\nlet escalations = 0;\nlet bookingIntents = 0;\nlet bookingsCompleted = 0;\n\nconversations.forEach(c => {\n  const data = c.json;\n  totalTurns += parseInt(data.turns) || 0;\n\n  // Intent breakdown\n  const intent = data.intent || 'unknown';\n  metrics.intent_breakdown[intent] = (metrics.intent_breakdown[intent] || 0) + 1;\n\n  // Language breakdown\n  const lang = data.language || 'unknown';\n  metrics.language_breakdown[lang] = (metrics.language_breakdown[lang] || 0) + 1;\n\n  // Emotion breakdown\n  const emotion = data.emotion || 'neutral';\n  metrics.emotion_breakdown[emotion] = (metrics.emotion_breakdown[emotion] || 0) + 1;\n\n  if (emotion === 'wants_escalation') escalations++;\n  if (intent === 'booking') {\n    bookingIntents++;\n    // Check if booking was completed by looking at conversation\n    try {\n      const convo = JSON.parse(data.conversation_json || '[]');\n      const lastMsg = convo[convo.length - 1]?.content || '';\n      if (lastMsg.includes('confirm') || lastMsg.includes('all set')) {\n        bookingsCompleted++;\n      }\n    } catch (e) {}\n  }\n});\n\nmetrics.avg_turns = Math.round(totalTurns / total);\nmetrics.escalation_rate = ((escalations / total) * 100).toFixed(1) + '%';\nmetrics.booking_conversion_rate = bookingIntents > 0\n  ? ((bookingsCompleted / bookingIntents) * 100).toFixed(1) + '%'\n  : 'N/A';\n\nreturn [{ json: metrics }];\n"
+        "jsCode": "// One DailyReports row. Works with or without the AI review (no calls, or Claude unavailable).\nconst s = $('Build Daily Summary').first().json;\nconst ai = $input.first().json;\nlet analysis;\nif (!s.has_calls) analysis = 'No calls in the last 24 hours.';\nelse {\n  try { analysis = ai.content[0].text; }\n  catch (e) { analysis = `AI analysis unavailable: ${ai.error ? JSON.stringify(ai.error).slice(0, 300) : 'no response'}`; }\n}\n\nreturn [{ json: {\n  date: s.report_date,\n  total_calls: s.metrics.total_calls,\n  bookings_completed: s.metrics.bookings_completed,\n  booking_rate: s.metrics.booking_conversion_rate,\n  escalation_rate: s.metrics.escalation_rate,\n  metrics_json: JSON.stringify(s.metrics),\n  ai_analysis: String(analysis).slice(0, 45000),\n  status: 'pending_review'\n} }];\n"
       },
-      "notes": "Calculates KPIs: call volume, avg turns, intent/language/emotion breakdowns, escalation rate, booking conversion."
+      "id": "8ccdc505-7095-467e-9d7b-ee809ec02d89",
+      "name": "Build Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300]
     },
     {
-      "id": "save-analysis-report",
-      "name": "Save Daily Report to Sheets",
-      "type": "n8n-nodes-base.googleSheets",
-      "position": [1050, 300],
       "parameters": {
         "operation": "append",
-        "sheetId": "={{$env.GSHEET_ID}}",
-        "range": "DailyReports!A:F",
-        "values": {
-          "value": [
-            { "column": "A", "fieldValue": "={{new Date().toISOString().split('T')[0]}}" },
-            { "column": "B", "fieldValue": "={{$node['Calculate Performance Metrics'].json.total_calls}}" },
-            { "column": "C", "fieldValue": "={{JSON.stringify($node['Calculate Performance Metrics'].json)}}" },
-            { "column": "D", "fieldValue": "={{$node['AI Analysis — Identify Improvements'].json.content[0].text}}" },
-            { "column": "E", "fieldValue": "auto" },
-            { "column": "F", "fieldValue": "pending_review" }
-          ]
-        }
-      },
-      "notes": "Saves the daily analysis report and metrics for review."
-    },
-    {
-      "id": "send-report-notification",
-      "name": "Send Report via WhatsApp to Admin",
-      "type": "n8n-nodes-base.httpRequest",
-      "position": [
-        1250,
-        300
-      ],
-      "parameters": {
-        "url": "=https://live-server-108478.wati.io/api/v1/sendTemplateMessage?whatsappNumber={{ String($env.ADMIN_PHONE || '').replace(/\\D/g, '') }}",
-        "method": "POST",
-        "headers": {
-          "parameter": [
+        "documentId": { "__rl": true, "mode": "id", "value": "={{ $env.GSHEET_ID }}" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "DailyReports" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $json.date }}",
+            "total_calls": "={{ $json.total_calls }}",
+            "bookings_completed": "={{ $json.bookings_completed }}",
+            "booking_rate": "={{ $json.booking_rate }}",
+            "escalation_rate": "={{ $json.escalation_rate }}",
+            "metrics_json": "={{ $json.metrics_json }}",
+            "ai_analysis": "={{ $json.ai_analysis }}",
+            "status": "={{ $json.status }}"
+          },
+          "matchingColumns": [],
+          "schema": [
             {
-              "name": "Authorization",
-              "value": "Bearer {{$env.WATI_API_KEY}}"
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_calls",
+              "displayName": "total_calls",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "bookings_completed",
+              "displayName": "bookings_completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "booking_rate",
+              "displayName": "booking_rate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "escalation_rate",
+              "displayName": "escalation_rate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "metrics_json",
+              "displayName": "metrics_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_analysis",
+              "displayName": "ai_analysis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
             }
           ]
         },
-        "body": {
-          "json": {
-            "template_name": "daily_report",
-            "broadcast_name": "admin_report",
-            "parameters": [
-              {
-                "name": "date",
-                "value": "={{new Date().toISOString().split('T')[0]}}"
-              },
-              {
-                "name": "total_calls",
-                "value": "={{$node['Calculate Performance Metrics'].json.total_calls}}"
-              },
-              {
-                "name": "booking_rate",
-                "value": "={{$node['Calculate Performance Metrics'].json.booking_conversion_rate}}"
-              },
-              {
-                "name": "escalation_rate",
-                "value": "={{$node['Calculate Performance Metrics'].json.escalation_rate}}"
-              }
-            ]
-          }
-        }
+        "options": {}
       },
-      "notes": "Sends a daily summary to the business admin via WhatsApp."
+      "id": "f326821e-3460-4d72-9605-a0f113345af2",
+      "name": "Save Daily Report",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.3,
+      "position": [1320, 300],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.WATI_BASE_URL || 'https://live-server-108478.wati.io' }}/api/v1/sendTemplateMessage",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "whatsappNumber", "value": "={{ String($env.ADMIN_PHONE || '').replace(/\\D/g, '') }}" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.WATI_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  template_name: 'daily_report',\n  broadcast_name: 'admin_daily_report',\n  parameters: [\n    { name: 'date', value: String($('Build Report').first().json.date) },\n    { name: 'total_calls', value: String($('Build Report').first().json.total_calls) },\n    { name: 'booking_rate', value: String($('Build Report').first().json.booking_rate) },\n    { name: 'escalation_rate', value: String($('Build Report').first().json.escalation_rate) }\n  ]\n}) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "eef29b28-7f30-4c3e-a832-aca21a094390",
+      "name": "WhatsApp Report to Admin",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 300],
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
-    "Daily Analysis Trigger (2 AM IST)": { "main": [["Fetch Yesterday's Conversation Logs"]] },
-    "Fetch Yesterday's Conversation Logs": { "main": [["Filter Last 24 Hours"]] },
-    "Filter Last 24 Hours": { "main": [["AI Analysis — Identify Improvements", "Calculate Performance Metrics"]] },
-    "AI Analysis — Identify Improvements": { "main": [["Save Daily Report to Sheets"]] },
-    "Calculate Performance Metrics": { "main": [["Save Daily Report to Sheets"]] },
-    "Save Daily Report to Sheets": { "main": [["Send Report via WhatsApp to Admin"]] }
+    "Daily at 2 AM": {
+      "main": [
+        [
+          { "node": "Read Call Turns", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Read Call Turns": {
+      "main": [
+        [
+          { "node": "Build Daily Summary", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Build Daily Summary": {
+      "main": [
+        [
+          { "node": "Any Calls?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Any Calls?": {
+      "main": [
+        [
+          { "node": "AI Review", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Build Report", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "AI Review": {
+      "main": [
+        [
+          { "node": "Build Report", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Build Report": {
+      "main": [
+        [
+          { "node": "Save Daily Report", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Save Daily Report": {
+      "main": [
+        [
+          { "node": "WhatsApp Report to Admin", "type": "main", "index": 0 }
+        ]
+      ]
+    }
   },
-  "settings": {
-    "executionOrder": "v1",
-    "timezone": "Asia/Kolkata"
-  }
+  "active": false,
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true, "timezone": "Asia/Kolkata" },
+  "tags": []
 }

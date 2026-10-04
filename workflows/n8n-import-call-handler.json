@@ -132,8 +132,14 @@
           "string": [
             { "name": "session_id", "value": "={{$json.query.sid || $json.body.CallSid || ''}}" },
             { "name": "business_id", "value": "={{$json.query.biz || 'default'}}" },
-            { "name": "caller_number", "value": "={{$json.body.From || ''}}" },
-            { "name": "business_number", "value": "={{$json.body.To || ''}}" },
+            {
+              "name": "caller_number",
+              "value": "={{ String($json.body.Direction || '').startsWith('outbound') ? ($json.body.To || '') : ($json.body.From || '') }}"
+            },
+            {
+              "name": "business_number",
+              "value": "={{ String($json.body.Direction || '').startsWith('outbound') ? ($json.body.From || '') : ($json.body.To || '') }}"
+            },
             { "name": "recording_url", "value": "={{$json.body.RecordingUrl || ''}}" },
             { "name": "call_status", "value": "={{$json.body.CallStatus || ''}}" }
           ],
@@ -148,7 +154,8 @@
       "name": "Extract Turn Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 2,
-      "position": [660, 700]
+      "position": [660, 700],
+      "notes": "On outbound campaign calls Twilio sends Direction=outbound-api, and the guest is To."
     },
     {
       "parameters": {
