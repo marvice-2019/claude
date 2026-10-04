@@ -30,7 +30,9 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $env.GSHEET_ID }}/values/Customers!A:F?key={{ $env.GOOGLE_API_KEY }}",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $env.GSHEET_ID }}/values/Customers!A:F",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
         "options": { "timeout": 5000 }
       },
       "id": "00000000-0001-4000-8000-000000000003",
@@ -43,7 +45,9 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $env.GSHEET_ID }}/values/BusinessConfig!A:J?key={{ $env.GOOGLE_API_KEY }}",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $env.GSHEET_ID }}/values/BusinessConfig!A:J",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
         "options": { "timeout": 5000 }
       },
       "id": "00000000-0001-4000-8000-000000000004",
