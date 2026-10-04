@@ -44,6 +44,7 @@ x-app-env: &app-env
   AGENT_DISPATCH_CONSUMER: engine
   OWNER_EMAIL: ${OWNER_EMAIL}
   SENTRY_DSN: "off"
+  NODE_EXTRA_CA_CERTS: /etc/deskcomm/ca/supabase-ca.crt
 
 services:
   dbinit:
@@ -51,7 +52,7 @@ services:
     restart: unless-stopped
     healthcheck:
       # Healthy only after schema + owner succeeded; app/worker wait on this.
-      test: ["CMD", "test", "-f", "/tmp/dbinit.ok"]
+      test: ["CMD-SHELL", "test -f /tmp/dbinit.ok && test -s /ca/supabase-ca.crt"]
       interval: 10s
       timeout: 3s
       retries: 360
@@ -63,10 +64,13 @@ services:
       OWNER_EMAIL: ${OWNER_EMAIL}
       OWNER_PASSWORD: ${OWNER_PASSWORD}
       APP_LOCALE: en
+      SUPABASE_CA_URL: https://supabase-downloads.s3-ap-southeast-1.amazonaws.com/prod/ssl/prod-ca-2021.crt
       BASELINE_URL: https://raw.githubusercontent.com/melgarafael/DeskcommCRM/69a09fb3da81e4ee76aca3209af8e929dab85f27/supabase/baseline.sql
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
+        # Supabase root CA for Node's TLS verification of the pooler (shared volume).
+        [ -s /ca/supabase-ca.crt ] || wget -qO /ca/supabase-ca.crt "$$SUPABASE_CA_URL" || echo "CA download failed"
         # Runs once, then idles so the outcome stays readable in Coolify logs.
         if [ -f /tmp/dbinit.ok ]; then exec sleep infinity; fi
         ( set -e
@@ -111,6 +115,8 @@ services:
         rc=$$?
         if [ "$$rc" -eq 0 ]; then touch /tmp/dbinit.ok; echo "DBINIT OK"; else echo "DBINIT FAILED (exit $$rc) — see errors above"; fi
         exec sleep infinity
+    volumes:
+      - supabase-ca:/ca
     logging: *default-logging
 
   app:
@@ -133,6 +139,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
+    volumes:
+      - supabase-ca:/etc/deskcomm/ca:ro
     logging: *default-logging
 
   worker:
@@ -150,6 +158,8 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    volumes:
+      - supabase-ca:/etc/deskcomm/ca:ro
     logging: *default-logging
 
   waha:
@@ -204,5 +214,6 @@ services:
     logging: *default-logging
 
 volumes:
+  supabase-ca:
   waha-data:
   waha-media:
