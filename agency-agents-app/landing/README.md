@@ -47,10 +47,9 @@ Caddy config + DNS (`agencyagents.app`) are managed on the host.
 
 Deployed by `.github/workflows/deploy-agency-landing.yml` (repo root) on every push to
 `main` that touches `agency-agents-app/landing/**`, or manually via *Run workflow*.
-rsyncs this folder over SSH to `/var/www/agency.marvice.tech/` on the VPS, served by
-nginx. One-time server setup (nginx site, Let's Encrypt SSL, deploy user and key):
-`scripts/vps-setup-agency.sh` at the repo root. Its nginx config mirrors the security and
-cache headers in `.htaccess` (kept here for Apache/LiteSpeed hosts; not uploaded).
+publishes this folder (minus `.htaccess` and this README, plus a `CNAME` file) to the
+`gh-pages` branch, which GitHub Pages serves with automatic SSL. One-time DNS on
+Hostinger: `CNAME agency → marvice-2019.github.io`.
 
-rsync runs with `--delete` but protects `updater.json`, so the auto-update feed can be
-placed in the web root by hand without the next deploy removing it.
+`.htaccess` stays for Apache/LiteSpeed hosts. `scripts/vps-setup-agency.sh` (repo root)
+sets up nginx on a VPS if the site moves off Pages; its config mirrors those headers.
