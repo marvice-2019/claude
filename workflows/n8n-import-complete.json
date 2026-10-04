@@ -1142,7 +1142,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const raw = $input.first().json;\nconst query = raw.query || {};\nconst body = raw.body || raw;\nconst name = query.name || 'there';\nconst purpose = query.purpose || 'follow_up';\nconst machine = body.AnsweredBy || '';\nconst base = $env.N8N_BASE_URL || 'https://your-n8n.com';\nconst sid = body.CallSid || body.CallUUID || '';\n\n// Voicemail → short message\nif (machine.includes('machine')) {\n  const vmMsg = `Hi ${name}, this is Priya calling from the venue. We have something special for you. Please call us back at your convenience. Thank you!`;\n  const twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response><Say voice=\"Polly.Aditi\" language=\"en-IN\">${vmMsg}</Say><Hangup/></Response>`;\n  return [{ json: { twiml_response: twiml, is_voicemail: true } }];\n}\n\n// Human answered → purpose-specific greeting\nconst templates = {\n  booking_reminder: `Hi ${name}! This is Priya from the venue. I'm calling to confirm your reservation for tomorrow. Do you have a quick moment?`,\n  follow_up: `Hello ${name}! This is Priya calling from the venue. We noticed you enquired about our services recently. I just wanted to check if you'd like to go ahead with a booking?`,\n  event_promo: `Hi ${name}! This is Priya from the venue. We have an exciting event coming up this weekend and I thought of you. Do you have a minute?`,\n  feedback: `Hi ${name}! This is Priya from the venue. You visited us recently and we'd love your quick feedback. Do you have 2 minutes?`,\n  offer: `Hello ${name}! This is Priya from the venue. We have an exclusive offer just for our valued customers. Can I share the details?`\n};\n\nconst greeting = templates[purpose] || templates.follow_up;\n\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${greeting}</Say>\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n  <Play>${base}/webhook/voice-agent/audio?p=outbound_still_here</Play>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n</Response>`;\n\nreturn [{ json: { twiml_response: twiml, is_voicemail: false } }];\n"
+        "jsCode": "const raw = $input.first().json;\nconst query = raw.query || {};\nconst body = raw.body || raw;\nconst name = query.name || 'there';\nconst purpose = query.purpose || 'follow_up';\nconst machine = body.AnsweredBy || '';\nconst base = $env.N8N_BASE_URL || 'https://your-n8n.com';\nconst sid = body.CallSid || body.CallUUID || '';\n\n// Voicemail → short message\nif (machine.includes('machine')) {\n  const vmMsg = `Hi ${name}, this is Priya calling from the venue. We have something special for you. Please call us back at your convenience. Thank you!`;\n  const twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>__VOICE__<Hangup/></Response>`;\n  return [{ json: { twiml_response: twiml, outbound_text: vmMsg, is_voicemail: true } }];\n}\n\n// Human answered → purpose-specific greeting\nconst templates = {\n  booking_reminder: `Hi ${name}! This is Priya from the venue. I'm calling to confirm your reservation for tomorrow. Do you have a quick moment?`,\n  follow_up: `Hello ${name}! This is Priya calling from the venue. We noticed you enquired about our services recently. I just wanted to check if you'd like to go ahead with a booking?`,\n  event_promo: `Hi ${name}! This is Priya from the venue. We have an exciting event coming up this weekend and I thought of you. Do you have a minute?`,\n  feedback: `Hi ${name}! This is Priya from the venue. You visited us recently and we'd love your quick feedback. Do you have 2 minutes?`,\n  offer: `Hello ${name}! This is Priya from the venue. We have an exclusive offer just for our valued customers. Can I share the details?`\n};\n\nconst greeting = templates[purpose] || templates.follow_up;\n\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  __VOICE__\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n  <Play>${base}/webhook/voice-agent/audio?p=outbound_still_here</Play>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice-agent/turn?sid=${sid}\" />\n</Response>`;\n\nreturn [{ json: { twiml_response: twiml, outbound_text: greeting, is_voicemail: false } }];\n"
       },
       "id": "00000000-0004-4000-8000-000000000005",
       "name": "54. Outbound Greeting Logic",
@@ -2013,6 +2013,226 @@
         420,
         1580
       ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Cache key for this phrase: same text + voice + language -> same audio, generated once\nconst s = $input.first().json;\nconst text = String(s.outbound_text || '').trim();\nconst LANG = { en: 'en-IN', ta: 'ta-IN', te: 'te-IN', kn: 'kn-IN', ml: 'ml-IN', hi: 'hi-IN' };\nconst lang = LANG[s.detected_language] || 'en-IN';\nconst speaker = $env.SARVAM_SPEAKER || 'priya';\nfunction h(str) {\n  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;\n  for (let i = 0; i < str.length; i++) {\n    const ch = str.charCodeAt(i);\n    h1 = Math.imul(h1 ^ ch, 2654435761);\n    h2 = Math.imul(h2 ^ ch, 1597334677);\n  }\n  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);\n  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);\n  return (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0');\n}\nconst cache_key = 'v1_' + h(['bulbul:v3', speaker, '8000', lang, text].join('|'));\nreturn [{ json: { ...s, cache_key, tts_text: text, tts_lang: lang, tts_speaker: speaker } }];"
+      },
+      "name": "54a. Outbound Audio Key",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        1940
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "voice_audio_cache"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "cache_key",
+              "condition": "eq",
+              "keyValue": "={{ $json.cache_key }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "name": "54b. Outbound Cache Lookup",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        620,
+        1940
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c",
+              "leftValue": "={{ !!$json.audio_b64 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "54c. Outbound Cached?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        820,
+        1940
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sarvam.ai/text-to-speech",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api-subscription-key",
+              "value": "={{ $env.SARVAM_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $('54a. Outbound Audio Key').first().json.tts_text.slice(0, 2500), language_code: $('54a. Outbound Audio Key').first().json.tts_lang, speaker: $('54a. Outbound Audio Key').first().json.tts_speaker, model: 'bulbul:v3', speech_sample_rate: 8000 }) }}",
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "name": "54d. Outbound Sarvam TTS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        2060
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c",
+              "leftValue": "={{ Array.isArray($json.audios) && $json.audios.length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "54e. Outbound TTS OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1220,
+        2060
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "voice_audio_cache"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "cache_key",
+              "displayName": "cache_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "phrase",
+              "displayName": "phrase",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "mime",
+              "displayName": "mime",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "audio_b64",
+              "displayName": "audio_b64",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "value": {
+            "cache_key": "={{ $('54a. Outbound Audio Key').first().json.cache_key }}",
+            "phrase": "={{ $('54a. Outbound Audio Key').first().json.tts_text }}",
+            "mime": "audio/wav",
+            "audio_b64": "={{ $json.audios[0] }}"
+          }
+        },
+        "options": {}
+      },
+      "name": "54f. Store Outbound Audio",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1420,
+        2000
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Put the spoken line into the outbound XML: Sarvam audio when available, fallback voice otherwise\nconst s = $('54. Outbound Greeting Logic').first().json;\nconst base = $env.N8N_BASE_URL || 'https://your-n8n.com';\nconst audioKey = $('54a. Outbound Audio Key').first().json.cache_key;\nconst haveAudio = !!$('54b. Outbound Cache Lookup').first().json.audio_b64 || $('54f. Store Outbound Audio').isExecuted;\nconst xmlEsc = t => String(t).replace(/[<>&\"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','\"':'&quot;',\"'\":'&apos;'}[c]));\nconst voice = (text) => haveAudio\n  ? `<Play>${base}/webhook/voice-agent/audio?k=${audioKey}</Play>`\n  : `<Say voice=\"Polly.Aditi\" language=\"en-IN\">${xmlEsc(text)}</Say>`;\nreturn [{ json: { ...s, twiml_response: s.twiml_response.replace('__VOICE__', voice(s.outbound_text)) } }];"
+      },
+      "name": "54g. Insert Outbound Voice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1620,
+        1940
+      ]
     }
   ],
   "connections": {
@@ -2411,7 +2631,7 @@
       "main": [
         [
           {
-            "node": "55. Respond Outbound Greeting",
+            "node": "54a. Outbound Audio Key",
             "type": "main",
             "index": 0
           }
@@ -2679,6 +2899,97 @@
         [
           {
             "node": "52. Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "54a. Outbound Audio Key": {
+      "main": [
+        [
+          {
+            "node": "54b. Outbound Cache Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "54b. Outbound Cache Lookup": {
+      "main": [
+        [
+          {
+            "node": "54c. Outbound Cached?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "54c. Outbound Cached?": {
+      "main": [
+        [
+          {
+            "node": "54g. Insert Outbound Voice",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "54d. Outbound Sarvam TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "54d. Outbound Sarvam TTS": {
+      "main": [
+        [
+          {
+            "node": "54e. Outbound TTS OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "54e. Outbound TTS OK?": {
+      "main": [
+        [
+          {
+            "node": "54f. Store Outbound Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "54g. Insert Outbound Voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "54f. Store Outbound Audio": {
+      "main": [
+        [
+          {
+            "node": "54g. Insert Outbound Voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "54g. Insert Outbound Voice": {
+      "main": [
+        [
+          {
+            "node": "55. Respond Outbound Greeting",
             "type": "main",
             "index": 0
           }
