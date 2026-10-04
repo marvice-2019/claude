@@ -1,17 +1,14 @@
-# Deploys dots/ (static, no build step) to dots.marvice.tech on Hostinger via FTP.
-# GitHub Pages can't be used here: this repo's Pages site already serves agency.marvice.tech,
+# Deploys dots/ (static, no build step) to dots.marvice.tech on the Marvice VPS via rsync over SSH.
+# GitHub Pages can't host it: this repo's Pages site already serves agency.marvice.tech,
 # and Pages allows one custom domain per repo.
 #
-# One-time setup:
-#   1. hPanel → Websites → marvice.tech → Domains → Subdomains: create "dots".
-#      Hostinger adds the DNS record and issues SSL automatically.
-#   2. hPanel → Files → FTP Accounts: create an FTP account whose directory is the
-#      subdomain's folder (e.g. public_html/dots).
-#   3. Repo → Settings → Secrets and variables → Actions → add secrets:
-#        DOTS_FTP_HOST      FTP hostname/IP shown in hPanel
-#        DOTS_FTP_USER      FTP username
-#        DOTS_FTP_PASSWORD  FTP password
-#      Optional variable DOTS_FTP_DIR (default "/") if the FTP account isn't rooted at the subdomain folder.
+# One-time setup (Ubuntu/Debian VPS, as root):
+#   curl -fsSL https://raw.githubusercontent.com/marvice-2019/claude/main/scripts/vps-setup-agency.sh | DOMAIN=dots.marvice.tech NOINDEX=1 bash
+# It installs nginx + certbot, creates /var/www/dots.marvice.tech, issues SSL once DNS points at
+# the VPS, and prints the secrets below. They're shared with any other site on that VPS.
+#
+# DNS (Hostinger → Domains → marvice.tech → DNS records):  A  dots  →  <VPS IP>
+# Repo secrets: VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_KNOWN_HOSTS. Optional variable: VPS_PORT.
 
 name: Deploy dots.marvice.tech
 
@@ -50,36 +47,37 @@ jobs:
             echo "::error::Upstream marketing domain referenced in dots/"; exit 1
           fi
 
-      - name: Check secrets
+      - name: Configure SSH
         env:
-          HOST: ${{ secrets.DOTS_FTP_HOST }}
-          USER: ${{ secrets.DOTS_FTP_USER }}
-          PASS: ${{ secrets.DOTS_FTP_PASSWORD }}
+          HOST: ${{ secrets.VPS_HOST }}
+          USER: ${{ secrets.VPS_USER }}
+          KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
           missing=""
-          [ -n "$HOST" ] || missing="$missing DOTS_FTP_HOST"
-          [ -n "$USER" ] || missing="$missing DOTS_FTP_USER"
-          [ -n "$PASS" ] || missing="$missing DOTS_FTP_PASSWORD"
+          [ -n "$HOST" ] || missing="$missing VPS_HOST"
+          [ -n "$USER" ] || missing="$missing VPS_USER"
+          [ -n "$KEY" ] || missing="$missing VPS_SSH_KEY"
+          [ -n "$KNOWN_HOSTS" ] || missing="$missing VPS_KNOWN_HOSTS"
           if [ -n "$missing" ]; then
-            echo "::error::Missing repo secrets:$missing (see setup notes at the top of this workflow)"; exit 1
+            echo "::error::Missing repo secrets:$missing (run scripts/vps-setup-agency.sh on the VPS; see top of this workflow)"; exit 1
           fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
 
-      - name: Upload via FTP
+      - name: Rsync to VPS
         env:
-          HOST: ${{ secrets.DOTS_FTP_HOST }}
-          USER: ${{ secrets.DOTS_FTP_USER }}
-          PASS: ${{ secrets.DOTS_FTP_PASSWORD }}
-          REMOTE_DIR: ${{ vars.DOTS_FTP_DIR || '/' }}
+          HOST: ${{ secrets.VPS_HOST }}
+          USER: ${{ secrets.VPS_USER }}
+          PORT: ${{ vars.VPS_PORT || '22' }}
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq lftp
           # README is repo docs, not site content. --delete removes files dropped from dots/.
-          lftp -u "$USER","$PASS" "$HOST" <<LFTP
-          set ftp:ssl-allow yes
-          set net:max-retries 3
-          set net:timeout 30
-          mirror --reverse --delete --verbose --exclude-glob README.md dots/ "$REMOTE_DIR"
-          bye
-          LFTP
+          rsync -az --delete --exclude README.md \
+            --chmod=D755,F644 \
+            -e "ssh -p $PORT -o StrictHostKeyChecking=yes" \
+            dots/ "$USER@$HOST:/var/www/$DOMAIN/"
 
       - name: Smoke test
         run: |
@@ -89,5 +87,5 @@ jobs:
             [ "$code" = "200" ] && exit 0
             sleep 10
           done
-          echo "::error::https://$DOMAIN/ not returning 200. Check the subdomain exists in hPanel and SSL is issued."
+          echo "::error::Files are on the VPS, but https://$DOMAIN/ isn't returning 200. Check the A record points at the VPS and re-run the setup script to issue SSL."
           exit 1
