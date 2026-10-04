@@ -83,7 +83,8 @@ In n8n, add each as a variable:
 1. In n8n → Data tables, create `voice_audio_cache` with four string columns: `cache_key`, `phrase`, `mime`, `audio_b64`
 2. Import `workflows/n8n-import-audio-server.json` and activate it. It serves cached audio to Twilio at `/webhook/voice-agent/audio?k=…`
 3. Import `workflows/n8n-import-complete.json`, attach your Google service-account credential to the Sheets nodes and the two Sheets HTTP lookups (3a, 3b), then activate it
-4. Set `N8N_BASE_URL` to your public n8n URL — every Twilio callback and audio URL is built from it
+4. Set `N8N_BASE_URL` to your public n8n URL — every telephony callback and audio URL is built from it
+5. Set `VOICE_PROVIDER` to `plivo` (default) or `twilio`. For Plivo, create an Application with answer URL `$N8N_BASE_URL/webhook/voice-agent/incoming` and hangup URL `$N8N_BASE_URL/webhook/voice-agent/call-status` (both POST), then attach your Plivo number to it
 
 Each phrase the agent speaks is generated once with Sarvam Bulbul v3 and stored in the table; repeat phrases (greetings, "could you repeat that?") are served from the cache. Caller audio is transcribed with Sarvam Saaras v4.
 
