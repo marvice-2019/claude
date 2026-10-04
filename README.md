@@ -27,6 +27,8 @@ Production-ready AI voice agent for customer care and sales in hospitality busin
 ├── scripts/
 │   ├── twilio-webhook-handler.js    # Optional real-time streaming server
 │   └── azure-tts-fallback.js        # Azure TTS for regional languages
+├── references/
+│   └── zie619-n8n-workflows/        # Curated community workflows (Retell/Vapi/WhatsApp/Twilio) — patterns only
 ├── configs/
 │   ├── env-template.env             # Environment variables template
 │   └── google-sheets-schema.md      # Database schema for Google Sheets
