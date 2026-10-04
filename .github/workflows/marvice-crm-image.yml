@@ -1,0 +1,65 @@
+name: Build Marvice CRM image (English)
+
+# Builds upstream DeskcommCRM at a pinned release commit with the English patch
+# (deploy/deskcomm-crm/english/apply.sh) and publishes it to GHCR for Coolify.
+on:
+  push:
+    paths:
+      - "deploy/deskcomm-crm/english/**"
+      - ".github/workflows/marvice-crm-image.yml"
+  workflow_dispatch: {}
+
+env:
+  UPSTREAM_REPO: melgarafael/DeskcommCRM
+  UPSTREAM_SHA: 69a09fb3da81e4ee76aca3209af8e929dab85f27
+  UPSTREAM_VERSION: "1.72.0"
+  IMAGE: ghcr.io/marvice-2019/marvice-crm
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout this repo (patch)
+        uses: actions/checkout@v4
+        with:
+          path: marvice
+
+      - name: Checkout upstream release
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.UPSTREAM_REPO }}
+          ref: ${{ env.UPSTREAM_SHA }}
+          path: upstream
+
+      - name: Apply English patch
+        run: bash marvice/deploy/deskcomm-crm/english/apply.sh upstream
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: upstream
+          file: upstream/Dockerfile
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            APP_VERSION=${{ env.UPSTREAM_VERSION }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.title=Marvice CRM
+            org.opencontainers.image.version=${{ env.UPSTREAM_VERSION }}-en
+          tags: |
+            ${{ env.IMAGE }}:${{ env.UPSTREAM_VERSION }}-en
+            ${{ env.IMAGE }}:${{ env.UPSTREAM_VERSION }}-en-${{ github.run_number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
