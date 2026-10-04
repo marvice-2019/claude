@@ -169,6 +169,39 @@ h1 {
 }
 .btn-secondary:hover { border-color: var(--border-strong); }
 
+.dl-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 22px;
+  margin: 0 auto 18px;
+}
+.dl-group {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.dl-os {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-right: 2px;
+}
+.dl-chip {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 120ms ease;
+}
+.dl-chip:hover, .dl-chip:focus-visible { border-color: var(--border-strong); }
+
 .small-note {
   font-size: 13px;
   color: var(--text-dim);

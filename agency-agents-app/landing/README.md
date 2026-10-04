@@ -53,3 +53,8 @@ Hostinger: `CNAME agency → marvice-2019.github.io`.
 
 `.htaccess` stays for Apache/LiteSpeed hosts. `scripts/vps-setup-agency.sh` (repo root)
 sets up nginx on a VPS if the site moves off Pages; its config mirrors those headers.
+
+Installers are self-hosted: the workflow downloads every file `index.html` links under
+`/download/` from the matching upstream GitHub release and publishes them with a
+`SHA256SUMS.txt`. To ship a new version, bump the version in those links (and the
+`softwareVersion` / v-labels) in `index.html`; the build fails if a file is missing upstream.
