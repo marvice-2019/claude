@@ -5,7 +5,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "crm-action",
-        "responseMode": "lastNode",
+        "responseMode": "responseNode",
         "options": {}
       },
       "id": "crm-001",
@@ -25,7 +25,9 @@
             { "name": "detected_language", "value": "={{$json.body.detected_language || $json.detected_language || 'en'}}" },
             { "name": "booking_data_raw", "value": "={{JSON.stringify($json.body.booking_data || $json.booking_data || {})}}" },
             { "name": "complaint_text", "value": "={{$json.body.complaint_text || $json.complaint_text || ''}}" },
-            { "name": "lead_data_raw", "value": "={{JSON.stringify($json.body.lead_data || $json.lead_data || {})}}" }
+            { "name": "lead_data_raw", "value": "={{JSON.stringify($json.body.lead_data || $json.lead_data || {})}}" },
+            { "name": "handoff_reason", "value": "={{$json.body.handoff_reason || ''}}" },
+            { "name": "handoff_source", "value": "={{$json.body.handoff_source || ''}}" }
           ],
           "number": [],
           "boolean": []
@@ -36,26 +38,85 @@
       "name": "Extract CRM Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 2,
-      "position": [220, 400]
+      "position": [660, 400]
     },
     {
       "parameters": {
-        "dataType": "string",
-        "value1": "={{$json.action}}",
         "rules": {
-          "rules": [
-            { "value": "CONFIRM_BOOKING", "output": 0 },
-            { "value": "LEAD_CAPTURE", "output": 1 },
-            { "value": "COMPLAINT", "output": 2 }
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+                "conditions": [
+                  {
+                    "id": "d1419f9b-772a-454e-86a9-1dd22af82a65",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "CONFIRM_BOOKING",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CONFIRM_BOOKING"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+                "conditions": [
+                  {
+                    "id": "1b35585d-3d63-40d5-9bb9-8080968020ff",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "LEAD_CAPTURE",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "LEAD_CAPTURE"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+                "conditions": [
+                  {
+                    "id": "e7df7ef2-4ca1-499d-904d-aff1cf38a6d8",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "COMPLAINT",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "COMPLAINT"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+                "conditions": [
+                  {
+                    "id": "35c843d4-282e-4d37-a872-0864e9ac72d5",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "HANDOFF",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "HANDOFF"
+            }
           ]
         },
-        "fallbackOutput": 3
+        "options": { "fallbackOutput": "extra", "renameFallbackOutput": "UNKNOWN", "ignoreCase": false }
       },
       "id": "crm-003",
       "name": "Route by Action",
       "type": "n8n-nodes-base.switch",
-      "typeVersion": 3,
-      "position": [440, 400]
+      "typeVersion": 3.2,
+      "position": [880, 400]
     },
     {
       "parameters": {
@@ -65,7 +126,7 @@
       "name": "Parse Booking Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [660, 200]
+      "position": [1100, 200]
     },
     {
       "parameters": {
@@ -94,7 +155,7 @@
       "name": "Save Booking to Sheets",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 3,
-      "position": [880, 200]
+      "position": [1320, 200]
     },
     {
       "parameters": {
@@ -112,31 +173,20 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $env.WATI_API_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "Authorization", "value": "=Bearer {{ $env.WATI_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({\n  template_name: 'booking_confirmation',\n  broadcast_name: 'voice_agent_booking',\n  parameters: [\n    { name: 'customer_name', value: String($('Parse Booking Data').first().json.booking_name || 'Valued Guest') },\n    { name: 'date', value: String($('Parse Booking Data').first().json.booking_date || '') },\n    { name: 'time', value: String($('Parse Booking Data').first().json.booking_time || '') },\n    { name: 'guests', value: String($('Parse Booking Data').first().json.booking_guests || '') },\n    { name: 'venue', value: String($('Parse Booking Data').first().json.business_name || $env.BUSINESS_NAME || 'us') }\n  ]\n}) }}",
-        "options": {
-          "timeout": 10000
-        }
+        "options": { "timeout": 10000 }
       },
       "id": "crm-012",
       "name": "WhatsApp Booking Confirmation",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1100,
-        200
-      ],
+      "position": [1540, 200],
       "notes": "Reads from 'Parse Booking Data': the Google Sheets step before this node outputs the saved row, not the booking/call data."
     },
     {
@@ -147,7 +197,7 @@
       "name": "Check WhatsApp Status",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1320, 200]
+      "position": [1760, 200]
     },
     {
       "parameters": {
@@ -157,7 +207,7 @@
       "name": "Parse Lead Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [660, 400]
+      "position": [1100, 400]
     },
     {
       "parameters": {
@@ -184,7 +234,7 @@
       "name": "Save Lead to Sheets",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 3,
-      "position": [880, 400]
+      "position": [1320, 400]
     },
     {
       "parameters": {
@@ -202,42 +252,31 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $env.WATI_API_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "Authorization", "value": "=Bearer {{ $env.WATI_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({\n  template_name: 'lead_followup',\n  broadcast_name: 'voice_agent_lead',\n  parameters: [\n    { name: '1', value: String($('Parse Lead Data').first().json.lead_name || 'there') }\n  ]\n}) }}",
-        "options": {
-          "timeout": 10000
-        }
+        "options": { "timeout": 10000 }
       },
       "id": "crm-022",
       "name": "WhatsApp Lead Follow-up",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1100,
-        400
-      ],
+      "position": [2200, 400],
       "notes": "Reads from 'Parse Lead Data': the Google Sheets step before this node outputs the saved row, not the booking/call data."
     },
     {
       "parameters": {
-        "jsCode": "const s = $input.first().json;\n// WATI's response has no session; take it from the CRM request data\nconst ctx = $('Parse Lead Data').first().json;\nreturn [{ json: {\n  action: 'LEAD_CAPTURE',\n  session_id: ctx.session_id,\n  business_id: ctx.business_id,\n  status: 'completed'\n}}];\n"
+        "jsCode": "const s = $input.first().json;\n// WATI's response has no session; take it from the CRM request data\nconst ctx = $('Parse Lead Data').first().json;\nreturn [{ json: {\n  action: 'LEAD_CAPTURE',\n  session_id: ctx.session_id,\n  business_id: ctx.business_id,\n  caller_number: ctx.lead_phone,\n  // Staff are handling this guest (Handoffs sheet): the follow-up was not sent\n  status: $('Evaluate Lead Handoff').first().json.bot_paused ? 'followup_skipped_handoff' : 'completed'\n}}];\n"
       },
       "id": "crm-023",
       "name": "Lead Status",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1320, 400]
+      "position": [2420, 400]
     },
     {
       "parameters": {
@@ -263,7 +302,7 @@
       "name": "Save Complaint to Sheets",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 3,
-      "position": [660, 600]
+      "position": [1100, 600]
     },
     {
       "parameters": {
@@ -281,31 +320,20 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $env.WATI_API_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "Authorization", "value": "=Bearer {{ $env.WATI_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({\n  template_name: 'complaint_acknowledged',\n  broadcast_name: 'voice_agent_complaint',\n  parameters: [\n    { name: '1', value: String('Valued Guest') }\n  ]\n}) }}",
-        "options": {
-          "timeout": 10000
-        }
+        "options": { "timeout": 10000 }
       },
       "id": "crm-031",
       "name": "WhatsApp Complaint Ack",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        880,
-        600
-      ],
+      "position": [1320, 600],
       "notes": "Reads from 'Extract CRM Data': the Google Sheets step before this node outputs the saved row, not the booking/call data."
     },
     {
@@ -316,7 +344,7 @@
       "name": "Complaint Status",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1100, 600]
+      "position": [1540, 600]
     },
     {
       "parameters": {
@@ -341,7 +369,7 @@
       "name": "Log Activity",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 3,
-      "position": [1540, 400]
+      "position": [2640, 400]
     },
     {
       "parameters": {
@@ -351,14 +379,282 @@
       "name": "Unknown Action Handler",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [660, 800]
+      "position": [1100, 800]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Only n8n's own workflows may call crm-action: it saves to Sheets and sends WhatsApp\n// templates to any number it is given. Callers send X-Internal-Token = INTERNAL_WEBHOOK_TOKEN.\n// Fails closed: an unset or short (<16 chars) token rejects every request.\nconst req = $input.first().json;\nconst expected = String($env.INTERNAL_WEBHOOK_TOKEN || '');\nconst provided = String((req.headers || {})['x-internal-token'] || '');\n\n// Constant-time compare so the token can't be guessed one character at a time.\nconst n = Math.max(expected.length, provided.length);\nlet diff = expected.length ^ provided.length;\nfor (let i = 0; i < n; i++) diff |= (expected.charCodeAt(i) || 0) ^ (provided.charCodeAt(i) || 0);\nconst configured = expected.length >= 16;\nconst authorized = configured && provided.length > 0 && diff === 0;\n\nreturn [{ json: {\n  ...req,\n  request_allowed: authorized,\n  auth_reason: !configured ? 'token_not_configured' : (!provided ? 'missing_token' : (authorized ? 'ok' : 'token_mismatch'))\n} }];\n"
+      },
+      "id": "b6d4c5cc-a1a8-4a5a-9fb0-54b69337ec6b",
+      "name": "Verify Internal Token",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "d59f7c8c-e7cd-41b9-893e-eba3db24d422",
+              "leftValue": "={{ $json.request_allowed }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "895394b2-1d17-44cd-9b18-e9484fbb5747",
+      "name": "Authorized?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [440, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'unauthorized', reason: $json.auth_reason }) }}",
+        "options": { "responseCode": 401 }
+      },
+      "id": "b8c5c228-033f-4860-b93e-d8f9158d1030",
+      "name": "Reject Unauthorized",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 640]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One row per guest per venue in the Handoffs sheet (upserted on handoff_key).\n// While status = active and paused_until is in the future: no automated lead follow-ups,\n// and a repeat call goes straight to staff. Staff end it early by setting status = released.\nconst ctx = $('Extract CRM Data').first().json;\nconst prev = $input.first().json;\nconst digits = String(ctx.caller_number || '').replace(/\\D/g, '');\nconst hours = Number($env.HANDOFF_PAUSE_HOURS) > 0 ? Number($env.HANDOFF_PAUSE_HOURS) : 24;\nconst now = new Date();\n\nreturn [{ json: {\n  action: ctx.action,\n  session_id: ctx.session_id,\n  business_id: ctx.business_id,\n  caller_number: ctx.caller_number,\n  log_status: prev.status || 'handoff_active',\n  has_phone: digits !== '',\n  handoff_key: `${ctx.business_id || 'default'}:${digits}`,\n  phone: ctx.caller_number,\n  status: 'active',\n  reason: ctx.action === 'COMPLAINT' ? 'complaint' : (ctx.handoff_reason || 'transfer_to_human'),\n  source: ctx.action === 'COMPLAINT' ? 'complaint' : (ctx.handoff_source || 'voice_agent'),\n  started_at: now.toISOString(),\n  paused_until: new Date(now.getTime() + hours * 3600 * 1000).toISOString(),\n  released_by: ''\n} }];\n"
+      },
+      "id": "b3f8b863-d732-40d5-b362-0aa03935d99a",
+      "name": "Build Handoff Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 860]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "66216d7f-f5bb-4020-8e6f-9f6d3833a051",
+              "leftValue": "={{ $json.has_phone }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "abee79ce-1b50-4682-9dc5-b26cb0ad3c8c",
+      "name": "Has Phone?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1760, 860]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": { "__rl": true, "mode": "id", "value": "={{ $env.GSHEET_ID }}" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "Handoffs" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "handoff_key"
+          ],
+          "value": {
+            "handoff_key": "={{ $json.handoff_key }}",
+            "business_id": "={{ $json.business_id }}",
+            "phone": "={{ $json.phone }}",
+            "status": "={{ $json.status }}",
+            "reason": "={{ $json.reason }}",
+            "source": "={{ $json.source }}",
+            "started_at": "={{ $json.started_at }}",
+            "paused_until": "={{ $json.paused_until }}",
+            "released_by": "={{ $json.released_by }}"
+          },
+          "schema": [
+            {
+              "id": "handoff_key",
+              "displayName": "handoff_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "business_id",
+              "displayName": "business_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "started_at",
+              "displayName": "started_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "paused_until",
+              "displayName": "paused_until",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "released_by",
+              "displayName": "released_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5216909f-3c3a-4ce9-b9d2-b17da9ae700a",
+      "name": "Upsert Handoff",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1980, 860],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sheets returns the saved row; report the request's own outcome to the activity log.\nconst h = $('Build Handoff Row').first().json;\nreturn [{ json: {\n  action: h.action,\n  session_id: h.session_id,\n  business_id: h.business_id,\n  caller_number: h.caller_number,\n  status: h.has_phone ? h.log_status : `${h.log_status}; handoff_skipped_no_phone`,\n  handoff_key: h.handoff_key,\n  paused_until: h.paused_until\n} }];\n"
+      },
+      "id": "36cca37e-221f-4ae6-a22f-d6380be244c2",
+      "name": "Handoff Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2200, 860]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "mode": "id", "value": "={{ $env.GSHEET_ID }}" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "Handoffs" },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "handoff_key",
+              "lookupValue": "={{ ($('Parse Lead Data').first().json.business_id || 'default') + ':' + String($('Parse Lead Data').first().json.lead_phone || '').replace(/\\D/g, '') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b98b751b-e1bd-4b39-9f0a-84b478e4125f",
+      "name": "Check Lead Handoff",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1320, 400],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "notes": "Reads the guest's row in the Handoffs sheet. No row or a Sheets error both mean 'not paused'."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Skip the automated lead follow-up while staff are handling this guest.\nconst lead = $('Parse Lead Data').first().json;\nconst key = `${lead.business_id || 'default'}:${String(lead.lead_phone || '').replace(/\\D/g, '')}`;\nconst row = $input.all().map(i => i.json)\n  .find(r => String(r.handoff_key || '') === key && String(r.status || '').trim().toLowerCase() === 'active');\nlet paused = false;\nif (row) {\n  const until = Date.parse(String(row.paused_until || ''));\n  paused = Number.isNaN(until) ? true : until > Date.now();\n}\nreturn [{ json: { ...lead, bot_paused: paused } }];\n"
+      },
+      "id": "b6bcfae0-62c9-4ef5-8de2-51a643865804",
+      "name": "Evaluate Lead Handoff",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "48db90d4-d6cb-4c0b-b6a8-72a8a1a26a26",
+              "leftValue": "={{ $json.bot_paused }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7d8cd926-a94b-4e0d-b799-c3a285b7aabb",
+      "name": "Lead Bot Paused?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1760, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, action: $json.action, status: $json.status, session_id: $json.session_id }) }}",
+        "options": {}
+      },
+      "id": "a6442b0f-2728-408e-ab71-f5d44c365f04",
+      "name": "Respond CRM Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2860, 400]
     }
   ],
   "connections": {
     "CRM Action Webhook": {
       "main": [
         [
-          { "node": "Extract CRM Data", "type": "main", "index": 0 }
+          { "node": "Verify Internal Token", "type": "main", "index": 0 }
         ]
       ]
     },
@@ -379,6 +675,9 @@
         ],
         [
           { "node": "Save Complaint to Sheets", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Build Handoff Row", "type": "main", "index": 0 }
         ],
         [
           { "node": "Unknown Action Handler", "type": "main", "index": 0 }
@@ -423,7 +722,7 @@
     "Save Lead to Sheets": {
       "main": [
         [
-          { "node": "WhatsApp Lead Follow-up", "type": "main", "index": 0 }
+          { "node": "Check Lead Handoff", "type": "main", "index": 0 }
         ]
       ]
     },
@@ -458,7 +757,7 @@
     "Complaint Status": {
       "main": [
         [
-          { "node": "Log Activity", "type": "main", "index": 0 }
+          { "node": "Build Handoff Row", "type": "main", "index": 0 }
         ]
       ]
     },
@@ -468,13 +767,88 @@
           { "node": "Log Activity", "type": "main", "index": 0 }
         ]
       ]
+    },
+    "Verify Internal Token": {
+      "main": [
+        [
+          { "node": "Authorized?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Authorized?": {
+      "main": [
+        [
+          { "node": "Extract CRM Data", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Reject Unauthorized", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Build Handoff Row": {
+      "main": [
+        [
+          { "node": "Has Phone?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Has Phone?": {
+      "main": [
+        [
+          { "node": "Upsert Handoff", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Handoff Status", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Upsert Handoff": {
+      "main": [
+        [
+          { "node": "Handoff Status", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Handoff Status": {
+      "main": [
+        [
+          { "node": "Log Activity", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Check Lead Handoff": {
+      "main": [
+        [
+          { "node": "Evaluate Lead Handoff", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Evaluate Lead Handoff": {
+      "main": [
+        [
+          { "node": "Lead Bot Paused?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Lead Bot Paused?": {
+      "main": [
+        [
+          { "node": "Lead Status", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "WhatsApp Lead Follow-up", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Log Activity": {
+      "main": [
+        [
+          { "node": "Respond CRM Result", "type": "main", "index": 0 }
+        ]
+      ]
     }
   },
-  "settings": {
-    "executionOrder": "v1",
-    "saveManualExecutions": true,
-    "timezone": "Asia/Kolkata"
-  },
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true, "timezone": "Asia/Kolkata" },
   "tags": [
     { "name": "voice-agent", "id": "tag-1" },
     { "name": "crm", "id": "tag-4" }

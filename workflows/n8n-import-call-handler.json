@@ -44,7 +44,7 @@
       "name": "Init Session Variables",
       "type": "n8n-nodes-base.set",
       "typeVersion": 2,
-      "position": [220, 300]
+      "position": [660, 300]
     },
     {
       "parameters": {
@@ -54,7 +54,7 @@
       "name": "Generate Greeting",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [440, 300]
+      "position": [1540, 300]
     },
     {
       "parameters": {
@@ -63,14 +63,8 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "xi-api-key",
-              "value": "={{ $env.ELEVENLABS_API_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "xi-api-key", "value": "={{ $env.ELEVENLABS_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
@@ -78,9 +72,7 @@
         "jsonBody": "={\n  \"text\": {{ JSON.stringify($json.greeting_text || '') }},\n  \"model_id\": \"eleven_multilingual_v2\",\n  \"voice_settings\": { \"stability\": 0.5, \"similarity_boost\": 0.75 }\n}",
         "options": {
           "response": {
-            "response": {
-              "responseFormat": "file"
-            }
+            "response": { "responseFormat": "file" }
           },
           "timeout": 8000
         }
@@ -89,24 +81,18 @@
       "name": "TTS Greeting",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        660,
-        300
-      ],
+      "position": [1760, 300],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Build TwiML response for greeting + start recording\n// TTS returns audio, not the session, so read the call context from the node before it\nconst s = $('Generate Greeting').first().json;\nconst sid = s.session_id;\nconst base = 'https://YOUR_N8N_URL';\nconst msg = (s.greeting_text || 'Welcome! How can I help?').replace(/[&<>\"]/g, '');\n\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${msg}</Say>\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice/turn?sid=${sid}&biz=${s.business_id}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice/turn?sid=${sid}&biz=${s.business_id}\" />\n</Response>`;\n\nreturn [{ json: { ...s, twiml_response: twiml } }];\n"
+        "jsCode": "// Build TwiML response for greeting + start recording\n// TTS returns audio, not the session, so read the call context from the node before it\nconst s = $('Generate Greeting').first().json;\nconst sid = s.session_id;\n// Same base the signature check rebuilds the URL from; '&' must be '&amp;' inside XML\nconst base = String($env.N8N_BASE_URL || 'https://YOUR_N8N_URL').trim().replace(/\\/+$/, '');\nconst turnUrl = `${base}/webhook/voice/turn?sid=${encodeURIComponent(sid)}&amp;biz=${encodeURIComponent(s.business_id || 'default')}`;\n\nconst msg = (s.greeting_text || 'Welcome! How can I help?').replace(/[&<>\"]/g, '');\n\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${msg}</Say>\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${turnUrl}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${turnUrl}\" />\n</Response>`;\n\nreturn [{ json: { ...s, twiml_response: twiml } }];\n"
       },
       "id": "ch-005",
       "name": "Build Greeting TwiML",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        880,
-        300
-      ]
+      "position": [1980, 300]
     },
     {
       "parameters": {
@@ -125,7 +111,7 @@
       "name": "Respond Greeting",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1100, 300]
+      "position": [2200, 300]
     },
     {
       "parameters": {
@@ -162,16 +148,13 @@
       "name": "Extract Turn Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 2,
-      "position": [220, 700]
+      "position": [660, 700]
     },
     {
       "parameters": {
         "conditions": {
           "boolean": [
-            {
-              "value1": "={{$json.has_recording}}",
-              "value2": true
-            }
+            { "value1": "={{$json.has_recording}}", "value2": true }
           ]
         }
       },
@@ -179,17 +162,17 @@
       "name": "Has Recording?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [440, 700]
+      "position": [880, 700]
     },
     {
       "parameters": {
-        "jsCode": "// Silence handler — progressive responses\nconst s = $input.first().json;\nconst base = 'https://YOUR_N8N_URL';\nconst sid = s.session_id;\n\nconst msg = \"I didn't quite catch that. Could you please go ahead? I'm listening.\";\n\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${msg}</Say>\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice/turn?sid=${sid}&biz=${s.business_id}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">Hello? I am still here.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice/turn?sid=${sid}&biz=${s.business_id}\" />\n</Response>`;\n\nreturn [{ json: { ...s, twiml_response: twiml } }];\n"
+        "jsCode": "// Silence handler — progressive responses\nconst s = $input.first().json;\nconst sid = s.session_id;\n// Same base the signature check rebuilds the URL from; '&' must be '&amp;' inside XML\nconst base = String($env.N8N_BASE_URL || 'https://YOUR_N8N_URL').trim().replace(/\\/+$/, '');\nconst turnUrl = `${base}/webhook/voice/turn?sid=${encodeURIComponent(sid)}&amp;biz=${encodeURIComponent(s.business_id || 'default')}`;\n\nconst msg = \"I didn't quite catch that. Could you please go ahead? I'm listening.\";\n\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${msg}</Say>\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${turnUrl}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">Hello? I am still here.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${turnUrl}\" />\n</Response>`;\n\nreturn [{ json: { ...s, twiml_response: twiml } }];\n"
       },
       "id": "ch-013",
       "name": "Handle Silence",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [660, 880]
+      "position": [1100, 880]
     },
     {
       "parameters": {
@@ -208,7 +191,7 @@
       "name": "Respond Silence",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [880, 880]
+      "position": [1320, 880]
     },
     {
       "parameters": {
@@ -217,31 +200,20 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Token {{ $env.DEEPGRAM_API_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "Authorization", "value": "=Token {{ $env.DEEPGRAM_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ url: $json.recording_url + '.wav' }) }}",
-        "options": {
-          "timeout": 10000
-        }
+        "options": { "timeout": 10000 }
       },
       "id": "ch-020",
       "name": "Deepgram STT",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        660,
-        600
-      ],
+      "position": [1100, 600],
       "onError": "continueRegularOutput"
     },
     {
@@ -252,19 +224,13 @@
       "name": "Parse STT Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        880,
-        600
-      ]
+      "position": [1320, 600]
     },
     {
       "parameters": {
         "conditions": {
           "boolean": [
-            {
-              "value1": "={{$json.is_empty}}",
-              "value2": true
-            }
+            { "value1": "={{$json.is_empty}}", "value2": true }
           ]
         }
       },
@@ -272,7 +238,7 @@
       "name": "Transcript Empty?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1100, 600]
+      "position": [1540, 600]
     },
     {
       "parameters": {
@@ -281,27 +247,19 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({\n  session_id: $json.session_id,\n  business_id: $json.business_id,\n  caller_number: $json.caller_number,\n  caller_transcript: $json.caller_transcript,\n  detected_language: $json.detected_language,\n  language_name: $json.language_name\n}) }}",
-        "options": {
-          "timeout": 15000
-        }
+        "options": { "timeout": 15000 }
       },
       "id": "ch-030",
       "name": "Call AI Brain",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1320,
-        500
-      ],
+      "position": [1760, 500],
       "onError": "continueRegularOutput"
     },
     {
@@ -312,10 +270,7 @@
       "name": "AI Response Fallback",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1540,
-        500
-      ]
+      "position": [1980, 500]
     },
     {
       "parameters": {
@@ -325,7 +280,7 @@
       "name": "Humanization Engine",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1760, 500]
+      "position": [2200, 500]
     },
     {
       "parameters": {
@@ -334,14 +289,8 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "xi-api-key",
-              "value": "={{ $env.ELEVENLABS_API_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "xi-api-key", "value": "={{ $env.ELEVENLABS_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
@@ -349,9 +298,7 @@
         "jsonBody": "={\n  \"text\": {{ JSON.stringify($json.humanized_response || '') }},\n  \"model_id\": \"eleven_multilingual_v2\",\n  \"voice_settings\": { \"stability\": 0.45, \"similarity_boost\": 0.78, \"style\": 0.35 }\n}",
         "options": {
           "response": {
-            "response": {
-              "responseFormat": "file"
-            }
+            "response": { "responseFormat": "file" }
           },
           "timeout": 8000
         }
@@ -360,24 +307,18 @@
       "name": "TTS Response",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1980,
-        500
-      ],
+      "position": [2420, 500],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Build TwiML: speak response + record next turn\n// TTS returns audio, not the session, so read the call context from the node before it\nconst s = $('Humanization Engine').first().json;\nconst sid = s.session_id;\nconst base = 'https://YOUR_N8N_URL';\nconst spoken = (s.humanized_response || s.reply_text || 'Could you repeat that?').replace(/[&<>\"]/g, '');\nconst endCall = s.action && s.action.type === 'end_call';\n\nlet twiml;\nif (endCall) {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spoken}</Say>\n  <Hangup/>\n</Response>`;\n} else if (s.action && s.action.type === 'transfer') {\n  const escNum = (() => {\n    // Never fall back to a placeholder: an unset number would transfer the caller to a stranger.\n    const raw = String(s.action.number || s.escalation_number || $env.ESCALATION_PHONE || '').replace(/[\\s()-]/g, '');\n    return /^\\+[1-9]\\d{7,14}$/.test(raw) && raw !== '+919876543210' ? raw : null;\n  })();\n  if (!escNum) s.callback_required = true;\n  twiml = escNum ? `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spoken}</Say>\n  <Dial timeout=\"30\"><Number>${escNum}</Number></Dial>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">Sorry, our team is unavailable. We will call you back shortly.</Say>\n</Response>`\n  : `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">Sorry, our team is unavailable right now. We will call you back shortly.</Say>\n  <Hangup/>\n</Response>`;\n} else {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spoken}</Say>\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice/turn?sid=${sid}&biz=${s.business_id}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${base}/webhook/voice/turn?sid=${sid}&biz=${s.business_id}\" />\n</Response>`;\n}\n\nreturn [{ json: { ...s, twiml_response: twiml } }];\n"
+        "jsCode": "// Build TwiML: speak response + record next turn\n// TTS returns audio, not the session, so read the call context from the node before it\nconst s = $('Humanization Engine').first().json;\nconst sid = s.session_id;\n// Same base the signature check rebuilds the URL from; '&' must be '&amp;' inside XML\nconst base = String($env.N8N_BASE_URL || 'https://YOUR_N8N_URL').trim().replace(/\\/+$/, '');\nconst turnUrl = `${base}/webhook/voice/turn?sid=${encodeURIComponent(sid)}&amp;biz=${encodeURIComponent(s.business_id || 'default')}`;\n\nconst spoken = (s.humanized_response || s.reply_text || 'Could you repeat that?').replace(/[&<>\"]/g, '');\nconst endCall = s.action && s.action.type === 'end_call';\n\nlet twiml;\nif (endCall) {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spoken}</Say>\n  <Hangup/>\n</Response>`;\n} else if (s.action && s.action.type === 'transfer') {\n  const escNum = (() => {\n    // Never fall back to a placeholder: an unset number would transfer the caller to a stranger.\n    const raw = String(s.action.number || s.escalation_number || $env.ESCALATION_PHONE || '').replace(/[\\s()-]/g, '');\n    return /^\\+[1-9]\\d{7,14}$/.test(raw) && raw !== '+919876543210' ? raw : null;\n  })();\n  if (!escNum) s.callback_required = true;\n  twiml = escNum ? `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spoken}</Say>\n  <Dial timeout=\"30\"><Number>${escNum}</Number></Dial>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">Sorry, our team is unavailable. We will call you back shortly.</Say>\n</Response>`\n  : `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">Sorry, our team is unavailable right now. We will call you back shortly.</Say>\n  <Hangup/>\n</Response>`;\n} else {\n  twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">${spoken}</Say>\n  <Record maxLength=\"15\" timeout=\"3\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${turnUrl}\" />\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">I am still here if you need anything.</Say>\n  <Record maxLength=\"15\" timeout=\"5\" playBeep=\"false\" transcribe=\"false\"\n    action=\"${turnUrl}\" />\n</Response>`;\n}\n\nreturn [{ json: { ...s, twiml_response: twiml } }];\n"
       },
       "id": "ch-034",
       "name": "Build Response TwiML",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        2200,
-        500
-      ]
+      "position": [2640, 500]
     },
     {
       "parameters": {
@@ -396,17 +337,13 @@
       "name": "Respond to Twilio",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [2420, 500]
+      "position": [2860, 500]
     },
     {
       "parameters": {
         "conditions": {
           "string": [
-            {
-              "value1": "={{$json.intent}}",
-              "value2": "booking",
-              "operation": "equals"
-            }
+            { "value1": "={{$json.intent}}", "value2": "booking", "operation": "equals" }
           ]
         }
       },
@@ -414,7 +351,7 @@
       "name": "Is Booking Action?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2420, 720]
+      "position": [2860, 720]
     },
     {
       "parameters": {
@@ -423,27 +360,20 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Internal-Token", "value": "={{ $env.INTERNAL_WEBHOOK_TOKEN }}" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({\n  action: 'CONFIRM_BOOKING',\n  business_id: $json.business_id,\n  session_id: $json.session_id,\n  caller_number: $json.caller_number,\n  booking_data: $json.booking_data || {},\n  detected_language: $json.detected_language\n}) }}",
-        "options": {
-          "timeout": 10000
-        }
+        "options": { "timeout": 10000 }
       },
       "id": "ch-041",
       "name": "Trigger CRM Booking",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        2640,
-        640
-      ],
+      "position": [3080, 640],
       "onError": "continueRegularOutput",
       "disabled": true,
       "notes": "Disabled: the AI Brain workflow already triggers CONFIRM_BOOKING once the booking is complete. Enabling this as well sends a duplicate confirmation on every booking-intent turn, including incomplete ones."
@@ -451,21 +381,13 @@
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
           "conditions": [
             {
               "id": "missed-escalation-check",
               "leftValue": "={{ $json.callback_required }}",
               "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
             }
           ],
           "combinator": "and"
@@ -476,10 +398,7 @@
       "name": "Escalation Missed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [
-        2420,
-        300
-      ]
+      "position": [2860, 300]
     },
     {
       "parameters": {
@@ -497,47 +416,239 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $env.WATI_API_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "Authorization", "value": "=Bearer {{ $env.WATI_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({\n  template_name: 'missed_escalation_alert',\n  broadcast_name: 'voice_agent_missed_escalation',\n  parameters: [\n    { name: 'venue', value: String($json.business_name || $json.business_id || 'Voice agent') },\n    { name: 'caller_name', value: String($json.caller_name || 'Unknown caller') },\n    { name: 'caller_number', value: String($json.caller_number || 'unknown') },\n    { name: 'time', value: $now.setZone($env.BUSINESS_TIMEZONE || 'Asia/Kolkata').toFormat('dd LLL, hh:mm a') },\n    { name: 'reason', value: String($json.escalation_reason || $json.emotion_state || 'asked for a human') }\n  ]\n}) }}",
-        "options": {
-          "timeout": 10000
-        }
+        "options": { "timeout": 10000 }
       },
       "id": "2f720f33-71ae-4464-aea4-7e74fc638234",
       "name": "WhatsApp Missed Escalation Alert",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        2640,
-        300
-      ],
+      "position": [3080, 300],
       "onError": "continueRegularOutput",
       "notes": "Alerts the manager on WhatsApp when a caller asked for a human but no valid escalation number was configured. Needs ESCALATION_ALERT_WHATSAPP and an approved WATI template 'missed_escalation_alert'."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reject requests that did not come from Twilio before any call logic runs.\n// Twilio signs: full request URL + every POST param sorted by name (name + value),\n// HMAC-SHA1 with the account auth token, base64. The URL is rebuilt from N8N_BASE_URL,\n// the same base the TwiML action URLs use, so it matches what Twilio requested.\n// TWILIO_SIGNATURE_MODE: enforce (default) = reject | log = let through, flagged | off = skip.\n// Needs the 'crypto' built-in: N8N_RUNNERS_ALLOWED_BUILT_IN_MODULES=crypto (legacy: NODE_FUNCTION_ALLOW_BUILTIN).\nconst WEBHOOK_PATH = '/webhook/voice/incoming';\nconst req = $input.first().json;\nconst mode = String($env.TWILIO_SIGNATURE_MODE || 'enforce').trim().toLowerCase();\nconst token = String($env.TWILIO_AUTH_TOKEN || '');\nconst base = String($env.N8N_BASE_URL || '').trim().replace(/\\/+$/, '');\nconst query = req.query || {};\nconst qs = Object.keys(query)\n  .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(query[k])}`)\n  .join('&');\nconst url = base + WEBHOOK_PATH + (qs ? `?${qs}` : '');\nconst provided = String((req.headers || {})['x-twilio-signature'] || '');\n\nlet crypto = null;\ntry { crypto = require('crypto'); } catch (e) { crypto = null; }\n\nlet valid = false;\nlet reason = 'ok';\nif (mode === 'off') reason = 'check_disabled';\nelse if (!token) reason = 'auth_token_not_configured';\nelse if (!base) reason = 'base_url_not_configured';\nelse if (!provided) reason = 'missing_signature_header';\nelse if (!crypto) reason = 'crypto_module_not_allowed';\nelse {\n  const body = req.body || {};\n  const payload = url + Object.keys(body).sort()\n    .map(k => [].concat(body[k] ?? '').slice().sort().map(v => k + v).join(''))\n    .join('');\n  const expected = Buffer.from(crypto.createHmac('sha1', token).update(payload, 'utf8').digest('base64'));\n  const got = Buffer.from(provided);\n  valid = expected.length === got.length && crypto.timingSafeEqual(expected, got);\n  if (!valid) reason = 'signature_mismatch';\n}\n\nreturn [{ json: {\n  ...req,\n  signature_valid: valid,\n  signature_reason: reason,\n  signature_url: url,\n  request_allowed: valid || mode === 'off' || mode === 'log'\n} }];\n"
+      },
+      "id": "f63f7b93-b127-4468-a7d4-d1ec869b60c0",
+      "name": "Verify Twilio Signature (Incoming)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "notes": "Checks X-Twilio-Signature. Set TWILIO_SIGNATURE_MODE=log for the first test calls, then enforce."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "164087de-e69e-426d-b073-b3e4e989c731",
+              "leftValue": "={{ $json.request_allowed }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1d8351b6-988e-45d4-b97e-a2fd0f3e2b17",
+      "name": "Signature OK? (Incoming)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'invalid_signature', reason: $json.signature_reason }) }}",
+        "options": { "responseCode": 403 }
+      },
+      "id": "56e35ec8-4c55-4cde-a3ac-12154d5d9d4c",
+      "name": "Reject Unsigned Incoming",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 460]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reject requests that did not come from Twilio before any call logic runs.\n// Twilio signs: full request URL + every POST param sorted by name (name + value),\n// HMAC-SHA1 with the account auth token, base64. The URL is rebuilt from N8N_BASE_URL,\n// the same base the TwiML action URLs use, so it matches what Twilio requested.\n// TWILIO_SIGNATURE_MODE: enforce (default) = reject | log = let through, flagged | off = skip.\n// Needs the 'crypto' built-in: N8N_RUNNERS_ALLOWED_BUILT_IN_MODULES=crypto (legacy: NODE_FUNCTION_ALLOW_BUILTIN).\nconst WEBHOOK_PATH = '/webhook/voice/turn';\nconst req = $input.first().json;\nconst mode = String($env.TWILIO_SIGNATURE_MODE || 'enforce').trim().toLowerCase();\nconst token = String($env.TWILIO_AUTH_TOKEN || '');\nconst base = String($env.N8N_BASE_URL || '').trim().replace(/\\/+$/, '');\nconst query = req.query || {};\nconst qs = Object.keys(query)\n  .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(query[k])}`)\n  .join('&');\nconst url = base + WEBHOOK_PATH + (qs ? `?${qs}` : '');\nconst provided = String((req.headers || {})['x-twilio-signature'] || '');\n\nlet crypto = null;\ntry { crypto = require('crypto'); } catch (e) { crypto = null; }\n\nlet valid = false;\nlet reason = 'ok';\nif (mode === 'off') reason = 'check_disabled';\nelse if (!token) reason = 'auth_token_not_configured';\nelse if (!base) reason = 'base_url_not_configured';\nelse if (!provided) reason = 'missing_signature_header';\nelse if (!crypto) reason = 'crypto_module_not_allowed';\nelse {\n  const body = req.body || {};\n  const payload = url + Object.keys(body).sort()\n    .map(k => [].concat(body[k] ?? '').slice().sort().map(v => k + v).join(''))\n    .join('');\n  const expected = Buffer.from(crypto.createHmac('sha1', token).update(payload, 'utf8').digest('base64'));\n  const got = Buffer.from(provided);\n  valid = expected.length === got.length && crypto.timingSafeEqual(expected, got);\n  if (!valid) reason = 'signature_mismatch';\n}\n\nreturn [{ json: {\n  ...req,\n  signature_valid: valid,\n  signature_reason: reason,\n  signature_url: url,\n  request_allowed: valid || mode === 'off' || mode === 'log'\n} }];\n"
+      },
+      "id": "a3b73cd5-68fc-45e3-9ee5-5583f5cd9dd4",
+      "name": "Verify Twilio Signature (Turn)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 700],
+      "notes": "Checks X-Twilio-Signature. Set TWILIO_SIGNATURE_MODE=log for the first test calls, then enforce."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "d911c9a9-703d-4733-b4cf-e87ef8644f38",
+              "leftValue": "={{ $json.request_allowed }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e331d57b-c613-45bc-9b61-a3a5bfef1fe4",
+      "name": "Signature OK? (Turn)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [440, 700]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'invalid_signature', reason: $json.signature_reason }) }}",
+        "options": { "responseCode": 403 }
+      },
+      "id": "f3f8245f-c463-4218-9bff-37a776100c39",
+      "name": "Reject Unsigned Turn",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 860]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "mode": "id", "value": "={{ $env.GSHEET_ID }}" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "Handoffs" },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "handoff_key",
+              "lookupValue": "={{ ($json.business_id || 'default') + ':' + String($json.caller_number || '').replace(/\\D/g, '') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "907d052f-41dc-4eaa-bc2b-181298ad15e7",
+      "name": "Check Caller Handoff",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [880, 300],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "notes": "Reads the guest's row in the Handoffs sheet. No row or a Sheets error both mean 'not paused'."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Decide whether this caller is with a human right now (open row in the Handoffs sheet).\n// Paused + valid escalation number -> skip the AI and dial staff. Paused but no valid\n// number -> the AI answers as usual (a dead line is worse). A Sheets error counts as not paused.\nconst s = $('Init Session Variables').first().json;\nconst digits = String(s.caller_number || '').replace(/\\D/g, '');\nconst key = `${s.business_id || 'default'}:${digits}`;\nconst now = Date.now();\n\nconst row = $input.all().map(i => i.json)\n  .find(r => String(r.handoff_key || '') === key && String(r.status || '').trim().toLowerCase() === 'active');\nlet paused = false;\nif (row && digits) {\n  const until = Date.parse(String(row.paused_until || ''));\n  // Blank or unreadable paused_until keeps the pause on until staff set status to 'released'.\n  paused = Number.isNaN(until) ? true : until > now;\n}\n\nconst raw = String($env.ESCALATION_PHONE || '').replace(/[\\s()-]/g, '');\nconst escNum = /^\\+[1-9]\\d{7,14}$/.test(raw) && raw !== '+919876543210' ? raw : '';\n\nreturn [{ json: {\n  ...s,\n  handoff_key: key,\n  bot_paused: paused,\n  handoff_reason: paused ? String(row.reason || '') : '',\n  escalation_number: escNum,\n  route_to_human: paused && escNum !== ''\n} }];\n"
+      },
+      "id": "74e1b1d2-a8ca-4126-abf7-f9ec1e9063a7",
+      "name": "Evaluate Caller Handoff",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "dea04e7f-9233-4a39-832d-4c8ab9ff4bc3",
+              "leftValue": "={{ $json.route_to_human }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "62ca81cd-f17a-4f9a-b570-6fb949c43ece",
+      "name": "Route to Human?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1320, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Guest is already being handled by staff: connect them straight to a human.\nconst s = $input.first().json;\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">Thank you for calling back. Connecting you to our team now.</Say>\n  <Dial timeout=\"30\"><Number>${s.escalation_number}</Number></Dial>\n  <Say voice=\"Polly.Aditi\" language=\"en-IN\">Sorry, our team is unavailable right now. We will call you back shortly.</Say>\n</Response>`;\n\nreturn [{ json: { ...s, twiml_response: twiml } }];\n"
+      },
+      "id": "66f4efaf-3b96-4410-9ffd-89466f8dfb53",
+      "name": "Build Handoff TwiML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1980, 120]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2 },
+          "conditions": [
+            {
+              "id": "4718408c-3729-4784-8f14-062e5a162481",
+              "leftValue": "={{ ($json.action || {}).type }}",
+              "rightValue": "transfer",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "f8bf292f-d2f2-4d2a-a127-dd42003f2e15",
+      "name": "Is Transfer?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2860, 940]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.N8N_BASE_URL || 'https://YOUR_N8N_URL').replace(/\\/+$/, '') }}/webhook/crm-action",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Internal-Token", "value": "={{ $env.INTERNAL_WEBHOOK_TOKEN }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  action: 'HANDOFF',\n  business_id: $json.business_id,\n  session_id: $json.session_id,\n  caller_number: $json.caller_number,\n  handoff_reason: String($json.escalation_reason || $json.emotion || 'caller asked for a human'),\n  handoff_source: 'voice_transfer'\n}) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "2b3bd5e5-a136-4e20-bd55-1b8d24b3e62f",
+      "name": "Open Handoff",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3080, 940],
+      "onError": "continueRegularOutput",
+      "notes": "Pauses automated WhatsApp follow-ups for this guest and routes their next call straight to staff (Handoffs sheet)."
     }
   ],
   "connections": {
     "Incoming Call Webhook": {
       "main": [
         [
-          { "node": "Init Session Variables", "type": "main", "index": 0 }
+          { "node": "Verify Twilio Signature (Incoming)", "type": "main", "index": 0 }
         ]
       ]
     },
     "Init Session Variables": {
       "main": [
         [
-          { "node": "Generate Greeting", "type": "main", "index": 0 }
+          { "node": "Check Caller Handoff", "type": "main", "index": 0 }
         ]
       ]
     },
@@ -565,7 +676,7 @@
     "Conversation Turn Webhook": {
       "main": [
         [
-          { "node": "Extract Turn Data", "type": "main", "index": 0 }
+          { "node": "Verify Twilio Signature (Turn)", "type": "main", "index": 0 }
         ]
       ]
     },
@@ -650,12 +761,18 @@
         [
           { "node": "Respond to Twilio", "type": "main", "index": 0 },
           { "node": "Is Booking Action?", "type": "main", "index": 0 },
-          { "node": "Escalation Missed?", "type": "main", "index": 0 }
+          { "node": "Escalation Missed?", "type": "main", "index": 0 },
+          { "node": "Is Transfer?", "type": "main", "index": 0 }
         ]
       ]
     },
     "Escalation Missed?": {
-      "main": [[{ "node": "WhatsApp Missed Escalation Alert", "type": "main", "index": 0 }], []]
+      "main": [
+        [
+          { "node": "WhatsApp Missed Escalation Alert", "type": "main", "index": 0 }
+        ],
+        []
+      ]
     },
     "Is Booking Action?": {
       "main": [
@@ -664,13 +781,81 @@
         ],
         []
       ]
+    },
+    "Verify Twilio Signature (Incoming)": {
+      "main": [
+        [
+          { "node": "Signature OK? (Incoming)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Signature OK? (Incoming)": {
+      "main": [
+        [
+          { "node": "Init Session Variables", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Reject Unsigned Incoming", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Verify Twilio Signature (Turn)": {
+      "main": [
+        [
+          { "node": "Signature OK? (Turn)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Signature OK? (Turn)": {
+      "main": [
+        [
+          { "node": "Extract Turn Data", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Reject Unsigned Turn", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Check Caller Handoff": {
+      "main": [
+        [
+          { "node": "Evaluate Caller Handoff", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Evaluate Caller Handoff": {
+      "main": [
+        [
+          { "node": "Route to Human?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Route to Human?": {
+      "main": [
+        [
+          { "node": "Build Handoff TwiML", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Generate Greeting", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Build Handoff TwiML": {
+      "main": [
+        [
+          { "node": "Respond Greeting", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Is Transfer?": {
+      "main": [
+        [
+          { "node": "Open Handoff", "type": "main", "index": 0 }
+        ]
+      ]
     }
   },
-  "settings": {
-    "executionOrder": "v1",
-    "saveManualExecutions": true,
-    "timezone": "Asia/Kolkata"
-  },
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true, "timezone": "Asia/Kolkata" },
   "tags": [
     { "name": "voice-agent", "id": "tag-1" },
     { "name": "call-handler", "id": "tag-2" }

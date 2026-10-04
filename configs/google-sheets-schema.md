@@ -67,3 +67,21 @@
 | F | business_id | string | `biz_001` |
 | G | template | string | `event_promo` |
 | H | status | string | `pending` |
+
+## Sheet 6: Handoffs
+
+One row per guest per venue. Written by `n8n-import-crm-whatsapp.json` (action `HANDOFF`, and every `COMPLAINT`), read by the call handler and the lead follow-up. While a row is `active` and `paused_until` is in the future, the bot is paused for that guest: their next call goes straight to `ESCALATION_PHONE`, and automated lead follow-ups are skipped. Booking confirmations still send.
+
+| Column | Field | Type | Example |
+|--------|-------|------|---------|
+| A | handoff_key | string | `biz_001:919876543210` (business_id + `:` + phone digits only) |
+| B | business_id | string | `biz_001` |
+| C | phone | string | `+919876543210` |
+| D | status | string | `active` / `released` |
+| E | reason | string | `complaint`, `caller asked for a human` |
+| F | source | string | `voice_transfer`, `complaint`, `manual` |
+| G | started_at | datetime | `2026-03-18T14:30:00.000Z` |
+| H | paused_until | datetime | `2026-03-19T14:30:00.000Z` |
+| I | released_by | string | `Anita (manager)` |
+
+Staff end a pause early by setting `status` to `released`. A blank or unreadable `paused_until` keeps the pause on until released. To pause a guest by hand, add a row with `handoff_key` in the exact format above.

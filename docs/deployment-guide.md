@@ -44,7 +44,7 @@ docker run -d \
 ## Step 3: Set Up Google Sheets
 
 1. Create a new Google Sheet
-2. Add sheets with exact names: `BusinessConfig`, `Customers`, `Bookings`, `ConversationLogs`, `OutboundQueue`, `DailyReports`
+2. Add sheets with exact names: `BusinessConfig`, `Customers`, `Bookings`, `ConversationLogs`, `OutboundQueue`, `DailyReports` (plus `Leads`, `Complaints`, `ActivityLog`, `Handoffs` for the `n8n-import-*` workflows)
 3. Add column headers as per `configs/google-sheets-schema.md`
 4. Fill in `BusinessConfig` with your business details
 5. Create a Google Cloud service account → Share the sheet with it
@@ -85,6 +85,8 @@ In n8n, add each as a variable:
    - `workflows/outbound-campaign.json` (outbound calls)
    - `workflows/feedback-learning-loop.json` (daily analytics)
 4. Activate all three workflows
+
+If you use the split `n8n-import-*` workflows (call handler, AI brain, CRM + WhatsApp), finish the webhook security and bot pause setup in [`webhook-security-and-handoff.md`](webhook-security-and-handoff.md) before going live.
 
 ---
 

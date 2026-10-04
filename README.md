@@ -34,6 +34,7 @@ Production-ready AI voice agent for customer care and sales in hospitality busin
 │   ├── architecture.md              # Full system architecture diagram
 │   ├── edge-cases.md                # Edge case handling reference
 │   ├── scaling-guide.md             # Multi-business scaling guide
+│   ├── webhook-security-and-handoff.md  # Twilio signature check, internal token, bot pause
 │   └── deployment-guide.md          # Step-by-step deployment instructions
 └── references/
     └── n8n-templates/               # 18 curated community templates + adoption notes
