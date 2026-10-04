@@ -57,8 +57,9 @@ jobs:
           # Self-host every installer index.html links under /download/, so buttons
           # download from agency.marvice.tech instead of bouncing to GitHub.
           # The version comes from the links themselves; bump them in index.html to upgrade.
+          # SHA256SUMS.txt is generated below, not fetched.
           mkdir -p _site/download
-          files=$(grep -oE 'href="/download/[^"]+"' _site/index.html | sed -E 's#href="/download/([^"]+)"#\1#' | sort -u)
+          files=$(grep -oE 'href="/download/[^"]+"' _site/index.html | sed -E 's#href="/download/([^"]+)"#\1#' | grep -vx 'SHA256SUMS.txt' | sort -u)
           [ -n "$files" ] || { echo "::error::No /download/ links found in index.html"; exit 1; }
           tag=$(echo "$files" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | sort -u)
           [ "$(echo "$tag" | wc -l)" = 1 ] || { echo "::error::Download links mix versions: $tag"; exit 1; }
