@@ -1,5 +1,28 @@
 # OpenWA → whatsapp.marvice.tech
 
+> **Live deployment runs on Coolify** (the VPS uses Hostinger's "Ubuntu 24.04 with Coolify" template).
+> Use `coolify-compose.yml`. `install.sh` is only for a plain Docker VPS without Coolify: on a Coolify box
+> its routes are ignored by Coolify's Traefik.
+
+## Coolify deploy (current)
+
+| Item | Value |
+|---|---|
+| Coolify | https://coolify.marvice.tech, project "My first project" → production, server `localhost` |
+| Service | `openwa` (uuid `jgb5zbfk1nxiu4jcywkzv0eq`) + `postgres` |
+| Domain | `https://whatsapp.marvice.tech:2785` on the openwa service (`:2785` = internal port) |
+| Admin key | Coolify → service → Environment Variables → `SERVICE_PASSWORD_64_MASTERKEY` |
+
+Create via API: `POST /api/v1/services` with base64 `docker_compose_raw`, then
+`PATCH /api/v1/services/{uuid}` with `{"urls":[{"name":"openwa","url":"https://whatsapp.marvice.tech:2785"}],"instant_deploy":true}`.
+Setting the domain inside the compose env does not take; the `urls` patch does.
+
+Never change `SERVICE_PASSWORD_64_PEPPER` after first boot (locks out every API key).
+
+---
+
+## Legacy: plain-Docker installer
+
 Self-hosted WhatsApp API gateway ([rmyndharis/OpenWA](https://github.com/rmyndharis/OpenWA)) behind Caddy (auto HTTPS), Postgres, published GHCR image.
 
 ## Stack

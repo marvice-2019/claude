@@ -22,6 +22,8 @@ services:
     pids_limit: 2048
     mem_limit: 4g
     environment:
+      # Declares port 2785 for Coolify's proxy. Set the real domain on the service
+      # (UI Domains field, or API PATCH /services/{uuid} urls) — not here.
       - SERVICE_FQDN_OPENWA_2785
       - NODE_ENV=production
       - TZ=Asia/Kolkata
