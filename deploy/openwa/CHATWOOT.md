@@ -1,6 +1,6 @@
 # Chatwoot shared inbox ↔ OpenWA (inbox.marvice.tech)
 
-**Deployed:** Coolify service `chatwoot` (uuid `xfghqjhnnvog39ssnftokx6h`): Chatwoot **v4.18.0** (`chatwoot/chatwoot:latest`) + Sidekiq + Postgres (pgvector) + Redis, server `localhost`, same `coolify` proxy as OpenWA/n8n. Public sign-up is off. Uploads are stored on the `rails-data` volume.
+**Deployed:** Coolify service `chatwoot` (uuid `xfghqjhnnvog39ssnftokx6h`): Chatwoot **v4.18.0**, pinned (`chatwoot/chatwoot:v4.18.0` on both `chatwoot` and `sidekiq`) + Sidekiq + Postgres (pgvector) + Redis, server `localhost`, same `coolify` proxy as OpenWA/n8n. Public sign-up is off. Uploads are stored on the `rails-data` volume.
 
 Bridge: OpenWA's official **chatwoot-adapter** plugin (v0.9.10): WhatsApp → Chatwoot API inbox, agent replies → WhatsApp, and assigning an agent silences OpenWA bots on that chat.
 
@@ -64,6 +64,13 @@ The adapter's handover silences **OpenWA plugins** only. The n8n bot is kept in 
 | Labels, notes, priority, new messages | No change (a bot-initiated 12 h handoff pause is never cancelled by routine updates) |
 
 Setup is in that workflow's sticky note and `n8n/README.md` section 4. It needs a **second** account-level webhook in Chatwoot (keep the OpenWA one untouched). `#bot off` / `#bot on` from the business phone still work as a manual override.
+
+## Upgrading Chatwoot
+The image is pinned so a redeploy never upgrades silently. To upgrade deliberately:
+1. Read the release notes for every version between the current one and the target (https://github.com/chatwoot/chatwoot/releases), especially migrations and webhook changes, since the OpenWA adapter needs v4.12+ signed webhooks.
+2. Back up first: Coolify → chatwoot → postgres → Backups → run now.
+3. Change the tag on **both** `chatwoot` and `sidekiq` in the compose (they must match), deploy, and watch both reach `running:healthy`. `db:chatwoot_prepare` runs migrations on boot.
+4. Send a WhatsApp test message and an agent reply to confirm the bridge.
 
 ## Troubleshooting
 | Symptom | Fix |
