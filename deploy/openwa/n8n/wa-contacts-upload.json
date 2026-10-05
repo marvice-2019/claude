@@ -1,0 +1,398 @@
+{
+  "name": "WhatsApp · Upload contacts (CSV)",
+  "nodes": [
+    {
+      "id": "627af145-f68a-442a-9963-e864dc7823c1",
+      "name": "Upload Contacts Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "e5145be3-c619-4b6f-a5ab-8c6162ca5bc5",
+      "parameters": {
+        "authentication": "n8nUserAuth",
+        "formTitle": "Marvice WhatsApp — Upload Contacts",
+        "formDescription": "Upload a CSV with a <b>phone</b> column (optional: <b>name</b>, <b>tags</b>, any extra columns become template variables). Numbers without a country code get the default below. Every number is checked on WhatsApp before it is saved.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "List name",
+              "fieldName": "list_name",
+              "placeholder": "e.g. cafe-regulars-oct",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Contacts file (.csv)",
+              "fieldName": "contacts",
+              "fieldType": "file",
+              "acceptFileTypes": ".csv",
+              "multipleFiles": false,
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Default country code",
+              "fieldName": "country_code",
+              "defaultValue": "91",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Consent",
+              "fieldName": "consent",
+              "fieldType": "checkbox",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Every contact in this file agreed to receive WhatsApp messages from us"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {
+          "path": "wa-contacts-upload",
+          "buttonLabel": "Upload & verify"
+        }
+      }
+    },
+    {
+      "id": "e908d3e0-aeef-4eeb-998f-61122a1f1aec",
+      "name": "Parse & Clean Contacts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Parse the uploaded CSV, find the phone/name/tags columns, normalize numbers to\n// international digits (E.164 without '+'), drop invalid and duplicate rows.\nconst MAX_ROWS = 5000;\nconst form = $input.first();\nconst list = String(form.json.list_name || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');\nif (!list) throw new Error('List name is required (letters, numbers, dashes).');\nconst cc = String(form.json.country_code || '91').replace(/\\D/g, '') || '91';\n\nconst bin = form.binary || {};\nconst key = bin.contacts ? 'contacts' : Object.keys(bin)[0];\nif (!key) throw new Error('No file received. Upload a .csv file.');\nconst text = (await this.helpers.getBinaryDataBuffer(0, key)).toString('utf-8').replace(/^﻿/, '');\n\n// Small RFC4180-style parser (quotes, escaped quotes, , or ; delimiter, CRLF).\nconst firstLine = text.split(/\\r?\\n/, 1)[0] || '';\nconst delim = (firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length ? ';' : ',';\nconst rows = []; let row = [], cell = '', q = false;\nfor (let i = 0; i < text.length; i++) {\n  const c = text[i];\n  if (q) { if (c === '\"') { if (text[i + 1] === '\"') { cell += '\"'; i++; } else q = false; } else cell += c; continue; }\n  if (c === '\"') q = true;\n  else if (c === delim) { row.push(cell); cell = ''; }\n  else if (c === '\\n' || c === '\\r') { if (c === '\\r' && text[i + 1] === '\\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }\n  else cell += c;\n}\nif (cell !== '' || row.length) { row.push(cell); rows.push(row); }\nconst data = rows.filter(r => r.some(v => String(v).trim() !== ''));\nif (data.length < 2) throw new Error('The CSV needs a header row and at least one contact.');\n\nconst header = data[0].map(h => String(h).trim().toLowerCase());\nconst find = names => header.findIndex(h => names.some(n => h === n || h.includes(n)));\nconst iPhone = find(['phone', 'mobile', 'whatsapp', 'number', 'contact no', 'cell']);\nconst iName = find(['name', 'full name', 'first name', 'customer']);\nconst iTags = find(['tag', 'label', 'group', 'segment']);\nif (iPhone < 0) throw new Error(`No phone column found. Headers seen: ${header.join(', ')}. Name one column \"phone\".`);\n\nconst normalize = raw => {\n  let s = String(raw || '').trim();\n  const plus = s.startsWith('+');\n  let d = s.replace(/\\D/g, '');\n  if (!d) return null;\n  if (!plus && d.startsWith('00')) d = d.slice(2);\n  else if (!plus && d.length === 11 && d.startsWith('0')) d = cc + d.slice(1);\n  else if (!plus && d.length === 10) d = cc + d;\n  return d.length >= 10 && d.length <= 15 ? d : null;\n};\n\nconst seen = new Set(); const out = [];\nlet invalid = 0, dupes = 0, overLimit = 0; const invalidSamples = [];\nfor (const r of data.slice(1)) {\n  if (out.length >= MAX_ROWS) { overLimit++; continue; }\n  const phone = normalize(r[iPhone]);\n  if (!phone) { invalid++; if (invalidSamples.length < 10) invalidSamples.push(String(r[iPhone] || '(blank)')); continue; }\n  if (seen.has(phone)) { dupes++; continue; }\n  seen.add(phone);\n  const extra = {};\n  header.forEach((h, idx) => { if (![iPhone, iName, iTags].includes(idx) && h) extra[h] = String(r[idx] ?? '').trim(); });\n  out.push({ json: {\n    key: `${list}:${phone}`, list, phone,\n    name: iName >= 0 ? String(r[iName] || '').trim() : '',\n    tags: iTags >= 0 ? String(r[iTags] || '').trim() : '',\n    extra: JSON.stringify(extra),\n  }, pairedItem: { item: 0 } });\n}\nif (!out.length) throw new Error(`No valid phone numbers found (${invalid} invalid, ${dupes} duplicates). Examples: ${invalidSamples.join(', ')}`);\nconst stats = { list, total: data.length - 1, valid: out.length, invalid, dupes, overLimit, invalidSamples };\nout[0].json._stats = stats;\nreturn out;\n"
+      }
+    },
+    {
+      "id": "82d7cd7c-f71c-42bf-9a84-4a45d63b5831",
+      "name": "Check on WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        0
+      ],
+      "parameters": {
+        "url": "=https://whatsapp.marvice.tech/api/sessions/REPLACE_WITH_SESSION_ID/contacts/check/{{ $json.phone }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 1500
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "OpenWA API key"
+        }
+      }
+    },
+    {
+      "id": "729de76c-c081-4eef-9083-999dc3370937",
+      "name": "Combine Check Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Pair each WhatsApp check result with its parsed contact (same order, same count).\nconst parsed = $('Parse & Clean Contacts').all();\nconst checks = $input.all();\nconst now = new Date().toISOString();\nreturn checks.map((c, i) => {\n  const p = parsed[i].json;\n  const ok = c.json.statusCode === 200;\n  const body = c.json.body || {};\n  return { json: {\n    key: p.key, list: p.list, phone: p.phone, name: p.name, tags: p.tags, extra: p.extra,\n    on_whatsapp: ok ? body.exists === true : false,\n    whatsapp_id: ok && body.whatsappId ? body.whatsappId : '',\n    check_status: ok ? (body.exists ? 'on_whatsapp' : 'not_on_whatsapp') : `check_failed_${c.json.statusCode || 'error'}`,\n    opted_in: true,\n    source: 'csv_upload',\n    updated_at: now,\n  }, pairedItem: { item: i } };\n});\n"
+      }
+    },
+    {
+      "id": "c43a78de-e9e9-4015-8a13-f4344e73f3bf",
+      "name": "Save to wa_contacts",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        0
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "wa_contacts"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "={{ $json.key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "={{ $json.key }}",
+            "list": "={{ $json.list }}",
+            "phone": "={{ $json.phone }}",
+            "name": "={{ $json.name }}",
+            "tags": "={{ $json.tags }}",
+            "extra": "={{ $json.extra }}",
+            "on_whatsapp": "={{ $json.on_whatsapp }}",
+            "whatsapp_id": "={{ $json.whatsapp_id }}",
+            "check_status": "={{ $json.check_status }}",
+            "opted_in": "={{ $json.opted_in }}",
+            "source": "={{ $json.source }}",
+            "updated_at": "={{ $json.updated_at }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "list",
+              "displayName": "list",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tags",
+              "displayName": "tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "extra",
+              "displayName": "extra",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "on_whatsapp",
+              "displayName": "on_whatsapp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "whatsapp_id",
+              "displayName": "whatsapp_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "check_status",
+              "displayName": "check_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "opted_in",
+              "displayName": "opted_in",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "18ad048c-e526-4af2-9e19-387777dda19e",
+      "name": "Build Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const saved = $('Combine Check Results').all().map(i => i.json);\nconst s = $('Parse & Clean Contacts').first().json._stats;\nconst on = saved.filter(r => r.on_whatsapp).length;\nconst failed = saved.filter(r => r.check_status.startsWith('check_failed')).length;\nreturn [{ json: { ...s, saved: saved.length, onWhatsapp: on, notOnWhatsapp: saved.length - on - failed, checkFailed: failed } }];\n"
+      }
+    },
+    {
+      "id": "31fb886a-48f8-49e0-b185-6152c1bc03e6",
+      "name": "Show Result",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        1560,
+        0
+      ],
+      "webhookId": "110a21a5-a894-4390-9ada-3ca68ae4b5f4",
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "={{ $json.saved }} contacts saved to \"{{ $json.list }}\"",
+        "completionMessage": "=✅ On WhatsApp: {{ $json.onWhatsapp }}\n❌ Not on WhatsApp: {{ $json.notOnWhatsapp }}\n⚠️ Check failed (retry later): {{ $json.checkFailed }}\n\nRows in file: {{ $json.total }} · Invalid numbers skipped: {{ $json.invalid }} · Duplicates removed: {{ $json.dupes }}{{ $json.overLimit ? ' · Over 5,000-row limit: ' + $json.overLimit : '' }}{{ $json.invalidSamples.length ? '\\nInvalid examples: ' + $json.invalidSamples.join(', ') : '' }}"
+      }
+    },
+    {
+      "id": "fc49e799-8fe4-4ad4-a1a7-97a4640dbb04",
+      "name": "Setup notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -360
+      ],
+      "parameters": {
+        "width": 900,
+        "height": 300,
+        "content": "## WhatsApp contact upload — setup\n1. **Data table** `wa_contacts` with string columns: key, list, phone, name, tags, extra, whatsapp_id, check_status, source, updated_at and boolean columns on_whatsapp, opted_in.\n2. **Credential** `OpenWA API key` (Header Auth): name `X-API-Key`, value = an **operator** key scoped to your session (create it in the OpenWA dashboard → API Keys). Never the admin key.\n3. In **Check on WhatsApp**, replace `REPLACE_WITH_SESSION_ID` with your session ID.\n4. Activate. Form URL: `https://n8n.marvice.tech/form/wa-contacts-upload` (n8n login required).\n\nRe-uploading the same list updates contacts in place (key = list:phone). Max 5,000 rows per upload; checks run 5 at a time with 1.5s gaps."
+      }
+    }
+  ],
+  "connections": {
+    "Upload Contacts Form": {
+      "main": [
+        [
+          {
+            "node": "Parse & Clean Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Clean Contacts": {
+      "main": [
+        [
+          {
+            "node": "Check on WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check on WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Combine Check Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Check Results": {
+      "main": [
+        [
+          {
+            "node": "Save to wa_contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to wa_contacts": {
+      "main": [
+        [
+          {
+            "node": "Build Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary": {
+      "main": [
+        [
+          {
+            "node": "Show Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
