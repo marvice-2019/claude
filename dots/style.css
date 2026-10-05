@@ -147,6 +147,11 @@ pre code { background: none; border: 0; padding: 0; color: inherit; }
 .fix__steps li { min-width: 0; }
 .fix__steps strong { color: var(--ink); font-weight: 600; }
 .fix__steps pre { margin-top: 8px; font-size: 13px; }
+.tips { margin: 14px 0 0; padding: 14px 16px 14px 34px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; background: var(--accent-soft); border-radius: 10px; color: var(--muted); font-size: 14.5px; }
+.tips li { min-width: 0; }
+.tips strong { color: var(--ink); font-weight: 600; }
+.tips pre { margin-top: 8px; font-size: 13px; }
+.fix__steps a, .tips a { color: var(--accent); font-weight: 600; }
 
 /* CLI tiles */
 .tiles { list-style: none; padding: 0; margin: 36px 0 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; }
@@ -209,3 +214,5 @@ pre code { background: none; border: 0; padding: 0; color: inherit; }
   html { scroll-behavior: auto; }
   .btn, .card--dl, .faq summary::after { transition: none; }
 }
+#install-tips { scroll-margin-top: 84px; }
+.steps .tips li { display: list-item; background: none; border: 0; border-radius: 0; padding: 0; }
