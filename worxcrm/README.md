@@ -1,5 +1,7 @@
 # worxcrm.marvice.tech
 
+Branded **Worxforu** (Software Automations & Development and AI Services).
+
 [Krayin CRM](https://github.com/krayin/laravel-crm) (MIT, Laravel 12) for Marvice Media, run as a
 Coolify Docker Compose app on the Marvice VPS (https://coolify.marvice.tech), same box as `dots/`.
 
@@ -36,6 +38,14 @@ Uploads, logs, the install marker and the generated `APP_KEY` live on the `krayi
 - **Backup:** Coolify → the `mysql` service → Backups (schedule it to S3), plus the `krayin-storage` volume.
 - **Shell:** Coolify → `app` → Terminal → `php artisan ...`
 - **Deploy + diagnose:** `.github/workflows/deploy-worxcrm.yml` deploys via the Coolify API on push to `worxcrm/**` (or manually), then prints build log, app status, container logs and an HTTPS smoke test. Needs repo secret `COOLIFY_TOKEN` (read + deploy).
+
+## Branding
+
+`branding/` holds the Worxforu logo source, icon and the generated assets. `docker/apply-branding.php` copies them
+over Krayin's built logo/favicon files at image build time (looked up in the Vite manifest, since the names are hashed)
+and swaps the admin footer's default text. `docker/lang/` overrides the sign-in footer string. `APP_NAME` is `Worxforu`.
+The SVGs wrap 3x PNGs (`logo.svg`/`dark-logo.svg` at 40px tall, mobile = icon only); regenerate them from the source PNG
+if the logo changes. A footer saved under Configuration → General → Settings overrides the default.
 
 ## Notes
 
