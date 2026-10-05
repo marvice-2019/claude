@@ -46,4 +46,9 @@ patch("lib/i18n/dicionario.ts",
 patch("lib/i18n/dicionario.ts",
   '  if (idioma === "pt-BR") return texto;\n  return DICIONARIO[texto]?.[idioma] ?? texto;',
   '  if (idioma === "pt-BR") return texto;\n  if (idioma === "en") return CATALOGO_EN[texto] || texto;\n  return DICIONARIO[texto]?.[idioma] ?? texto;');
+
+// 5. Extension manifests only carry pt-BR/es text: accept "en" and search the pt-BR copy.
+patch("components/extensions/ExtensionCatalog.tsx",
+  '  locale: "pt-BR" | "es",\n): boolean {\n  if (category',
+  '  idioma: "pt-BR" | "es" | "en",\n): boolean {\n  const locale = idioma === "es" ? "es" : "pt-BR";\n  if (category');
 EOF
