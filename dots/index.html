@@ -30,6 +30,7 @@
         <a href="#how">How it works</a>
         <a href="#setup">Setup</a>
         <a href="#rules">Rules</a>
+        <a href="#fixes">Fixes</a>
         <a href="#faq">FAQ</a>
         <a class="btn btn--sm" href="#install" data-dl="auto"><span aria-hidden="true">↓</span> Download</a>
       </nav>
@@ -199,6 +200,38 @@
           <article class="card card--rule">
             <h3>Stuck? Ask in the team channel</h3>
             <p>Post the agent's terminal output and the step you're on. Most install issues are a missing CLI or an expired sign-in.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="chap" id="fixes">
+      <div class="wrap">
+        <p class="clock">14:00 · Something broke</p>
+        <h2>Troubleshooting.</h2>
+        <p class="chap__lede">The two problems the team has hit so far, and how to fix them in a couple of minutes.</p>
+        <div class="grid grid--2">
+          <article class="card card--fix">
+            <span class="fix__tag">Agents show <code>CRASHED · exit 1</code></span>
+            <p>The <code>claude</code> CLI behind the agents failed to start, so no agent is running. Check these in a normal terminal, in order:</p>
+            <ol class="fix__steps">
+              <li><strong>Is it installed?</strong> <code>claude --version</code> should print a version. If not:
+                <pre><code>npm install -g @anthropic-ai/claude-code</code></pre></li>
+              <li><strong>Is it signed in?</strong> Run <code>claude</code>, type <code>/login</code>, and sign in with your Marvice seat.</li>
+              <li><strong>Is it current?</strong> Agents set to a newer model need a recent CLI:
+                <pre><code>claude update</code></pre></li>
+              <li><strong>Restart the agents</strong> from the floor. Still crashing? Paste the last lines of the agent's terminal in the team channel.</li>
+            </ol>
+          </article>
+          <article class="card card--fix">
+            <span class="fix__tag">Skills → install shows <code>HTTP 403</code></span>
+            <p>The Skills tab downloads through GitHub's API without signing in. GitHub allows 60 of those requests per hour per IP, and the whole office shares one IP, so a few installs use up the hour. Nothing is wrong with your setup.</p>
+            <ol class="fix__steps">
+              <li><strong>OBRA skills</strong> (finishing-a-development-branch, preserving-productive-tensions and the rest): install the whole set as a plugin instead. Run <code>claude</code>, then:
+                <pre><code>/plugin marketplace add obra/superpowers-marketplace
+/plugin install superpowers@superpowers-marketplace</code></pre></li>
+              <li><strong>Other publishers:</strong> wait an hour and install one or two at a time, or copy by hand: <code>git clone</code> the repo and put the skill's folder in <code>~/.claude/skills/</code>.</li>
+            </ol>
           </article>
         </div>
       </div>
