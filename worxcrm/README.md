@@ -31,6 +31,10 @@ Uploads, logs, the install marker and the generated `APP_KEY` live on the `krayi
 
 `ADMIN_*` only apply on the very first install. Afterwards, manage users in the CRM.
 
+**Locked out?** Set `ADMIN_RESET=true` in Coolify → Environment Variables and redeploy: the admin user is reset to
+`ADMIN_EMAIL` / `SERVICE_PASSWORD_ADMIN`. Set it back to `false` after logging in, or every restart will undo a
+password changed in the CRM.
+
 ## Operate
 
 - **Upgrade Krayin:** bump `KRAYIN_VERSION` in both services of `docker-compose.yml`, read upstream

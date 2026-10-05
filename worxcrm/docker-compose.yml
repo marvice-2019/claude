@@ -52,6 +52,8 @@ services:
       ADMIN_NAME: ${ADMIN_NAME:-Marvice Admin}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@marvice.tech}
       ADMIN_PASSWORD: ${SERVICE_PASSWORD_ADMIN}
+      # true = reset the admin login to ADMIN_EMAIL / SERVICE_PASSWORD_ADMIN on boot (recovery only).
+      ADMIN_RESET: ${ADMIN_RESET:-false}
     volumes:
       - krayin-storage:/var/www/html/storage
     depends_on:

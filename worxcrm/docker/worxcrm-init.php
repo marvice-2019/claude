@@ -24,6 +24,21 @@ if ($manager->isInstalled()) {
     $manager->markInstallationCompleted();
     fwrite(STDOUT, "worxcrm: already installed\n");
 
+    // Recovery: ADMIN_RESET=true puts the admin user (id 1) back to ADMIN_EMAIL / ADMIN_PASSWORD.
+    // Turn it off again after logging in, or every boot undoes a password changed in the CRM.
+    if (filter_var(getenv('ADMIN_RESET'), FILTER_VALIDATE_BOOLEAN) && getenv('ADMIN_PASSWORD')) {
+        $email = getenv('ADMIN_EMAIL') ?: 'admin@marvice.tech';
+
+        DB::table('users')->where('id', 1)->update([
+            'email'      => $email,
+            'password'   => password_hash(getenv('ADMIN_PASSWORD'), PASSWORD_BCRYPT, ['cost' => 10]),
+            'status'     => 1,
+            'updated_at' => now(),
+        ]);
+
+        fwrite(STDOUT, "worxcrm: ADMIN_RESET: admin login reset to {$email}\n");
+    }
+
     exit(0);
 }
 
