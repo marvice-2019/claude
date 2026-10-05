@@ -25,7 +25,7 @@ ADMIN_KEY=...            # OpenWA admin key (Coolify → openwa → SERVICE_PASS
 SESSION_ID=...           # OpenWA dashboard → Sessions
 # install from the official release zip
 curl -L -o chatwoot-adapter.zip \
-  "https://github.com/rmyndharis/OpenWA-plugins/releases/latest/download/chatwoot-adapter.zip"
+  "https://github.com/rmyndharis/OpenWA-plugins/releases/download/chatwoot-adapter-v0.9.10/chatwoot-adapter.zip"
 curl -X POST "$OPENWA/api/plugins/install" -H "Authorization: Bearer $ADMIN_KEY" -F "file=@chatwoot-adapter.zip"
 curl -X POST "$OPENWA/api/plugins/chatwoot-adapter/enable" -H "Authorization: Bearer $ADMIN_KEY"
 
@@ -46,7 +46,7 @@ curl -X POST "$OPENWA/api/integration/plugins/chatwoot-adapter/instances" \
   }'
 ```
 The response shows the ingress URL once: `https://whatsapp.marvice.tech/api/ingress/chatwoot-adapter/main/chatwoot`.
-(If the release asset name differs, download the zip from the Releases page and upload it in OpenWA dashboard → Plugins → Install; only the instance mint must use the API.)
+(Releases are tagged per plugin, `chatwoot-adapter-v<version>`; `releases/latest` points at whichever plugin shipped last, so don't use it. Uploading the same zip in OpenWA dashboard → Plugins → Install also works; only the instance mint must use the API.)
 
 ## 5. Point the Chatwoot webhook at OpenWA
 Edit the webhook from step 3 and set its URL to the ingress URL. Keep the same webhook: re-creating it changes the secret and breaks the HMAC check (401).
