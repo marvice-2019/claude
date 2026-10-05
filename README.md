@@ -76,3 +76,7 @@ Vendored copy of [msitarzewski/agency-agents-app](https://github.com/msitarzewsk
 - **Desktop:** `cd agency-agents-app && npm install && npm run tauri dev`. The SvelteKit UI calls Tauri commands, so it only runs inside the native shell — not as a hosted web app.
 - **Upstream CI** (Linux/Windows builds) is parked in `agency-agents-app/upstream-ci/`; move into `.github/workflows/` (with `working-directory: agency-agents-app`) if you want to cut builds from this repo.
 - **Sync upstream:** re-clone and copy over, keeping `landing/` edits (domain, footer, `.htaccess`).
+
+## Worx CRM (`worxcrm/`)
+
+[Krayin CRM](https://github.com/krayin/laravel-crm) at **https://worxcrm.marvice.tech**: Docker Compose app (PHP 8.3 + MySQL 8.4 + scheduler) on the Coolify VPS. Setup and ops: `worxcrm/README.md`.
