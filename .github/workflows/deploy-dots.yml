@@ -8,7 +8,7 @@
 #
 # Then, for auto-deploy on push, add under repo Settings → Secrets and variables → Actions:
 #   secret   COOLIFY_TOKEN      Coolify → Keys & Tokens → API tokens (needs "deploy")
-#   variable COOLIFY_DOTS_UUID  the app's UUID (from its Coolify URL)
+#   variable COOLIFY_DOTS_UUID  dh9v5njamfpihoja5ddmyohl (the dots app)
 # Without them this job only warns; redeploy from Coolify by hand.
 
 name: Deploy dots.marvice.tech
@@ -57,7 +57,8 @@ jobs:
             echo "triggered=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          curl -fsS -H "Authorization: Bearer $TOKEN" "$COOLIFY_URL/api/v1/deploy?uuid=$UUID&force=false"
+          # Coolify 4.3+ only accepts POST here (GET returns "This endpoint has changed to a POST request").
+          curl -fsS -X POST -H "Authorization: Bearer $TOKEN" "$COOLIFY_URL/api/v1/deploy?uuid=$UUID&force=false"
           echo "triggered=true" >> "$GITHUB_OUTPUT"
 
       - name: Smoke test
