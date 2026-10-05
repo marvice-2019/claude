@@ -1,0 +1,27 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$OPENWA_DOMAIN} {
+	encode zstd gzip
+
+	# API, dashboard, /events socket.io (WebSocket upgrade is automatic in Caddy)
+	reverse_proxy openwa-api:2785 {
+		header_up X-Real-IP {remote_host}
+		# QR polling + long media sends
+		transport http {
+			read_timeout 120s
+			write_timeout 120s
+		}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

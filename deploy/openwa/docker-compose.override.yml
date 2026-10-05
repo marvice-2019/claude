@@ -1,0 +1,44 @@
+# Marvice Media — OpenWA production override for whatsapp.marvice.tech
+# Sits next to upstream docker-compose.yml in /opt/openwa. Upstream file stays untouched,
+# so `git pull` upgrades cleanly.
+services:
+  openwa-api:
+    image: ghcr.io/rmyndharis/openwa:${OPENWA_VERSION:-latest}
+
+  # Upstream's own advice: disable the docker-socket proxy unless you use the dashboard's
+  # built-in datastore toggles. Postgres is run by compose profile instead, so it's not needed.
+  docker-proxy:
+    profiles: ['disabled']
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: openwa-caddy
+    restart: unless-stopped
+    depends_on:
+      - openwa-api
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      OPENWA_DOMAIN: ${OPENWA_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      openwa-network:
+        ipv4_address: 172.30.0.10
+
+# Pinned subnet so TRUSTED_PROXIES can name Caddy's exact address (real client IPs
+# in rate limits, allowedIps and the audit log).
+networks:
+  openwa-network:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+volumes:
+  caddy-data:
+  caddy-config:
