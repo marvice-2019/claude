@@ -51,6 +51,22 @@ services:
       - API_KEY_PEPPER=${SERVICE_PASSWORD_64_PEPPER}
       - METRICS_TOKEN=${SERVICE_PASSWORD_METRICS}
       - AUTO_START_SESSIONS=true
+      # Production pack. Redis is reachable only on this service's private network, so it runs
+      # without a password (supported by OpenWA); no extra Coolify-generated secret to go wrong.
+      - REDIS_ENABLED=true
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # Pinned blank: overrides any stale REDIS_PASSWORD Coolify still stores from an earlier attempt.
+      - REDIS_PASSWORD=
+      - QUEUE_ENABLED=true
+      - CACHE_ENABLED=true
+      # MCP at POST /mcp (X-API-Key auth) so AI agents can read and send. Give agents scoped keys.
+      - MCP_ENABLED=true
+      - MCP_READONLY=false
+      # Voice-note / video / sticker conversion via the bundled ffmpeg
+      - MEDIA_CONVERSION_ENABLED=true
+      - MESSAGE_RETENTION_DAYS=90
+      - WEBHOOK_SHUTDOWN_DRAIN_MS=12000
       - SEND_PACING_ENABLED=true
       - SIMULATE_TYPING=true
       - PLUGINS_DIR=/app/data/plugins
@@ -59,6 +75,8 @@ services:
       - openwa-data:/app/data
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:2785/api/health/ready']
@@ -84,6 +102,22 @@ services:
       timeout: 3s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    security_opt:
+      - 'no-new-privileges:true'
+    # AOF + noeviction: BullMQ must never lose queued webhook jobs
+    command: redis-server --appendonly yes --maxmemory-policy noeviction
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   openwa-data:
   postgres-data:
+  redis-data:
