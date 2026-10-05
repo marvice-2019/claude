@@ -51,4 +51,32 @@ patch("lib/i18n/dicionario.ts",
 patch("components/extensions/ExtensionCatalog.tsx",
   '  locale: "pt-BR" | "es",\n): boolean {\n  if (category',
   '  idioma: "pt-BR" | "es" | "en",\n): boolean {\n  const locale = idioma === "es" ? "es" : "pt-BR";\n  if (category');
+
+// 6. Static page titles (`export const metadata = { title: "..." }`) never pass through t():
+//    translate them at build time from the same catalog. Admin titles share a suffix.
+{
+  const cp = require("child_process");
+  const EN = JSON.parse(fs.readFileSync("lib/i18n/traducoes/en.json", "utf8"));
+  const SUFIXOS = { " — Admin Plataforma": " — Platform Admin", " — Admin": " — Admin" };
+  const traduz = (t) => {
+    if (EN[t]) return EN[t];
+    for (const [pt, en] of Object.entries(SUFIXOS)) {
+      if (t.endsWith(pt)) { const base = t.slice(0, -pt.length); return (EN[base] || base) + en; }
+    }
+    return null;
+  };
+  const files = cp.execSync("grep -rlE 'export const metadata' app --include=*.tsx --include=*.ts").toString().trim().split("\n");
+  let n = 0;
+  for (const f of files) {
+    const src = fs.readFileSync(f, "utf8");
+    const out = src.replace(/(export const metadata[^;]*?title:\s*)"([^"]+)"/s, (m, pre, t) => {
+      const en = traduz(t);
+      if (!en || en === t) return m;
+      n++;
+      return pre + JSON.stringify(en);
+    });
+    if (out !== src) fs.writeFileSync(f, out);
+  }
+  console.log(`translated ${n} page titles`);
+}
 EOF
