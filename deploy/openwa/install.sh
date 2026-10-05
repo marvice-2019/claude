@@ -45,7 +45,19 @@ fi
 
 # ---------------------------------------------------------------- proxy detection
 port_owner() { ss -ltnpH "( sport = :$1 )" 2>/dev/null | grep -oP 'users:\(\("\K[^"]+' | head -n1 || true; }
-TRAEFIK_CTR="$(docker ps --format '{{.Names}} {{.Image}}' | awk 'tolower($2) ~ /traefik/ {print $1; exit}' || true)"
+# The proxy that matters is the one PUBLISHING :443 — a box can run several Traefiks
+# (e.g. one per compose project), and only the public one serves visitors.
+PUB443_CTR="$(docker ps --filter publish=443 --format '{{.Names}}' | head -n1 || true)"
+TRAEFIK_CTR="${TRAEFIK_CTR:-}"
+if [ -z "$TRAEFIK_CTR" ] && [ -n "$PUB443_CTR" ]; then
+  if docker inspect -f '{{.Config.Image}} {{join .Config.Entrypoint " "}} {{join .Config.Cmd " "}}' "$PUB443_CTR" | grep -qi traefik; then
+    TRAEFIK_CTR="$PUB443_CTR"
+  else
+    [ -z "$PROXY" ] && die ":443 is published by container '$PUB443_CTR' ($(docker inspect -f '{{.Config.Image}}' "$PUB443_CTR")), not Traefik. Paste this to Claude."
+  fi
+fi
+[ -z "$TRAEFIK_CTR" ] && [ -z "$PUB443_CTR" ] && TRAEFIK_CTR="$(docker ps --format '{{.Names}} {{.Image}}' | awk 'tolower($2) ~ /traefik/ {print $1; exit}' || true)"
+echo "Traefik containers: $(docker ps --format '{{.Names}}({{.Image}})' | grep -i traefik | tr '\n' ' ')  publishing :443 -> ${PUB443_CTR:-<none>}"
 if [ -z "$PROXY" ]; then
   OWNER443="$(port_owner 443 || true)"
   if [ -n "$TRAEFIK_CTR" ]; then PROXY=traefik
@@ -213,7 +225,7 @@ write_traefik_file() {
 }
 route_ok() {
   local code
-  code="$(curl -sk -o /dev/null -w '%{http_code}' --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/health/ready" || true)"
+  code="$(curl -sk -o /dev/null -w '%{http_code}' --resolve "$DOMAIN:443:${PUBLIC_IP:-127.0.0.1}" "https://$DOMAIN/api/health/ready" || true)"
   [ "$code" = 200 ]
 }
 wait_route() { for _ in $(seq 1 "$1"); do route_ok && return 0; sleep 5; done; return 1; }
@@ -232,6 +244,8 @@ if [ "$PROXY" = traefik ]; then
     {
       echo "== openwa health: $(docker inspect -f '{{.State.Health.Status}}' openwa-api)"
       echo "== openwa networks: $(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' openwa-api)"
+      echo "== :443 listeners"; ss -ltnp "( sport = :443 )"
+      echo "== containers"; docker ps --format '{{.Names}}\t{{.Image}}\t{{.Ports}}'
       echo "== traefik image: $(docker inspect -f '{{.Config.Image}}' "$TRAEFIK_CTR")   docker: $(docker version -f '{{.Server.Version}}')"
       echo "== traefik args"; printf '%s\n' "$ARGS"
       echo "== traefik static cfg"; printf '%s\n' "$CFG" | head -60
