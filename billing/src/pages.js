@@ -3,11 +3,11 @@ import { PLANS, TRIAL_DAYS, escapeHtml as e, formatInr } from "./logic.js";
 const CRM_LOGIN_URL = `${(process.env.CRM_PUBLIC_URL || "https://crm.marvice.tech").replace(/\/+$/, "")}/login`;
 
 const CSS = `
-:root{--ink:#14123A;--body:#4A4766;--muted:#6B6880;--bg:#F7F6FB;--card:#FFFFFF;--line:#E4E1F0;--accent:#5B4BEF;--accent-ink:#FFFFFF}
+:root{--ink:#2B2722;--body:#4F4840;--muted:#6E665C;--bg:#FAF7F2;--card:#FFFFFF;--line:#E9E1D4;--accent:#9A6420;--accent-ink:#FFFFFF}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 'DM Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 .wrap{max-width:1080px;margin:0 auto;padding:40px 16px 64px}
 header{display:flex;align-items:center;gap:12px;margin-bottom:40px}
-.logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6D5BFF,#3D2BD9);color:#fff;display:grid;place-items:center;font-weight:800}
+.logo{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#D4A24C,#8C5A1E);color:#fff;display:grid;place-items:center;font-weight:800}
 h1{font-size:clamp(32px,5vw,52px);line-height:1.08;margin:0 0 12px;letter-spacing:-.02em}
 .lead{font-size:19px;color:var(--body);max-width:640px;margin:0 0 32px}
 .pill{display:inline-block;background:var(--ink);color:#F4F3FA;border-radius:999px;padding:6px 14px;font-weight:700;font-size:14px;margin-bottom:16px}

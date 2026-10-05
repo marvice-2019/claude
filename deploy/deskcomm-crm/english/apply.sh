@@ -92,4 +92,21 @@ patch("components/extensions/ExtensionCatalog.tsx",
     '  const soPorConvite = modo === "so_convite";\n',
     '  const soPorConvite = modo === "so_convite";\n  const signupExterno = process.env.MARVICE_SIGNUP_URL?.trim();\n  if (!convite && signupExterno) redirect(signupExterno);\n');
 }
+
+// 8. Contact CSV import for India: Meta lead exports write phones as "p:+919876543210", and a bare
+//    10-digit Indian mobile must become +91 (upstream assumes Brazil and would prefix +55).
+patch("lib/contacts/csv.ts",
+  'export function normalizaTelefone(raw: string): string | null {\n  return normalizePhoneBR(raw);\n}',
+  `export function normalizaTelefone(raw: string): string | null {
+  const limpo = raw.trim().replace(/^[a-z]{1,10}:\\s*/i, "");
+  if (limpo.startsWith("+")) return normalizePhoneBR(limpo);
+  let digitos = limpo.replace(/\\D/g, "");
+  if (digitos.length === 11 && /^0[6-9]/.test(digitos)) digitos = digitos.slice(1);
+  if (digitos.length === 10 && /^[6-9]/.test(digitos)) return "+91" + digitos;
+  if (digitos.length === 12 && /^91[6-9]/.test(digitos)) return "+" + digitos;
+  return normalizePhoneBR(limpo);
+}`);
+patch("lib/contacts/csv.ts",
+  "  const exemploDeTelefone = telefoneExemplo ?? perfilDoPais(null).telefoneExemplo;",
+  '  const exemploDeTelefone = telefoneExemplo && !telefoneExemplo.startsWith("+55") ? telefoneExemplo : "+919876543210";');
 EOF
