@@ -1,5 +1,6 @@
 # DeskcommCRM on Coolify — crm.marvice.tech
 # Adapted from upstream docker-compose.prod.yml (release 1.72.0, commit 69a09fb):
+#   - app image: Marvice build with English enabled (see english/apply.sh, .github/workflows/marvice-crm-image.yml).
 #   - Caddy removed: Coolify's Traefik terminates TLS (domain set on the `app` service in Coolify).
 #   - env_file replaced with explicit ${VAR} refs so Coolify manages them as service env vars.
 #   - `dbinit` one-shot applies supabase/baseline.sql from the same commit on a fresh database.
@@ -120,7 +121,8 @@ services:
     logging: *default-logging
 
   app:
-    image: ghcr.io/melgarafael/deskcommcrm:1.72.0
+    image: ghcr.io/marvice-2019/marvice-crm:1.72.0-en
+    pull_policy: always
     mem_limit: 768m
     restart: unless-stopped
     environment:
