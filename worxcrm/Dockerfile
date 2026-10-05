@@ -23,6 +23,14 @@ RUN rm -rf /var/www/html/* \
  && composer install --no-dev --optimize-autoloader --no-interaction --no-progress \
  && chown -R www-data:www-data /var/www/html
 
+# Worxforu branding: logos/favicon over Krayin's built assets, footer text via a lang override.
+COPY branding/ /tmp/branding/
+COPY docker/apply-branding.php /tmp/apply-branding.php
+COPY docker/lang/ /var/www/html/lang/
+RUN php /tmp/apply-branding.php \
+ && rm -rf /tmp/branding /tmp/apply-branding.php \
+ && chown -R www-data:www-data /var/www/html/public /var/www/html/lang
+
 COPY --chmod=755 docker/entrypoint.d/ /etc/entrypoint.d/
 COPY --chmod=644 docker/worxcrm-init.php /usr/local/share/worxcrm-init.php
 
