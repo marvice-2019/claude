@@ -1,0 +1,113 @@
+# Deploys worxcrm.marvice.tech (Krayin CRM, worxcrm/) through the Coolify API and reports
+# what happened: deployment status + build log tail, app status, container logs, HTTPS smoke test.
+#
+# Needs one repo secret (Settings → Secrets and variables → Actions):
+#   COOLIFY_TOKEN   Coolify → Keys & Tokens → API tokens, permissions: read + deploy
+# Optional variable COOLIFY_WORXCRM_UUID; otherwise the app is found by its domain.
+
+name: Deploy worxcrm.marvice.tech
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worxcrm/**"
+      - ".github/workflows/deploy-worxcrm.yml"
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Trigger a deploy (false = only report status and logs)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-worxcrm
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DOMAIN: worxcrm.marvice.tech
+  COOLIFY_URL: https://coolify.marvice.tech
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+      APP_UUID: ${{ vars.COOLIFY_WORXCRM_UUID }}
+    steps:
+      - name: Check token
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::Repo secret COOLIFY_TOKEN is not set. See the top of this workflow."
+            exit 1
+          fi
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" "$COOLIFY_URL/api/v1/version")
+          echo "Coolify API: HTTP $code"
+          [ "$code" = "200" ] || { echo "::error::Coolify rejected COOLIFY_TOKEN (HTTP $code)"; exit 1; }
+
+      - name: Find app
+        id: app
+        run: |
+          api() { curl -fsS -H "Authorization: Bearer $TOKEN" "$COOLIFY_URL/api/v1/$1"; }
+          if [ -z "$APP_UUID" ]; then
+            APP_UUID=$(api applications | jq -r --arg d "$DOMAIN" \
+              '[.[] | select(((.fqdn // "") + " " + (.docker_compose_domains // "")) | contains($d))][0].uuid // empty')
+          fi
+          if [ -z "$APP_UUID" ]; then
+            echo "::error::No Coolify application has $DOMAIN as a domain. Applications seen:"
+            api applications | jq -r '.[] | "  \(.uuid)  \(.name)  build=\(.build_pack)  fqdn=\(.fqdn)  compose_domains=\(.docker_compose_domains)"'
+            exit 1
+          fi
+          echo "uuid=$APP_UUID" >> "$GITHUB_OUTPUT"
+          echo "App $APP_UUID:"
+          api "applications/$APP_UUID" | jq '{name, status, build_pack, git_repository, git_branch, base_directory, docker_compose_location, fqdn, docker_compose_domains}'
+
+      - name: Deploy
+        id: deploy
+        if: github.event_name == 'push' || inputs.deploy
+        env:
+          UUID: ${{ steps.app.outputs.uuid }}
+        run: |
+          api() { curl -fsS -H "Authorization: Bearer $TOKEN" "$@"; }
+          dep=$(api -X POST "$COOLIFY_URL/api/v1/deploy?uuid=$UUID&force=false" | jq -r '.deployments[0].deployment_uuid')
+          echo "Deployment $dep"
+          status=""
+          for i in $(seq 1 90); do
+            status=$(api "$COOLIFY_URL/api/v1/deployments/$dep" | jq -r '.status')
+            echo "$(date +%T) $status"
+            case "$status" in finished|failed|cancelled*) break ;; esac
+            sleep 10
+          done
+          echo "--- build log (last 80 lines) ---"
+          api "$COOLIFY_URL/api/v1/deployments/$dep" \
+            | jq -r '(.logs // "[]") | fromjson? // [] | .[] | select(.hidden != true) | .output' | tail -80
+          [ "$status" = "finished" ] || { echo "::error::Deployment ended as '$status'"; exit 1; }
+
+      - name: Wait for HTTPS
+        id: smoke
+        run: |
+          # Healthy container + Let's Encrypt cert can take a few minutes after the build.
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://$DOMAIN/admin/login" || true)
+            issuer=$(echo | openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" 2>/dev/null | openssl x509 -noout -issuer 2>/dev/null)
+            echo "$(date +%T) login=$code $issuer"
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "::error::https://$DOMAIN/admin/login is not returning 200"
+          exit 1
+
+      - name: Status and container logs
+        if: always() && steps.app.outputs.uuid != ''
+        env:
+          UUID: ${{ steps.app.outputs.uuid }}
+        run: |
+          api() { curl -sS -H "Authorization: Bearer $TOKEN" "$COOLIFY_URL/api/v1/$1"; }
+          echo "--- app status ---"
+          api "applications/$UUID" | jq -r '.status'
+          echo "--- container logs (last 150 lines) ---"
+          api "applications/$UUID/logs?lines=150" | jq -r '.logs // .message // .' || true

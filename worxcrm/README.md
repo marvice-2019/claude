@@ -19,7 +19,7 @@ Uploads, logs, the install marker and the generated `APP_KEY` live on the `krayi
 1. **DNS** (Hostinger → marvice.tech → DNS): `A  worxcrm  → <VPS IP>` (same IP as `dots`/`coolify`), TTL 300.
 2. **Coolify** → Projects → + New → Public Repository → `https://github.com/marvice-2019/claude`, branch `main`.
    - Build Pack: **Docker Compose** · Base Directory: `/worxcrm` · Compose file: `/docker-compose.yml`
-   - After it loads the services: `app` → Domains → `https://worxcrm.marvice.tech`
+   - After it loads the services: `app` → Domains → `https://worxcrm.marvice.tech:8080` (the `:8080` is the container port; Traefik serves it on 443)
 3. **Environment Variables** (Coolify fills the `SERVICE_PASSWORD_*` ones itself). Set:
    - `ADMIN_EMAIL` (default `admin@marvice.tech`)
    - SMTP if you want outbound mail: `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`
@@ -35,7 +35,7 @@ Uploads, logs, the install marker and the generated `APP_KEY` live on the `krayi
   `UPGRADE.md`, back up, redeploy. Migrations run on boot.
 - **Backup:** Coolify → the `mysql` service → Backups (schedule it to S3), plus the `krayin-storage` volume.
 - **Shell:** Coolify → `app` → Terminal → `php artisan ...`
-- **Auto-deploy on push:** Coolify → app → Webhooks, or copy `.github/workflows/deploy-dots.yml`.
+- **Deploy + diagnose:** `.github/workflows/deploy-worxcrm.yml` deploys via the Coolify API on push to `worxcrm/**` (or manually), then prints build log, app status, container logs and an HTTPS smoke test. Needs repo secret `COOLIFY_TOKEN` (read + deploy).
 
 ## Notes
 
