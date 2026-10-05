@@ -7,16 +7,18 @@ Self-hosted WhatsApp API gateway ([rmyndharis/OpenWA](https://github.com/rmyndha
 | Piece | Choice | Why |
 |---|---|---|
 | App | `ghcr.io/rmyndharis/openwa:latest` | No source build on the VPS |
-| Proxy/TLS | Caddy 2 in compose, pinned `172.30.0.10` | Auto Let's Encrypt, WebSockets, `TRUSTED_PROXIES` gets real client IPs |
+| Proxy/TLS | Auto-detected: existing Traefik container → router labels; host nginx → site + certbot; host Caddy → site block; nothing on :443 → bundled Caddy | Never fights existing sites (n8n etc.) for :80/:443 |
 | DB | Postgres 16 (compose profile) | Upstream's production recommendation |
 | Engine | whatsapp-web.js (default) | Lower ban risk; ~300–500 MB RAM/session. `ENGINE=baileys` for small boxes |
 | docker-proxy | disabled | Upstream's own advice when not using dashboard datastore toggles |
 
-Sizing: KVM 2 (2 vCPU / 8 GB) handles ~8–10 wwebjs sessions. KVM 1 (4 GB) → use baileys.
+Sizing: current VPS is KVM 4 (16 GB), so ~20 wwebjs sessions alongside n8n. `OPENWA_MEM_LIMIT=4g` by default; raise it in `.env` as sessions grow.
+
+Target VPS: `srv1373084.hstgr.cloud` / `91.108.110.216` (already serves marvice.tech + n8n.marvice.tech).
 
 ## Deploy (≈5 min)
 
-1. **DNS** — Hostinger hPanel → Domains → marvice.tech → DNS: `A  whatsapp  <VPS_IP>  TTL 300`.
+1. **DNS** — Hostinger hPanel → Domains → marvice.tech → DNS: `A  whatsapp  91.108.110.216  TTL 300`.
 2. **Run on the VPS as root** (Ubuntu 22.04/24.04):
    ```bash
    curl -fsSL https://raw.githubusercontent.com/marvice-2019/claude/claude/laughing-thompson-63si0a/deploy/openwa/install.sh \
@@ -24,7 +26,7 @@ Sizing: KVM 2 (2 vCPU / 8 GB) handles ~8–10 wwebjs sessions. KVM 1 (4 GB) → 
    ```
 3. Open `https://whatsapp.marvice.tech`, log in with the printed admin key, create a session, scan the QR.
 
-Re-running the installer is safe: it keeps `/opt/openwa/.env` and its secrets.
+Re-running the installer is safe: it keeps `/opt/openwa/.env` and its secrets. It never enables UFW or touches other containers. Overrides: `PROXY=traefik|nginx|caddy-host|caddy`, `RESOLVER=<traefik certresolver>`, `ENGINE=baileys`.
 
 ## Ops
 
