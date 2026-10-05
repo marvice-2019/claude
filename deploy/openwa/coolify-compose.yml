@@ -44,8 +44,10 @@ services:
       - DATABASE_USERNAME=${SERVICE_USER_POSTGRES}
       - DATABASE_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
       - DATABASE_SYNCHRONIZE=false
-      # Admin key seed (first boot only). NEVER change the pepper after first boot.
-      - API_MASTER_KEY=${SERVICE_PASSWORD_64_MASTERKEY}
+      # NEVER change the pepper after first boot (locks out every API key).
+      # API_MASTER_KEY is deliberately absent: it only seeds the first admin key, but OpenWA re-checks it
+      # on every production boot and refuses to start if Coolify ever renders it short. The admin key
+      # already lives in the database.
       - API_KEY_PEPPER=${SERVICE_PASSWORD_64_PEPPER}
       - METRICS_TOKEN=${SERVICE_PASSWORD_METRICS}
       - AUTO_START_SESSIONS=true
