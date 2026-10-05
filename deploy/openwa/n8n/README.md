@@ -72,3 +72,32 @@ Reply STOP to opt out.
 - Always include an opt-out line, and honour it (set `opted_in` = false in the data table).
 - Personalize (`{{first_name}}` plus one specific detail): identical blasts get reported far more.
 - Watch the first 20 sends of every campaign; if replies are "who is this?", stop.
+
+## 3. AI auto-reply bot — `wa-ai-autoreply.json`
+
+OpenWA webhook → n8n → Claude → reply on WhatsApp, with human handoff and opt-out built in.
+
+| Situation | What happens |
+|---|---|
+| Customer DM (text) | Claude replies from the business facts in the system prompt, in the customer's language, remembering the last 20 turns per chat |
+| Voice note / image / document | Polite ask to type it, or handoff (Claude can't open attachments) |
+| Asks for *human / agent / manager / call me*, or Claude can't answer, or a booking/refund/order change needs confirming | Bot pauses in that chat for 12 h, tells the customer a person will take over, and WhatsApps the owner an alert |
+| Claude API fails | Same as handoff: no silent chats |
+| *STOP* / *unsubscribe* | `opted_in = false` in `wa_contacts` (campaigns skip them) + confirmation |
+| Staff types `#bot off` / `#bot on` from the business phone inside a chat | Pauses the bot there for 30 days / resumes |
+| Groups, status, channels, own messages, backlog older than 5 min, duplicate deliveries | Ignored |
+
+**Model:** Claude Opus 5.5 (`claude-opus-5-5`) at `effort: low` (right for short chat replies) with 5-minute prompt caching on the system prompt. List price $4 / $20 per million input/output tokens; a typical exchange is a few thousand cached-prompt input tokens and under 200 output tokens. To trade quality for cost, switch the model ID to `claude-sonnet-5-5` ($2 / $10) or `claude-haiku-4-5` ($1 / $5) in the **Claude Opus 5.5** node; no other change needed.
+
+### Setup
+1. **Data table** `wa_bot_state`, string columns: `chat_id`, `paused_until`, `last_msg_id`, `updated_at`.
+2. **Credentials**
+   - `OpenWA webhook token`: Header Auth, name `X-Bot-Token`, value = a long random string (`openssl rand -hex 32`).
+   - `OpenWA API key`: the operator key from the campaign setup.
+   - `Anthropic account`: your Anthropic API key.
+3. Import `wa-ai-autoreply.json`. Replace `REPLACE_WITH_SESSION_ID` (**Send WhatsApp Reply**) and `REPLACE_WITH_OWNER_NUMBER` (**Handoff Messages**, digits only, e.g. `919876543210`). Fill the **Business facts** block in the agent's system message; it is the bot's only source of truth.
+4. Activate, then in the **OpenWA dashboard → Webhooks → Add**:
+   - URL `https://n8n.marvice.tech/webhook/openwa-inbound`
+   - Events `message.received`, `message.sent`
+   - Custom header `X-Bot-Token` = the same random string
+5. Test from a second phone: ask the hours, then say "talk to a human", then type `#bot on` from the business phone in that chat.
