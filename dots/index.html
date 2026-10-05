@@ -144,8 +144,8 @@
             <span class="steps__t">10:15</span>
             <div>
               <h3>Install at least one agent CLI</h3>
-              <p>Claude Code is our standard. If a CLI is missing, the app shows an <em>Install</em> card in the agent's terminal and runs the installer for you.</p>
-              <pre><code>npm install -g @anthropic-ai/claude-code</code></pre>
+              <p>Claude Code is our standard. Use the native installer on macOS and Linux; it doesn't need Node. If a CLI is missing, the app also shows an <em>Install</em> card in the agent's terminal.</p>
+              <pre><code>curl -fsSL https://claude.ai/install.sh | bash</code></pre>
             </div>
           </li>
           <li>
@@ -209,14 +209,14 @@
       <div class="wrap">
         <p class="clock">14:00 · Something broke</p>
         <h2>Troubleshooting.</h2>
-        <p class="chap__lede">The two problems the team has hit so far, and how to fix them in a couple of minutes.</p>
+        <p class="chap__lede">The problems the team has hit so far, and how to fix each one in a couple of minutes.</p>
         <div class="grid grid--2">
           <article class="card card--fix">
             <span class="fix__tag">Agents show <code>CRASHED · exit 1</code></span>
             <p>The <code>claude</code> CLI behind the agents failed to start, so no agent is running. Check these in a normal terminal, in order:</p>
             <ol class="fix__steps">
               <li><strong>Is it installed?</strong> <code>claude --version</code> should print a version. If not:
-                <pre><code>npm install -g @anthropic-ai/claude-code</code></pre></li>
+                <pre><code>curl -fsSL https://claude.ai/install.sh | bash</code></pre></li>
               <li><strong>Is it signed in?</strong> Run <code>claude</code>, type <code>/login</code>, and sign in with your Marvice seat.</li>
               <li><strong>Is it current?</strong> Agents set to a newer model need a recent CLI:
                 <pre><code>claude update</code></pre></li>
@@ -231,6 +231,29 @@
                 <pre><code>/plugin marketplace add obra/superpowers-marketplace
 /plugin install superpowers@superpowers-marketplace</code></pre></li>
               <li><strong>Other publishers:</strong> wait an hour and install one or two at a time, or copy by hand: <code>git clone</code> the repo and put the skill's folder in <code>~/.claude/skills/</code>.</li>
+            </ol>
+          </article>
+          <article class="card card--fix card--wide">
+            <span class="fix__tag">Settings → Prerequisites shows <code>2 of 16 ready</code></span>
+            <p>Don't worry about the count: 12 of the 16 rows are optional agent engines (Codex, Grok, Qwen and so on). Only four matter: <strong>uv</strong>, <strong>MemPalace</strong>, <strong>git</strong> and <strong>Claude Code</strong>. Node.js is optional; the app installs it when an engine needs it. Skip <em>"ask … to set up everything"</em> if your agents are crashing, since that agent can't run either. Paste these in Terminal (macOS/Linux) one at a time:</p>
+            <pre><code># 1. uv, the Python toolchain MemPalace needs
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
+
+# 2. MemPalace, semantic memory for agents
+uv tool install mempalace
+
+# 3. git, if it isn't READY (macOS)
+xcode-select --install
+
+# 4. Claude Code (native, no Node needed), then sign in
+curl -fsSL https://claude.ai/install.sh | bash
+claude --version
+claude          # type /login, sign in with your Marvice seat, then /exit</code></pre>
+            <ol class="fix__steps">
+              <li><strong>Quit Munder Difflin fully and reopen it.</strong> It only detects new tools on launch.</li>
+              <li><strong>Settings → Prerequisites → re-check.</strong> The four essentials should read READY.</li>
+              <li><strong>Restart the agents</strong> from the floor. Windows users: the matching PowerShell commands are under each row in Prerequisites.</li>
             </ol>
           </article>
         </div>
