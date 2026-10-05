@@ -1,0 +1,110 @@
+# worxcrm.marvice.tech: Krayin CRM on the Marvice VPS via Coolify (Docker Compose build pack,
+# base directory /worxcrm). SERVICE_* variables are Coolify magic: generated once, shown in the
+# app's Environment Variables tab. Setup steps: worxcrm/README.md.
+
+x-app-env: &app-env
+  APP_NAME: "Worx CRM"
+  APP_ENV: production
+  APP_DEBUG: "false"
+  APP_URL: ${APP_URL:-https://worxcrm.marvice.tech}
+  APP_KEY: ${APP_KEY:-}
+  APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Kolkata}
+  APP_LOCALE: ${APP_LOCALE:-en}
+  APP_CURRENCY: ${APP_CURRENCY:-INR}
+  LOG_CHANNEL: stderr
+  LOG_LEVEL: ${LOG_LEVEL:-warning}
+  DB_CONNECTION: mysql
+  DB_HOST: mysql
+  DB_PORT: "3306"
+  DB_DATABASE: krayin
+  DB_USERNAME: krayin
+  DB_PASSWORD: ${SERVICE_PASSWORD_MYSQL}
+  CACHE_DRIVER: file
+  SESSION_DRIVER: file
+  SESSION_SECURE_COOKIE: "true"
+  QUEUE_CONNECTION: sync
+  MAIL_MAILER: ${MAIL_MAILER:-smtp}
+  MAIL_HOST: ${MAIL_HOST:-}
+  MAIL_PORT: ${MAIL_PORT:-587}
+  MAIL_USERNAME: ${MAIL_USERNAME:-}
+  MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+  MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-tls}
+  MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-crm@marvice.tech}
+  MAIL_FROM_NAME: "Worx CRM"
+  # serversideup image: our own entrypoint script handles migrations/caching.
+  AUTORUN_ENABLED: "false"
+  NGINX_LISTEN_IP_PROTOCOL: ipv4
+  PHP_OPCACHE_ENABLE: "1"
+  PHP_UPLOAD_MAX_FILE_SIZE: 50M
+  PHP_POST_MAX_SIZE: 50M
+  PHP_MEMORY_LIMIT: 512M
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        KRAYIN_VERSION: v2.2.6
+    environment:
+      <<: *app-env
+      SERVICE_FQDN_APP_8080: /
+      WORXCRM_ROLE: web
+      ADMIN_NAME: ${ADMIN_NAME:-Marvice Admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@marvice.tech}
+      ADMIN_PASSWORD: ${SERVICE_PASSWORD_ADMIN}
+    volumes:
+      - krayin-storage:/var/www/html/storage
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/up"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 120s
+    restart: unless-stopped
+
+  scheduler:
+    build:
+      context: .
+      args:
+        KRAYIN_VERSION: v2.2.6
+    command: ["php", "/var/www/html/artisan", "schedule:work"]
+    stop_signal: SIGTERM
+    environment:
+      <<: *app-env
+      WORXCRM_ROLE: scheduler
+    volumes:
+      - krayin-storage:/var/www/html/storage
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "schedule:work"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.4
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    environment:
+      MYSQL_DATABASE: krayin
+      MYSQL_USER: krayin
+      MYSQL_PASSWORD: ${SERVICE_PASSWORD_MYSQL}
+      MYSQL_ROOT_PASSWORD: ${SERVICE_PASSWORD_MYSQLROOT}
+    volumes:
+      - krayin-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  krayin-storage:
+  krayin-mysql:
