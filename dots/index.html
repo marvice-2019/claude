@@ -146,6 +146,13 @@
               <h3>Install at least one agent CLI</h3>
               <p>Claude Code is our standard. Use the native installer on macOS and Linux; it doesn't need Node. If a CLI is missing, the app also shows an <em>Install</em> card in the agent's terminal.</p>
               <pre><code>curl -fsSL https://claude.ai/install.sh | bash</code></pre>
+              <ul class="tips" id="install-tips">
+                <li><strong>No <code>sudo</code>.</strong> It installs into your home folder, and the installer refuses to run under sudo.</li>
+                <li><strong>Open a new Terminal window</strong>, then run <code>claude --version</code>. If you get "command not found", add it to your PATH (it installs to <code>~/.local/bin</code>):
+                  <pre><code>echo 'export PATH="$HOME/.local/bin:$PATH"' &gt;&gt; ~/.zshrc && source ~/.zshrc</code></pre></li>
+                <li><strong>Installed with npm before?</strong> Remove that copy so the app doesn't pick up an old one:
+                  <pre><code>npm uninstall -g @anthropic-ai/claude-code</code></pre></li>
+              </ul>
             </div>
           </li>
           <li>
@@ -216,7 +223,8 @@
             <p>The <code>claude</code> CLI behind the agents failed to start, so no agent is running. Check these in a normal terminal, in order:</p>
             <ol class="fix__steps">
               <li><strong>Is it installed?</strong> <code>claude --version</code> should print a version. If not:
-                <pre><code>curl -fsSL https://claude.ai/install.sh | bash</code></pre></li>
+                <pre><code>curl -fsSL https://claude.ai/install.sh | bash</code></pre>
+                No <code>sudo</code>; open a new Terminal window afterwards. Still "command not found", or an old npm copy around? See the <a href="#install-tips">install tips</a>.</li>
               <li><strong>Is it signed in?</strong> Run <code>claude</code>, type <code>/login</code>, and sign in with your Marvice seat.</li>
               <li><strong>Is it current?</strong> Agents set to a newer model need a recent CLI:
                 <pre><code>claude update</code></pre></li>
