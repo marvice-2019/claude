@@ -1,0 +1,401 @@
+{
+  "name": "WhatsApp · Send campaign",
+  "nodes": [
+    {
+      "id": "5fcad5d4-0ad0-4839-85ad-18e33873051c",
+      "name": "Campaign Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "e4a04bc5-9dde-4529-b48f-94eea5171ef6",
+      "parameters": {
+        "authentication": "n8nUserAuth",
+        "formTitle": "Marvice WhatsApp — Send Campaign",
+        "formDescription": "Sends one paced batch (max 100) to opted-in contacts on WhatsApp. Run it again with the same campaign name to continue; people already reached are skipped. <b>Always run Test first.</b><br>Variables: <code>{{first_name}}</code> <code>{{name}}</code> <code>{{phone}}</code> and any extra CSV column, e.g. <code>{{city}}</code>.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Contact list",
+              "fieldName": "list_name",
+              "placeholder": "e.g. cafe-regulars-oct",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Campaign name",
+              "fieldName": "campaign_name",
+              "placeholder": "e.g. diwali-2026",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Message",
+              "fieldName": "message",
+              "fieldType": "textarea",
+              "placeholder": "Hi {{first_name}}! Our Diwali menu is live …",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Mode",
+              "fieldName": "mode",
+              "fieldType": "radio",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Test — send only to me"
+                  },
+                  {
+                    "option": "Live — send to the list"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Your WhatsApp number (for Test)",
+              "fieldName": "test_number",
+              "placeholder": "91XXXXXXXXXX"
+            },
+            {
+              "fieldLabel": "Only contacts tagged (optional)",
+              "fieldName": "tag_filter",
+              "placeholder": "e.g. vip"
+            },
+            {
+              "fieldLabel": "Messages this run (1–100)",
+              "fieldName": "batch_size",
+              "fieldType": "number",
+              "defaultValue": "50",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Seconds between messages (5–60)",
+              "fieldName": "delay_seconds",
+              "fieldType": "number",
+              "defaultValue": "10",
+              "requiredField": true
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {
+          "path": "wa-campaign-send",
+          "buttonLabel": "Send"
+        }
+      }
+    },
+    {
+      "id": "05fa3ae8-fd20-4bc8-9cad-836e4e4b257b",
+      "name": "Get List Contacts",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        0
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "wa_contacts"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "list",
+              "condition": "eq",
+              "keyValue": "={{ $json.list_name.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') }}"
+            }
+          ]
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "5cb72274-268c-46ac-adb9-7edf41791be1",
+      "name": "Build Campaign Batch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Build ONE OpenWA bulk batch (max 100) for this campaign run.\n// OpenWA runs separate batches concurrently, so one batch per run keeps the pacing real;\n// re-running the same campaign continues where it stopped (already-sent contacts are skipped).\nconst f = $('Campaign Form').first().json;\nconst slug = s => String(s || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');\nconst list = slug(f.list_name);\nconst campaign = slug(f.campaign_name);\nconst message = String(f.message || '').trim();\nconst live = String(f.mode || '').startsWith('Live');\nconst cap = Math.min(Math.max(parseInt(f.batch_size, 10) || 50, 1), 100);\nconst delaySec = Math.min(Math.max(parseInt(f.delay_seconds, 10) || 10, 5), 60);\nconst tag = String(f.tag_filter || '').trim().toLowerCase();\nif (!list || !campaign) throw new Error('List name and campaign name are required.');\nif (!message) throw new Error('Message is empty.');\n\nconst rows = $input.all().map(i => i.json).filter(r => r && r.phone);\nconst eligible = rows.filter(r =>\n  r.list === list && r.opted_in === true && r.on_whatsapp === true &&\n  (!tag || String(r.tags || '').toLowerCase().split(/[,;|]/).map(t => t.trim()).includes(tag)));\nconst pending = eligible.filter(r => r.last_campaign !== campaign);\nif (!rows.length) throw new Error(`List \"${list}\" has no contacts. Upload it first.`);\nif (!eligible.length) throw new Error(`No opted-in WhatsApp contacts in \"${list}\"${tag ? ` with tag \"${tag}\"` : ''}.`);\nif (live && !pending.length) throw new Error(`Campaign \"${campaign}\" already reached all ${eligible.length} contacts in \"${list}\".`);\n\nconst vars = r => {\n  let extra = {}; try { extra = JSON.parse(r.extra || '{}'); } catch (e) {}\n  const first = String(r.name || '').split(/\\s+/)[0];\n  return { ...extra, name: r.name || 'there', first_name: first || 'there', phone: r.phone };\n};\nconst chatId = r => r.whatsapp_id || `${r.phone}@c.us`;\n\nlet targets;\nif (live) {\n  targets = pending.slice(0, cap);\n} else {\n  const testPhone = String(f.test_number || '').replace(/\\D/g, '');\n  if (testPhone.length < 10) throw new Error('Test mode needs your own WhatsApp number (with country code).');\n  const sample = (pending[0] || eligible[0]);\n  targets = [{ ...sample, phone: testPhone, whatsapp_id: `${testPhone}@c.us` }];\n}\n\nconst batchId = `${campaign}-${live ? 'live' : 'test'}-${Date.now()}`;\nreturn [{ json: {\n  live, list, campaign, batchId,\n  recipients: live ? targets.map(t => t.key) : [],\n  remainingAfter: live ? pending.length - targets.length : pending.length,\n  etaMinutes: Math.ceil(targets.length * (delaySec + 1) / 60),\n  payload: {\n    batchId,\n    messages: targets.map(t => ({ chatId: chatId(t), type: 'text', content: { text: message }, variables: vars(t) })),\n    options: { delayBetweenMessages: delaySec * 1000, randomizeDelay: true, stopOnError: false },\n  },\n} }];\n"
+      }
+    },
+    {
+      "id": "fd31107a-ad73-4b41-9c48-5d41eb6a0fce",
+      "name": "Send Bulk via OpenWA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://whatsapp.marvice.tech/api/sessions/REPLACE_WITH_SESSION_ID/messages/send-bulk",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "OpenWA API key"
+        }
+      }
+    },
+    {
+      "id": "d84ecb12-618c-4d46-b5b6-bb2656081ea4",
+      "name": "Accepted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1040,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fa147cc6-f0fa-4d09-bb98-5263acfde05a",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 300,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6e35e2dd-ed9e-443c-8191-d408330d1a6a",
+      "name": "Show Queued",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        1300,
+        40
+      ],
+      "webhookId": "16c214b4-d02f-445b-8dcf-2db960cb9ee2",
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "={{ $('Build Campaign Batch').first().json.live ? '🚀 Campaign batch queued' : '🧪 Test message queued' }}",
+        "completionMessage": "={{ $('Build Campaign Batch').first().json.payload.messages.length }} message(s) queued for \"{{ $('Build Campaign Batch').first().json.campaign }}\" · finishes in ~{{ $('Build Campaign Batch').first().json.etaMinutes }} min.\n{{ $('Build Campaign Batch').first().json.live ? 'Still to reach in this list: ' + $('Build Campaign Batch').first().json.remainingAfter + (($('Build Campaign Batch').first().json.remainingAfter > 0) ? ' — run again with the same campaign name (spread runs over the day).' : ' — campaign complete.') : 'Check your WhatsApp, then run again in Live mode.' }}\nBatch: {{ $('Build Campaign Batch').first().json.batchId }}"
+      }
+    },
+    {
+      "id": "eb48c834-3eb2-4f0c-92b3-cff3ccb9d510",
+      "name": "Mark Contacts Sent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        -160
+      ],
+      "parameters": {
+        "jsCode": "// After OpenWA accepted a LIVE batch, emit one item per recipient so the contacts table\n// records this campaign (re-runs then skip them). Test runs mark nothing.\nconst b = $('Build Campaign Batch').first().json;\nif (!b.live) return [];\nconst now = new Date().toISOString();\nreturn b.recipients.map((key, i) => ({ json: { key, last_campaign: b.campaign, last_sent_at: now }, pairedItem: { item: 0 } }));\n"
+      }
+    },
+    {
+      "id": "05183257-d7fd-4437-a740-86055fe2c675",
+      "name": "Record Campaign on Contact",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1560,
+        -160
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "wa_contacts"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "={{ $json.key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "last_campaign": "={{ $json.last_campaign }}",
+            "last_sent_at": "={{ $json.last_sent_at }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "last_campaign",
+              "displayName": "last_campaign",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_sent_at",
+              "displayName": "last_sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ec4e4e12-88df-4a11-a996-3c99c80ae51a",
+      "name": "Show Error",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        1300,
+        260
+      ],
+      "webhookId": "aaad4ab1-22c7-4359-a6ad-e5d96075840c",
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "Not sent",
+        "completionMessage": "=OpenWA answered {{ $json.statusCode }}: {{ $json.body && ($json.body.message || $json.body.error) ? [].concat($json.body.message || $json.body.error).join('; ') : 'no details' }}\n\nCommon causes: session not connected (409), daily send-pacing cap reached, or the API key is not allowed on this session (403). Nothing was marked as sent; fix it and run again."
+      }
+    },
+    {
+      "id": "c596b742-96ec-4ac0-9d0a-3ed9bfc58b0e",
+      "name": "Setup notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -420
+      ],
+      "parameters": {
+        "width": 980,
+        "height": 340,
+        "content": "## WhatsApp campaign sender — setup\n1. Add two **string** columns to the `wa_contacts` data table: `last_campaign`, `last_sent_at`.\n2. Uses the same `OpenWA API key` Header Auth credential as the upload workflow.\n3. In **Send Bulk via OpenWA** replace `REPLACE_WITH_SESSION_ID`.\n4. Activate. Form: `https://n8n.marvice.tech/form/wa-campaign-send` (n8n login).\n\n**Safe sending:** one batch (≤100) per run, 10s+ randomized gaps, opted-in + verified contacts only. OpenWA's SEND_PACING daily cap still applies on top. New numbers: stay under ~50/day for the first week, then scale gradually."
+      }
+    }
+  ],
+  "connections": {
+    "Campaign Form": {
+      "main": [
+        [
+          {
+            "node": "Get List Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get List Contacts": {
+      "main": [
+        [
+          {
+            "node": "Build Campaign Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Campaign Batch": {
+      "main": [
+        [
+          {
+            "node": "Send Bulk via OpenWA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Bulk via OpenWA": {
+      "main": [
+        [
+          {
+            "node": "Accepted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accepted?": {
+      "main": [
+        [
+          {
+            "node": "Show Queued",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mark Contacts Sent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Show Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Contacts Sent": {
+      "main": [
+        [
+          {
+            "node": "Record Campaign on Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
