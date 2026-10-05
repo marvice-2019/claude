@@ -101,3 +101,20 @@ OpenWA webhook → n8n → Claude → reply on WhatsApp, with human handoff and 
    - Events `message.received`, `message.sent`
    - Custom header `X-Bot-Token` = the same random string
 5. Test from a second phone: ask the hours, then say "talk to a human", then type `#bot on` from the business phone in that chat.
+
+## 4. Chatwoot assignment → AI bot pause — `wa-chatwoot-assignment-sync.json`
+
+Keeps the AI bot quiet while a human owns the conversation in Chatwoot.
+
+**Flow:** Chatwoot webhook (Basic Auth in the URL; Chatwoot can't send custom headers) → keep only assignee/status changes → **re-read the conversation from Chatwoot's API** (the payload is never trusted) → pause the bot for that WhatsApp chat if a human is assigned and it isn't resolved, else resume → upsert `wa_bot_state` for both the contact's WhatsApp JID and its `<phone>@c.us` form.
+
+### Setup
+1. Add a string column `note` to `wa_bot_state`.
+2. Credentials:
+   - `Chatwoot webhook basic auth`: Basic Auth, user `chatwoot`, password = long random string (letters and digits only, so it's URL-safe).
+   - `Chatwoot API token`: Header Auth, name `api_access_token`, value = your Chatwoot profile access token.
+3. Import, replace `REPLACE_WITH_ACCOUNT_ID` (**Fetch Conversation**) and `REPLACE_WITH_INBOX_ID` (**Decide Bot Pause**), activate.
+4. Chatwoot → Settings → Integrations → Webhooks → **Add new** (separate from the OpenWA one):
+   - URL `https://chatwoot:<password>@n8n.marvice.tech/webhook/chatwoot-assignment`
+   - Events: `conversation_created`, `conversation_updated`, `conversation_status_changed`
+5. Test: assign a WhatsApp conversation to yourself, message the business number from that phone (no bot reply), unassign, message again (bot replies).

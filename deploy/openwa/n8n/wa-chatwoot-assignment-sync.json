@@ -1,0 +1,229 @@
+{
+  "name": "WhatsApp · Chatwoot assignment → AI bot pause",
+  "nodes": [
+    {
+      "id": "83f94155-1391-4b23-9f70-f4029c26cd65",
+      "name": "Chatwoot Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "14214b61-87d4-48a5-8bcc-459648a6425c",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chatwoot-assignment",
+        "authentication": "basicAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "",
+          "name": "Chatwoot webhook basic auth"
+        }
+      }
+    },
+    {
+      "id": "a200667c-897c-47b3-8c09-b0cdf8406932",
+      "name": "Keep Assignment Changes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Only react when assignment or status actually changed, so routine conversation updates\n// never cancel a pause the n8n bot set itself (its 12h handoff).\nconst b = $input.first().json.body || {};\nconst ev = b.event;\nif (!['conversation_updated', 'conversation_status_changed', 'conversation_created'].includes(ev)) return [];\nconst ca = b.changed_attributes;\nconst changed = Array.isArray(ca) ? ca.flatMap(o => Object.keys(o || {})) : Object.keys(ca || {});\nconst relevant = ev !== 'conversation_updated' || changed.some(k => ['assignee_id', 'status', 'team_id'].includes(k));\nif (!relevant || !b.id) return [];\nreturn [{ json: { event: ev, conversationId: b.id, changed } }];\n"
+      }
+    },
+    {
+      "id": "4689b20a-4215-4b66-b5e4-4e064ab68d66",
+      "name": "Fetch Conversation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "parameters": {
+        "url": "=https://inbox.marvice.tech/api/v1/accounts/REPLACE_WITH_ACCOUNT_ID/conversations/{{ $json.conversationId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Chatwoot API token"
+        }
+      }
+    },
+    {
+      "id": "9cbb7b8a-94d8-470c-8ed3-8708f68612ac",
+      "name": "Decide Bot Pause",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Decide from Chatwoot's API answer (not the webhook payload): a human assignee on an open\n// conversation pauses the n8n bot for that WhatsApp chat; unassigned or resolved resumes it.\nconst INBOX_ID = 'REPLACE_WITH_INBOX_ID'; // Chatwoot API-channel inbox used by the OpenWA adapter\nconst r = $input.first().json;\nif (r.statusCode !== 200) throw new Error(`Chatwoot API answered ${r.statusCode} for conversation ${$('Keep Assignment Changes').first().json.conversationId}`);\nconst c = r.body || {};\nif (/^\\d+$/.test(INBOX_ID) && String(c.inbox_id) !== INBOX_ID) return [];\nconst sender = (c.meta && c.meta.sender) || {};\nconst assignee = c.meta && c.meta.assignee;\nconst human = !!(assignee && assignee.id) && c.status !== 'resolved';\nconst ids = new Set();\nif (sender.identifier && /@(c\\.us|s\\.whatsapp\\.net|lid)$/.test(sender.identifier)) ids.add(sender.identifier);\nconst digits = String(sender.phone_number || '').replace(/\\D/g, '');\nif (digits.length >= 10) ids.add(`${digits}@c.us`);\nif (!ids.size) return [];\nconst until = human ? new Date(Date.now() + 30 * 86400e3).toISOString() : '';\nconst now = new Date().toISOString();\nreturn [...ids].map(chat_id => ({ json: {\n  chat_id, paused_until: until, updated_at: now,\n  note: human ? `assigned to ${assignee.name || assignee.id} in Chatwoot (#${c.id})` : `released in Chatwoot (#${c.id}, ${c.status})`,\n}, pairedItem: { item: 0 } }));\n"
+      }
+    },
+    {
+      "id": "3bda5b57-7e3e-473c-a6e1-b70098de2b51",
+      "name": "Update Bot State",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "wa_bot_state"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chat_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.chat_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "paused_until": "={{ $json.paused_until }}",
+            "updated_at": "={{ $json.updated_at }}",
+            "note": "={{ $json.note }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "paused_until",
+              "displayName": "paused_until",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "8cc5e42f-e95c-4961-9cbc-f0cb26cb8009",
+      "name": "Setup notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -400
+      ],
+      "parameters": {
+        "width": 1060,
+        "height": 330,
+        "content": "## Chatwoot → AI bot assignment sync\nAssigning a WhatsApp conversation to an agent in Chatwoot pauses the n8n AI bot for that chat; unassigning or resolving hands it back. The webhook only *triggers* a sync: the truth is re-read from Chatwoot's API, so a forged call can't change state.\n\n1. Add a string column `note` to `wa_bot_state`.\n2. Credentials: `Chatwoot webhook basic auth` (Basic Auth: user `chatwoot`, long random password) · `Chatwoot API token` (Header Auth: name `api_access_token`, value = your Chatwoot access token).\n3. Replace `REPLACE_WITH_ACCOUNT_ID` (Fetch Conversation) and `REPLACE_WITH_INBOX_ID` (Decide Bot Pause).\n4. Activate, then Chatwoot → Settings → Integrations → Webhooks → **Add a second webhook** (keep the OpenWA one): URL `https://chatwoot:<password>@n8n.marvice.tech/webhook/chatwoot-assignment`, events `conversation_created`, `conversation_updated`, `conversation_status_changed`."
+      }
+    }
+  ],
+  "connections": {
+    "Chatwoot Webhook": {
+      "main": [
+        [
+          {
+            "node": "Keep Assignment Changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep Assignment Changes": {
+      "main": [
+        [
+          {
+            "node": "Fetch Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Conversation": {
+      "main": [
+        [
+          {
+            "node": "Decide Bot Pause",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide Bot Pause": {
+      "main": [
+        [
+          {
+            "node": "Update Bot State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

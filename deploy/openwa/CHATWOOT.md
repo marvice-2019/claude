@@ -55,7 +55,15 @@ Edit the webhook from step 3 and set its URL to the ingress URL. Keep the same w
 From another phone, WhatsApp the business number → a conversation appears in Chatwoot → reply from Chatwoot → it arrives on WhatsApp. Assign the conversation to yourself → OpenWA plugins stay quiet on that chat; unassign → they resume.
 
 ## Coexisting with the n8n AI bot
-The adapter's handover silences **OpenWA plugins**, not the n8n bot (that runs outside OpenWA). Until the n8n bot listens to Chatwoot assignments, agents should type **`#bot off`** in the chat from the business phone, or let the bot hand off (it pauses itself for 12 h). Planned follow-up: a small n8n webhook on Chatwoot `conversation_updated` that pauses/resumes `wa_bot_state` on assign/unassign.
+The adapter's handover silences **OpenWA plugins** only. The n8n bot is kept in step by `n8n/wa-chatwoot-assignment-sync.json`:
+
+| In Chatwoot | n8n AI bot in that WhatsApp chat |
+|---|---|
+| Conversation assigned to an agent (manually or by auto-assignment) | Paused (30 days, or until released) |
+| Unassigned, or resolved | Resumes |
+| Labels, notes, priority, new messages | No change (a bot-initiated 12 h handoff pause is never cancelled by routine updates) |
+
+Setup is in that workflow's sticky note and `n8n/README.md` section 4. It needs a **second** account-level webhook in Chatwoot (keep the OpenWA one untouched). `#bot off` / `#bot on` from the business phone still work as a manual override.
 
 ## Troubleshooting
 | Symptom | Fix |
