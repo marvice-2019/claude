@@ -27,7 +27,7 @@
         <a href="#install">Install</a>
         <a href="#setup">Setup</a>
         <a href="#rules">House rules</a>
-        <a class="btn btn--sm" href="https://harnessmd.com/download" rel="noopener">Download</a>
+        <a class="btn btn--sm" href="#install" data-dl="auto">Download</a>
       </nav>
     </div>
   </header>
@@ -44,7 +44,7 @@
         share memory, message each other, and report to one orchestrator agent you talk to.
       </p>
       <div class="hero__cta">
-        <a class="btn" href="https://harnessmd.com/download" rel="noopener">Download the app</a>
+        <a class="btn" href="#install" data-dl="auto" data-dl-label>Download the app</a>
         <a class="btn btn--ghost" href="#setup">Team setup in 5 steps</a>
       </div>
       <ul class="facts" aria-label="Key facts">
@@ -78,22 +78,22 @@
 
     <section class="wrap section" id="install">
       <h2>Install</h2>
-      <p class="section__lede">Use the official signed builds. Don't build from source unless you're working on the harness itself.</p>
+      <p class="section__lede">Official signed builds, downloaded directly. <span class="dl-version">Version <b data-dl-version>0.5.5</b>.</span></p>
       <div class="grid grid--3">
-        <a class="card card--link" href="https://harnessmd.com/download" rel="noopener">
+        <a class="card card--link" data-dl="mac" href="https://app.harnessmd.com/releases/Munder-Difflin-0.5.5-mac-universal.dmg" download>
           <h3>macOS</h3>
-          <p>Signed and notarized. Drag to Applications and open.</p>
-          <span class="card__go">harnessmd.com/download →</span>
+          <p>Universal build for Apple Silicon and Intel, signed and notarized. Open the .dmg and drag to Applications.</p>
+          <span class="card__go">Download .dmg · <span data-dl-size>303 MB</span> ↓</span>
         </a>
-        <a class="card card--link" href="https://harnessmd.com/download" rel="noopener">
+        <a class="card card--link" data-dl="win" href="https://app.harnessmd.com/releases/Munder-Difflin-0.5.5-win-x64-setup.exe" download>
           <h3>Windows</h3>
-          <p>Installer from the same download page. Allow it through SmartScreen on first run.</p>
-          <span class="card__go">harnessmd.com/download →</span>
+          <p>64-bit installer. If SmartScreen appears on first run, choose <em>More info → Run anyway</em>.</p>
+          <span class="card__go">Download .exe · <span data-dl-size>187 MB</span> ↓</span>
         </a>
-        <a class="card card--link" href="https://github.com/HarnessMD/munder-difflin/releases/latest" rel="noopener">
+        <a class="card card--link" data-dl="linux" href="https://app.harnessmd.com/releases/Munder-Difflin-0.5.5-linux-x86_64.AppImage" download>
           <h3>Linux</h3>
-          <p>AppImage / package from the latest GitHub release.</p>
-          <span class="card__go">GitHub releases →</span>
+          <p>x86_64 AppImage. Run <code>chmod +x</code> on it, then launch.</p>
+          <span class="card__go">Download .AppImage · <span data-dl-size>233 MB</span> ↓</span>
         </a>
       </div>
     </section>
@@ -164,11 +164,59 @@
       <p>© <span id="y">2026</span> Marvice Media Pvt Ltd · Internal team portal</p>
       <p class="footer__credit">
         Powered by <a href="https://github.com/HarnessMD/munder-difflin" rel="noopener">Munder Difflin</a>
-        (MIT, by Chaitanya Giri / HarnessMD). Dots isn't affiliated with or endorsed by HarnessMD.
+        (MIT, by Chaitanya Giri / HarnessMD). Dots isn't affiliated with or endorsed by HarnessMD. Installers download from HarnessMD's release server (<code>app.harnessmd.com</code>).
         In-app pixel art by <a href="https://limezu.itch.io/" rel="noopener">LimeZu</a>.
       </p>
     </div>
   </footer>
-  <script>document.getElementById('y').textContent = new Date().getFullYear();</script>
+  <script>
+  document.getElementById('y').textContent = new Date().getFullYear();
+
+  // Direct installer downloads. The hrefs above are a working 0.5.5 fallback; on load we read
+  // the release manifests (CORS-open, same files the app's auto-updater uses) so links track
+  // the latest version without editing this page.
+  (function () {
+    var BASE = 'https://app.harnessmd.com/releases/';
+    var targets = {
+      mac:   { manifest: 'latest-mac.yml',   ext: '.dmg' },
+      win:   { manifest: 'latest.yml',       ext: '.exe' },
+      linux: { manifest: 'latest-linux.yml', ext: '.AppImage' }
+    };
+    var ua = navigator.userAgent;
+    var os = /Windows/i.test(ua) ? 'win' : /Mac OS X|Macintosh/i.test(ua) && !/iPhone|iPad/i.test(ua) ? 'mac'
+           : /Linux/i.test(ua) && !/Android/i.test(ua) ? 'linux' : null;
+    var names = { mac: 'macOS', win: 'Windows', linux: 'Linux' };
+
+    function card(key) { return document.querySelector('[data-dl="' + key + '"]'); }
+    function pointAuto() {
+      // Visitor's OS → its installer; phones/unknown keep the #install anchor.
+      if (!os) return;
+      document.querySelectorAll('[data-dl="auto"]').forEach(function (a) {
+        a.href = card(os).href;
+        a.setAttribute('download', '');
+        if (a.hasAttribute('data-dl-label')) a.textContent = 'Download for ' + names[os];
+      });
+    }
+    pointAuto();
+
+    Object.keys(targets).forEach(function (key) {
+      var t = targets[key];
+      fetch(BASE + t.manifest, { cache: 'no-cache' }).then(function (r) {
+        if (!r.ok) throw new Error(r.status);
+        return r.text();
+      }).then(function (yml) {
+        var version = (yml.match(/^version:\s*(\S+)/m) || [])[1];
+        var re = new RegExp('url:\\s*(\\S+\\' + t.ext + ')\\s*\\n(?:\\s+\\w+:.*\\n)*?\\s+size:\\s*(\\d+)');
+        var m = yml.match(re);
+        if (!version || !m) return;
+        var a = card(key);
+        a.href = BASE + m[1];
+        a.querySelector('[data-dl-size]').textContent = Math.round(m[2] / 1e6) + ' MB';
+        document.querySelectorAll('[data-dl-version]').forEach(function (el) { el.textContent = version; });
+        if (key === os) pointAuto();
+      }).catch(function () { /* keep the built-in links */ });
+    });
+  })();
+  </script>
 </body>
 </html>
