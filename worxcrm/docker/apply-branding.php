@@ -26,15 +26,27 @@ function swap(string $file, string $from, string $to, int $count = 1): void
     file_put_contents($file, str_replace($from, $to, $source));
 }
 
-// 1. Logos and favicon: overwrite Krayin's built assets (Vite hashes the names, so use the manifest).
-$manifest = json_decode(file_get_contents("$root/public/admin/build/manifest.json"), true);
+// 1. Logos and favicon. Krayin serves build assets as immutable for a year, so overwriting a file in
+// place leaves browsers on the cached Krayin logo. Write each one under a content-hashed name and
+// point the manifest at it: every browser fetches the new file, and future logo changes do too.
+$manifestFile = "$root/public/admin/build/manifest.json";
+$manifest = json_decode(file_get_contents($manifestFile), true);
 
 foreach (['logo.svg', 'dark-logo.svg', 'mobile-light-logo.svg', 'mobile-dark-logo.svg', 'favicon.ico'] as $name) {
-    $file = $manifest["src/Resources/assets/images/$name"]['file'] ?? fail("$name not in admin manifest");
+    $key = "src/Resources/assets/images/$name";
+    isset($manifest[$key]['file']) || fail("$name not in admin manifest");
 
+    $file = 'assets/wxf-'.pathinfo($name, PATHINFO_FILENAME).'-'.substr(md5_file("$src/$name"), 0, 8).'.'.pathinfo($name, PATHINFO_EXTENSION);
     copy("$src/$name", "$root/public/admin/build/$file") || fail("could not write $file");
+
+    // Old file gets the new content too, for anything that hard-codes its path.
+    copy("$src/$name", "$root/public/admin/build/".$manifest[$key]['file']);
+
+    $manifest[$key]['file'] = $file;
     echo "branding: $name -> $file\n";
 }
+
+file_put_contents($manifestFile, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
 copy("$src/favicon.ico", "$root/public/favicon.ico");
 
