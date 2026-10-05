@@ -1,5 +1,7 @@
 import { PLANS, TRIAL_DAYS, escapeHtml as e, formatInr } from "./logic.js";
 
+const CRM_LOGIN_URL = `${(process.env.CRM_PUBLIC_URL || "https://crm.marvice.tech").replace(/\/+$/, "")}/login`;
+
 const CSS = `
 :root{--ink:#14123A;--body:#4A4766;--muted:#6B6880;--bg:#F7F6FB;--card:#FFFFFF;--line:#E4E1F0;--accent:#5B4BEF;--accent-ink:#FFFFFF}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 'DM Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -36,12 +38,14 @@ ${inner}
 </div></body></html>`;
 }
 
-function planCards() {
+// Plan cards; with chooseUrl each card gets a "Choose" button that preselects it on the subscribe page.
+function planCards(chooseUrl) {
   return Object.entries(PLANS).map(([id, p]) => `
 <div class="plan${id === "growth" ? " hot" : ""}">
   <h3>${e(p.name)}${id === "growth" ? ' <span class="note">· most popular</span>' : ""}</h3>
   <div class="price">${formatInr(p.priceInr)} <small>/ month</small></div>
   <p>${e(p.blurb)}</p>
+  ${chooseUrl ? `<a class="btn" style="margin-top:auto" href="${e(`${chooseUrl}&plan=${id}`)}">Choose ${e(p.name)}</a>` : ""}
 </div>`).join("");
 }
 
@@ -50,38 +54,41 @@ function planOptions(selected) {
     `<option value="${id}"${id === selected ? " selected" : ""}>${e(p.name)} — ${formatInr(p.priceInr)}/month</option>`).join("");
 }
 
+// Step 1: create the account. No plan choice here — plans come after sign-up.
 export function landingPage({ errors = [], values = {} } = {}) {
   const v = (k) => e(values[k] ?? "");
-  return layout("Start your free trial", `
+  return layout("Create your free account", `
 <span class="pill">${TRIAL_DAYS} days free · no card needed</span>
 <h1>The AI sales desk for WhatsApp</h1>
-<p class="lead">Shared inbox, AI agents that answer and qualify leads, and a CRM pipeline — on your own WhatsApp number. Try any plan free for ${TRIAL_DAYS} days.</p>
-<div class="plans">${planCards()}</div>
+<p class="lead">Shared inbox, AI agents that answer and qualify leads, and a CRM pipeline — on your own WhatsApp number. Create your account and start in two minutes.</p>
 <form class="card" method="post" action="/trial">
-  <h2 style="margin:0">Start your ${TRIAL_DAYS}-day free trial</h2>
+  <h2 style="margin:0">Create your free account</h2>
   ${errors.length ? `<div class="err">${errors.map(e).join("<br>")}</div>` : ""}
   <label>Business name<input name="business_name" required maxlength="200" value="${v("business_name")}"></label>
   <label>Your name<input name="owner_name" required maxlength="200" value="${v("owner_name")}"></label>
   <label>Work email<input name="owner_email" type="email" required maxlength="254" value="${v("owner_email")}"></label>
   <label>WhatsApp number (optional)<input name="phone" inputmode="tel" maxlength="20" placeholder="+91 98765 43210" value="${v("phone")}"></label>
-  <label>Plan after the trial<select name="plan">${planOptions(values.plan || "growth")}</select></label>
-  <button type="submit">Start free trial</button>
-  <p class="note">You get every Growth feature during the trial. Pick a payment method only when you decide to continue.</p>
+  <button type="submit">Create account and start</button>
+  <a class="btn" style="background:#FFFFFF;color:var(--ink);border:1px solid var(--line)" href="${e(CRM_LOGIN_URL)}?signup=google">Sign up with Google</a>
+  <p class="note">Every feature is unlocked for ${TRIAL_DAYS} days. Already have an account? <a href="${e(CRM_LOGIN_URL)}">Sign in</a></p>
 </form>`);
 }
 
+// Step 2: account ready → sign in, and see the plans.
 export function trialStartedPage({ businessName, passwordUrl, emailedTo, trialEnds, subscribeUrl }) {
   const access = emailedTo
-    ? `<p class="lead">Your free trial runs until <b>${e(trialEnds)}</b>. We've emailed <b>${e(emailedTo)}</b> a link to set your password and sign in.</p>`
-    : `<p class="lead">Your free trial runs until <b>${e(trialEnds)}</b>. Set your password to sign in — this link works once.</p>
+    ? `<p class="lead">Your ${TRIAL_DAYS}-day free trial runs until <b>${e(trialEnds)}</b>. We've emailed <b>${e(emailedTo)}</b> a link to set your password and sign in.</p>`
+    : `<p class="lead">Your ${TRIAL_DAYS}-day free trial runs until <b>${e(trialEnds)}</b>. Set your password to sign in — this link works once.</p>
 <p><a class="btn" href="${e(passwordUrl)}">Set password and open the CRM</a></p>`;
-  return layout("Your workspace is ready", `
+  return layout("Your account is ready", `
 <h1>${e(businessName)} is ready</h1>
 ${access}
-<p class="note" style="margin-top:24px">Want to lock in your plan now? <a href="${e(subscribeUrl)}">Add a payment method</a> — you will not be charged until the trial ends.</p>`);
+<h2 style="margin:40px 0 8px">Plans after your free trial</h2>
+<p class="note" style="margin:0 0 16px">Choose now or any time before ${e(trialEnds)} — you won't be charged until the trial ends.</p>
+<div class="plans">${planCards(subscribeUrl)}</div>`);
 }
 
-export function subscribePage({ acc, actionUrl, ready, message }) {
+export function subscribePage({ acc, actionUrl, ready, message, selected }) {
   const ended = new Date(acc.trial_ends_at) <= new Date();
   return layout("Choose your plan", `
 <h1>Continue with Marvice CRM</h1>
@@ -89,7 +96,7 @@ export function subscribePage({ acc, actionUrl, ready, message }) {
 ${message ? `<div class="${message.kind}">${e(message.text)}</div>` : ""}
 <div class="plans">${planCards()}</div>
 ${ready ? `<form class="card" method="post" action="${e(actionUrl)}">
-  <label>Plan<select name="plan">${planOptions(acc.plan)}</select></label>
+  <label>Plan<select name="plan">${planOptions(PLANS[selected] ? selected : acc.plan)}</select></label>
   <button type="submit">Continue to secure payment</button>
   <p class="note">Payments by Razorpay: UPI AutoPay, cards and net banking. Cancel anytime.</p>
 </form>` : `<div class="err">Online payment is being set up. Reply to your trial email or WhatsApp us and we will activate your plan.</div>`}`);
@@ -104,6 +111,16 @@ export function welcomeEmail({ ownerName, businessName, passwordUrl, trialEnds, 
 <p>Your Marvice CRM workspace for <b>${e(businessName)}</b> is ready. Your free trial runs until <b>${e(trialEnds)}</b>.</p>
 <p><a href="${e(passwordUrl)}">Set your password and sign in</a> (this link works once).</p>
 <p>Next: connect your WhatsApp number from the Inbox by scanning the QR code. Ready to continue after the trial? <a href="${e(subscribeUrl)}">Choose your plan</a> — no charge before the trial ends.</p>
+<p>— Team Marvice</p>`;
+}
+
+// For workspaces created by Google sign-up in the CRM: no password link needed, just the trial and plans.
+export function trialStartedEmail({ ownerName, businessName, trialEnds, subscribeUrl }) {
+  const plans = Object.values(PLANS).map((p) => `<li><b>${e(p.name)}</b> — ${formatInr(p.priceInr)}/month: ${e(p.blurb)}</li>`).join("");
+  return `<p>Hi ${e(ownerName)},</p>
+<p>Welcome to Marvice CRM! Your ${TRIAL_DAYS}-day free trial for <b>${e(businessName)}</b> runs until <b>${e(trialEnds)}</b>, with every feature unlocked.</p>
+<p>Plans after the trial:</p><ul>${plans}</ul>
+<p><a href="${e(subscribeUrl)}">Choose your plan</a> — no charge before the trial ends.</p>
 <p>— Team Marvice</p>`;
 }
 

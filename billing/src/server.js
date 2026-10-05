@@ -2,10 +2,10 @@ import { createServer } from "node:http";
 import { loadConfig, razorpayReady } from "./config.js";
 import { crm, mailer, razorpay, supabase } from "./clients.js";
 import {
-  PLANS, applySubscriptionEvent, parseSignup, subscribeToken, subscriptionStartAt,
+  PLANS, applySubscriptionEvent, enrollment, parseSignup, subscribeToken, subscriptionStartAt,
   sweepAction, trialEndsAt, verifyRazorpaySignature, verifySubscribeToken,
 } from "./logic.js";
-import { landingPage, messagePage, reminderEmail, subscribePage, trialStartedPage, welcomeEmail } from "./pages.js";
+import { landingPage, messagePage, reminderEmail, subscribePage, trialStartedEmail, trialStartedPage, welcomeEmail } from "./pages.js";
 
 const cfg = loadConfig();
 const log = (msg, extra = {}) => console.log(JSON.stringify({ ts: new Date().toISOString(), msg, ...extra }));
@@ -91,7 +91,7 @@ async function subscribe(req, res, url) {
   const ready = razorpayReady(cfg);
   if (req.method === "GET") {
     const message = acc.status === "active" ? { kind: "ok", text: "Your subscription is active. Thank you!" } : null;
-    return send(res, 200, subscribePage({ acc, actionUrl: url.pathname + url.search, ready, message }));
+    return send(res, 200, subscribePage({ acc, actionUrl: url.pathname + url.search, ready, message, selected: url.searchParams.get("plan") }));
   }
   if (!ready) return send(res, 503, subscribePage({ acc, actionUrl: "", ready }));
   const form = Object.fromEntries(new URLSearchParams((await readBody(req, 4096)).toString("utf8")));
@@ -144,7 +144,33 @@ async function razorpayWebhook(req, res) {
   return send(res, 200, "ok", "text/plain");
 }
 
+// Workspaces created in the CRM directly (Google sign-up) join billing here.
+async function enrollNewWorkspaces() {
+  for (const org of await db.unenrolledOrgs()) {
+    try {
+      const adminIds = await db.orgAdminIds(org.id);
+      if (!adminIds.length) continue; // provisioning still in flight; next sweep picks it up
+      const internal = await db.anyPlatformAdmin(adminIds);
+      const owner = await db.getUser(adminIds[0]);
+      const ownerName = owner.user_metadata?.full_name || owner.user_metadata?.name || owner.email;
+      const { status, trial_ends_at } = enrollment({ createdAt: org.created_at, internal });
+      await db.insertAccount({ org_id: org.id, plan: "growth", status, business_name: org.display_name || ownerName,
+        owner_name: ownerName, owner_email: owner.email, trial_ends_at });
+      log("workspace enrolled", { orgId: org.id, status });
+      if (status === "trialing") {
+        await mail.send({ to: owner.email, subject: "Your Marvice CRM free trial has started",
+          html: trialStartedEmail({ ownerName, businessName: org.display_name, trialEnds: fmtDate(trial_ends_at), subscribeUrl: subscribeUrl(org.id) }) })
+          .catch((e) => log("trial email failed", { orgId: org.id, error: e.message }));
+      }
+    } catch (err) {
+      if (err.status === 409) continue; // enrolled concurrently by the sign-up page
+      log("enroll error", { orgId: org.id, error: err.message });
+    }
+  }
+}
+
 async function sweep() {
+  await enrollNewWorkspaces().catch((e) => log("enroll failed", { error: e.message }));
   const now = new Date();
   for (const acc of await db.accountsToSweep()) {
     const action = sweepAction(acc, now);

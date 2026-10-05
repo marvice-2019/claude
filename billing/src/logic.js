@@ -4,9 +4,9 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export const TRIAL_DAYS = 45;
 export const REMIND_DAYS_BEFORE = 5;
 export const PLANS = {
-  starter: { name: "Starter", priceInr: 1999, blurb: "1 WhatsApp number · 3 users · shared inbox · CRM pipeline · 1 AI agent" },
-  growth: { name: "Growth", priceInr: 4499, blurb: "2 numbers · 8 users · AI agents with knowledge base · follow-ups · Google Calendar · Meta Ads tracking" },
-  pro: { name: "Pro", priceInr: 8999, blurb: "5 numbers · 20 users · everything in Growth · webhooks and n8n · priority onboarding" },
+  starter: { name: "Starter", priceInr: 699, blurb: "1 WhatsApp number · 2 users · shared inbox · CRM pipeline · 1 AI agent" },
+  growth: { name: "Growth", priceInr: 999, blurb: "1 WhatsApp number · 5 users · AI agents with knowledge base · follow-ups · Google Calendar" },
+  pro: { name: "Pro", priceInr: 1899, blurb: "3 WhatsApp numbers · 10 users · everything in Growth · Meta Ads tracking · webhooks and n8n" },
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -31,6 +31,13 @@ export function parseSignup(form) {
   if (out.phone && !/^\+?[0-9 ]{8,16}$/.test(out.phone)) errors.push("Phone should be digits, e.g. +91 98765 43210.");
   if (!PLANS[out.plan]) errors.push("Choose a plan.");
   return { value: out, errors };
+}
+
+// A workspace created outside the billing page (e.g. Google sign-up in the CRM) gets a billing row:
+// internal ones (an admin is a platform admin) are exempt; the rest start a trial dated from creation.
+export function enrollment({ createdAt, internal }) {
+  if (internal) return { status: "exempt", trial_ends_at: new Date(createdAt).toISOString() };
+  return { status: "trialing", trial_ends_at: trialEndsAt(new Date(createdAt)).toISOString() };
 }
 
 // What the hourly sweep should do with one account row.

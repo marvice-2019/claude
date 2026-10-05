@@ -22,7 +22,7 @@ export function loadConfig() {
       plans: { starter: opt("RAZORPAY_PLAN_STARTER"), growth: opt("RAZORPAY_PLAN_GROWTH"), pro: opt("RAZORPAY_PLAN_PRO") },
     },
     mail: { resendKey: opt("RESEND_API_KEY"), from: opt("MAIL_FROM") },
-    sweepMinutes: Number(process.env.SWEEP_MINUTES || 60),
+    sweepMinutes: Number(process.env.SWEEP_MINUTES || 10),
   };
 }
 

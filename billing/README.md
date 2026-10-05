@@ -13,7 +13,8 @@ Zero dependencies (Node 22). Runs next to the CRM in the Coolify stack (`deploy/
 3. **Webhooks** — `POST /webhooks/razorpay` (signature-verified, idempotent per event id):
    `authenticated/activated/charged/resumed` → active (+ reactivate the workspace if it was suspended);
    `pending` → past_due; `halted` → past_due + suspend; `cancelled/completed` → cancelled.
-4. **Sweep (hourly)** — 5 days before trial end: reminder email. Trial over without a subscription:
+4. **Sweep (every 10 min)** — new workspaces created in the CRM directly (Google sign-up) are enrolled
+   in a trial (internal ones, with a platform admin, are `exempt`). 5 days before trial end: reminder email. Trial over without a subscription:
    workspace suspended (CRM billing suspension, `fn_suspender_organizacao(..., 'cobranca', ...)`).
    Cancelled and paid period over: suspended. Data is never deleted automatically.
 

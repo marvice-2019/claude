@@ -32,3 +32,8 @@ alter table public.marvice_billing_accounts enable row level security;
 alter table public.marvice_billing_events enable row level security;
 revoke all on public.marvice_billing_accounts, public.marvice_billing_events from anon, authenticated;
 grant all on public.marvice_billing_accounts, public.marvice_billing_events to service_role;
+
+-- 002: internal workspaces (an admin is a platform admin) are never billed.
+alter table public.marvice_billing_accounts drop constraint if exists marvice_billing_accounts_status_check;
+alter table public.marvice_billing_accounts add constraint marvice_billing_accounts_status_check
+  check (status in ('trialing', 'active', 'past_due', 'expired', 'cancelled', 'exempt'));

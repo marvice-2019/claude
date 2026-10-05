@@ -40,6 +40,25 @@ export function supabase(cfg) {
         throw e;
       }
     },
+    // Active workspaces that have no billing row yet.
+    unenrolledOrgs: async () => {
+      const [orgs, rows] = await Promise.all([
+        http(`${rest}/organizations?status=eq.active&select=id,display_name,created_at`, { headers: h }, "list orgs"),
+        http(`${rest}/marvice_billing_accounts?select=org_id`, { headers: h }, "list billing rows"),
+      ]);
+      const known = new Set(rows.map((r) => r.org_id));
+      return orgs.filter((o) => !known.has(o.id));
+    },
+    orgAdminIds: async (orgId) =>
+      (await http(`${rest}/user_organizations?organization_id=eq.${encodeURIComponent(orgId)}&role=eq.admin&revoked_at=is.null&select=user_id`, { headers: h }, "org admins"))
+        .map((r) => r.user_id),
+    anyPlatformAdmin: async (userIds) => {
+      if (!userIds.length) return false;
+      const ids = userIds.map(encodeURIComponent).join(",");
+      return (await http(`${rest}/platform_admins?user_id=in.(${ids})&revoked_at=is.null&select=user_id`, { headers: h }, "platform admins")).length > 0;
+    },
+    getUser: (userId) =>
+      http(`${cfg.supabaseUrl}/auth/v1/admin/users/${encodeURIComponent(userId)}`, { headers: h }, "get user"),
     setOrgLocale: (orgId, locale) =>
       http(`${rest}/organizations?id=eq.${encodeURIComponent(orgId)}`, { method: "PATCH", headers: { ...h, Prefer: "return=minimal" }, body: JSON.stringify({ locale }) }, "set org locale"),
     suspendOrg: (orgId, reason) =>

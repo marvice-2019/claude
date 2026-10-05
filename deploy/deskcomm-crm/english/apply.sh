@@ -79,4 +79,17 @@ patch("components/extensions/ExtensionCatalog.tsx",
   }
   console.log(`translated ${n} page titles`);
 }
+
+// 7. Public email sign-up goes through Marvice billing (trial + plans) when MARVICE_SIGNUP_URL is set.
+//    Invited team members (valid ?invite=) still get the CRM's own form. Google sign-up stays in the CRM
+//    (signup_mode 'aberto'); billing enrols those workspaces on its next sweep.
+{
+  const f = "app/(public)/signup/page.tsx";
+  const src = fs.readFileSync(f, "utf8");
+  if (src.includes('from "next/navigation"')) { console.error("signup page already imports next/navigation — update apply.sh"); process.exit(1); }
+  fs.writeFileSync(f, src.replace('import Link from "next/link";', 'import Link from "next/link";\nimport { redirect } from "next/navigation";'));
+  patch(f,
+    '  const soPorConvite = modo === "so_convite";\n',
+    '  const soPorConvite = modo === "so_convite";\n  const signupExterno = process.env.MARVICE_SIGNUP_URL?.trim();\n  if (!convite && signupExterno) redirect(signupExterno);\n');
+}
 EOF

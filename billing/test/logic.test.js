@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import {
-  applySubscriptionEvent, escapeHtml, parseSignup, subscribeToken, subscriptionStartAt,
+  applySubscriptionEvent, enrollment, escapeHtml, parseSignup, subscribeToken, subscriptionStartAt,
   sweepAction, trialEndsAt, verifyRazorpaySignature, verifySubscribeToken,
 } from "../src/logic.js";
 
@@ -77,4 +77,12 @@ test("subscribe link token", () => {
 
 test("html escaping", () => {
   assert.equal(escapeHtml(`<a href="x">'&`), "&lt;a href=&quot;x&quot;&gt;&#39;&amp;");
+});
+
+test("enrollment of workspaces created outside the billing page", () => {
+  const created = "2026-10-01T00:00:00.000Z";
+  assert.deepEqual(enrollment({ createdAt: created, internal: true }).status, "exempt");
+  const t = enrollment({ createdAt: created, internal: false });
+  assert.equal(t.status, "trialing");
+  assert.equal(new Date(t.trial_ends_at).getTime() - new Date(created).getTime(), 45 * DAY);
 });

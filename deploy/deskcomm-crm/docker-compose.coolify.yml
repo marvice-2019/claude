@@ -49,6 +49,8 @@ x-app-env: &app-env
   NODE_EXTRA_CA_CERTS: /etc/deskcomm/ca/supabase-ca.crt
   # Enables POST /api/v1/tenants/provision, used only by the billing service.
   TENANT_PROVISIONING_SECRET: ${TENANT_PROVISIONING_SECRET}
+  # CRM "Create account" → billing sign-up (trial + plans). Invites still use the CRM form.
+  MARVICE_SIGNUP_URL: ${BILLING_PUBLIC_URL}
 
 services:
   dbinit:
