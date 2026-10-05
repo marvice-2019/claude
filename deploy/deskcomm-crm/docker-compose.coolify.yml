@@ -4,6 +4,7 @@
 #   - Caddy removed: Coolify's Traefik terminates TLS (domain set on the `app` service in Coolify).
 #   - env_file replaced with explicit ${VAR} refs so Coolify manages them as service env vars.
 #   - `dbinit` one-shot applies supabase/baseline.sql from the same commit on a fresh database.
+#   - `billing`: Marvice subscriptions + 45-day trials (billing/ in this repo), served on billing.marvice.tech.
 # Secrets live only in Coolify's env vars, never in this file.
 
 x-logging: &default-logging
@@ -46,6 +47,8 @@ x-app-env: &app-env
   OWNER_EMAIL: ${OWNER_EMAIL}
   SENTRY_DSN: "off"
   NODE_EXTRA_CA_CERTS: /etc/deskcomm/ca/supabase-ca.crt
+  # Enables POST /api/v1/tenants/provision, used only by the billing service.
+  TENANT_PROVISIONING_SECRET: ${TENANT_PROVISIONING_SECRET}
 
 services:
   dbinit:
@@ -210,6 +213,34 @@ services:
     environment:
       TZ: UTC
       INTERNAL_SECRET: ${INTERNAL_SECRET}
+    depends_on:
+      app:
+        condition: service_healthy
+    logging: *default-logging
+
+  billing:
+    image: ghcr.io/marvice-2019/marvice-billing:latest
+    pull_policy: always
+    mem_limit: 192m
+    restart: unless-stopped
+    environment:
+      SERVICE_FQDN_BILLING_3100: ${SERVICE_FQDN_BILLING_3100:-}
+      PORT: "3100"
+      BILLING_PUBLIC_URL: ${BILLING_PUBLIC_URL}
+      CRM_PUBLIC_URL: ${NEXT_PUBLIC_APP_URL}
+      CRM_INTERNAL_URL: http://app:3000
+      TENANT_PROVISIONING_SECRET: ${TENANT_PROVISIONING_SECRET}
+      SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      BILLING_LINK_SECRET: ${BILLING_LINK_SECRET}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      RAZORPAY_PLAN_STARTER: ${RAZORPAY_PLAN_STARTER:-}
+      RAZORPAY_PLAN_GROWTH: ${RAZORPAY_PLAN_GROWTH:-}
+      RAZORPAY_PLAN_PRO: ${RAZORPAY_PLAN_PRO:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
     depends_on:
       app:
         condition: service_healthy

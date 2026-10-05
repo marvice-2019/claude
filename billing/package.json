@@ -1,0 +1,13 @@
+{
+  "name": "marvice-billing",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Subscriptions and 45-day free trials for Marvice CRM (Razorpay).",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js",
+    "create-plans": "node scripts/create-plans.js"
+  }
+}
