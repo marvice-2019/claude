@@ -140,6 +140,7 @@ pre code { background: none; border: 0; padding: 0; color: inherit; }
 .card__go { margin-top: auto; padding-top: 18px; font: 700 13px/1 var(--mono); color: var(--accent); }
 .card--rule { border-left: 4px solid var(--accent); }
 .card--fix { border-top: 4px solid var(--purple); }
+.card--wide { grid-column: 1 / -1; }
 .fix__tag { display: block; margin-bottom: 10px; font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
 .fix__tag code { font-size: .8em; }
 .fix__steps { margin: 14px 0 0; padding-left: 20px; color: var(--muted); font-size: 15px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
