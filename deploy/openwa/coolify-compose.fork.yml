@@ -1,0 +1,113 @@
+services:
+  openwa:
+    image: 'ghcr.io/marvice-2019/openwa-marvice:sha-b917041'
+    restart: unless-stopped
+    stop_grace_period: 45s
+    security_opt:
+      - 'no-new-privileges:true'
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    read_only: true
+    tmpfs:
+      - /tmp
+    pids_limit: 2048
+    mem_limit: 4g
+    environment:
+      - SERVICE_FQDN_OPENWA_2785
+      - NODE_ENV=production
+      - TZ=Asia/Kolkata
+      - HOME=/tmp
+      - XDG_CONFIG_HOME=/tmp/.config
+      - XDG_CACHE_HOME=/tmp/.cache
+      - PORT=2785
+      - LOG_LEVEL=info
+      - 'BASE_URL=${SERVICE_FQDN_OPENWA}'
+      - 'DASHBOARD_URL=${SERVICE_FQDN_OPENWA}'
+      - 'CORS_ORIGINS=${SERVICE_FQDN_OPENWA}'
+      - 'TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12'
+      - DATABASE_TYPE=postgres
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=openwa
+      - 'DATABASE_USERNAME=${SERVICE_USER_POSTGRES}'
+      - 'DATABASE_PASSWORD=${SERVICE_PASSWORD_POSTGRES}'
+      - DATABASE_SYNCHRONIZE=false
+      - 'API_KEY_PEPPER=${SERVICE_PASSWORD_64_PEPPER}'
+      - 'METRICS_TOKEN=${SERVICE_PASSWORD_METRICS}'
+      - AUTO_START_SESSIONS=true
+      - REDIS_ENABLED=true
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - QUEUE_ENABLED=true
+      - CACHE_ENABLED=true
+      - MCP_ENABLED=true
+      - MCP_READONLY=false
+      - MEDIA_CONVERSION_ENABLED=true
+      - MESSAGE_RETENTION_DAYS=90
+      - WEBHOOK_SHUTDOWN_DRAIN_MS=12000
+      - SEND_PACING_ENABLED=true
+      - SIMULATE_TYPING=true
+      - PLUGINS_DIR=/app/data/plugins
+      - PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/puppeteer-chrome
+    volumes:
+      - 'openwa-data:/app/data'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - '-f'
+        - 'http://localhost:2785/api/health/ready'
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+  postgres:
+    image: 'postgres:16-alpine'
+    restart: unless-stopped
+    security_opt:
+      - 'no-new-privileges:true'
+    environment:
+      - 'POSTGRES_USER=${SERVICE_USER_POSTGRES}'
+      - 'POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}'
+      - POSTGRES_DB=openwa
+    volumes:
+      - 'postgres-data:/var/lib/postgresql/data'
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'pg_isready -U $${POSTGRES_USER} -d openwa'
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  redis:
+    image: 'redis:7-alpine'
+    restart: unless-stopped
+    security_opt:
+      - 'no-new-privileges:true'
+    command: 'redis-server --appendonly yes --maxmemory-policy noeviction'
+    volumes:
+      - 'redis-data:/data'
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  openwa-data: null
+  postgres-data: null
+  redis-data: null
