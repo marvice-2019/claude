@@ -7378,6 +7378,16 @@ Cancel for good. Unsent messages are marked `skipped`.
 
 **Errors:** `404` unknown campaign · `409` already completed or cancelled.
 
+#### POST /api/sessions/:sessionId/marvice/campaigns/:campaignId/retry
+
+Put every `failed` recipient back in the queue and set the campaign running again. Messages refused by send pacing (`SEND_PACING_LIMITED`, the daily cap or the failure breaker) are never marked failed: they stay queued, `lastError` says why, and sending resumes on its own after 15 minutes with a single probe message.
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — the campaign.
+
+**Errors:** `400` no failed messages · `404` unknown campaign · `409` draft or cancelled.
+
 #### GET /api/sessions/:sessionId/marvice/campaigns/:campaignId/recipients
 
 The delivery report. Query: `page`, `limit` (1–200), `status` (`pending`, `queued`, `sent`, `failed`, `skipped`). Each row has `phone`, `name`, `status`, `messageId`, `error` and `sentAt`.

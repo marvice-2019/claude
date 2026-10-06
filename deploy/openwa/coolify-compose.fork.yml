@@ -53,6 +53,9 @@ services:
       - MESSAGE_RETENTION_DAYS=90
       - WEBHOOK_SHUTDOWN_DRAIN_MS=12000
       - SEND_PACING_ENABLED=true
+      # Flat daily caps (single number = same cap every day, no warm-up ramp).
+      - SEND_PACING_WARMUP_SCHEDULE=5000
+      - SEND_PACING_COLD_DAILY_CAP=5000
       - SIMULATE_TYPING=true
       - PLUGINS_DIR=/app/data/plugins
       - PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/puppeteer-chrome

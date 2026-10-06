@@ -83,6 +83,16 @@ export class CampaignsController {
     return this.campaigns.cancel(sessionId, campaignId);
   }
 
+  @Post(':campaignId/retry')
+  @RequireRole(ApiKeyRole.OPERATOR)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Re-queue every failed message and run the campaign again' })
+  @ApiResponse({ status: 400, description: 'There are no failed messages to retry' })
+  @ApiResponse({ status: 409, description: 'The campaign is a draft or was cancelled' })
+  retry(@Param('sessionId') sessionId: string, @Param('campaignId') campaignId: string) {
+    return this.campaigns.retryFailed(sessionId, campaignId);
+  }
+
   @Get(':campaignId/recipients')
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Page through a campaign’s recipients and their delivery status' })

@@ -11,6 +11,7 @@ import {
   Pause,
   Play,
   Plus,
+  RotateCcw,
   Send,
   Trash2,
   Type,
@@ -234,7 +235,7 @@ function CampaignReport({ sessionId, id, canWrite }: { sessionId: string; id: st
     );
   }
 
-  const act = async (action: 'start' | 'pause' | 'cancel') => {
+  const act = async (action: 'start' | 'pause' | 'cancel' | 'retry') => {
     try {
       await m.action.mutateAsync({ id: c.id, action });
       toast.success(t(`marvice.campaigns.toasts.${action}`));
@@ -307,6 +308,15 @@ function CampaignReport({ sessionId, id, canWrite }: { sessionId: string; id: st
               onClick={() => void act('cancel')}
             >
               <XCircle size={16} /> {t('marvice.campaigns.cancel')}
+            </button>
+          )}
+          {k.failed > 0 && !['draft', 'cancelled'].includes(c.status) && (
+            <button
+              className="btn-primary"
+              disabled={!canWrite || m.action.isPending}
+              onClick={() => void act('retry')}
+            >
+              <RotateCcw size={16} /> {t('marvice.campaigns.retryFailed', { count: k.failed })}
             </button>
           )}
           <button className="btn-secondary" disabled={exporting} onClick={() => void exportCsv()}>

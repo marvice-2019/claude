@@ -74,7 +74,7 @@ export const campaignsApi = {
     request<CampaignPreview>(`${base(sessionId)}/preview`, { method: 'POST', body: JSON.stringify(body) }),
   create: (sessionId: string, body: NewCampaign) =>
     request<Campaign>(base(sessionId), { method: 'POST', body: JSON.stringify(body) }),
-  action: (sessionId: string, id: string, action: 'start' | 'pause' | 'cancel') =>
+  action: (sessionId: string, id: string, action: 'start' | 'pause' | 'cancel' | 'retry') =>
     request<Campaign>(`${base(sessionId)}/${id}/${action}`, { method: 'POST' }),
   remove: (sessionId: string, id: string) => request<void>(`${base(sessionId)}/${id}`, { method: 'DELETE' }),
   recipients: (sessionId: string, id: string, q: { page: number; limit: number; status?: string }) => {
@@ -120,7 +120,7 @@ export function useCampaignMutations(sessionId: string) {
   return {
     create: useMutation({ mutationFn: (b: NewCampaign) => campaignsApi.create(sessionId, b), onSuccess: refresh }),
     action: useMutation({
-      mutationFn: (p: { id: string; action: 'start' | 'pause' | 'cancel' }) =>
+      mutationFn: (p: { id: string; action: 'start' | 'pause' | 'cancel' | 'retry' }) =>
         campaignsApi.action(sessionId, p.id, p.action),
       onSuccess: refresh,
     }),

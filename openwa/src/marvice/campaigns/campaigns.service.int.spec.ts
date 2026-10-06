@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
 import * as path from 'path';
-import { CampaignsService, CHUNK_SIZE } from './campaigns.service';
+import { CampaignsService, CHUNK_SIZE, PACING_RETRY_MS } from './campaigns.service';
 import { Campaign } from './entities/campaign.entity';
 import { CampaignRecipient } from './entities/campaign-recipient.entity';
 import { ContactList } from '../contacts/entities/contact-list.entity';
@@ -8,6 +8,9 @@ import { Contact } from '../contacts/entities/contact.entity';
 import { Session } from '../../modules/session/entities/session.entity';
 import { BatchMessageStatus, BatchStatus } from '../../modules/message/entities/message-batch.entity';
 import type { SendBulkMessageDto } from '../../modules/message/dto/bulk-message.dto';
+import { SEND_PACING_LIMITED } from '../../modules/message/send-pacing.service';
+
+const PACING_MESSAGE = 'Daily allowance of 10 new conversations reached';
 
 // Real SQLite with every migration; the upstream bulk sender is faked so nothing leaves the process.
 const src = path.join(__dirname, '..', '..');
@@ -17,7 +20,10 @@ describe('Marvice CampaignsService (SQLite, fake bulk sender)', () => {
   let ds: DataSource;
   let service: CampaignsService;
   let listId: string;
-  const batches = new Map<string, { dto: SendBulkMessageDto; status: BatchStatus; failChat?: string }>();
+  const batches = new Map<
+    string,
+    { dto: SendBulkMessageDto; status: BatchStatus; failChat?: string; limitFrom?: number }
+  >();
   const bulk = {
     createBatch: jest.fn((_s: string, dto: SendBulkMessageDto) => {
       batches.set(dto.batchId as string, { dto, status: BatchStatus.PROCESSING });
@@ -28,17 +34,25 @@ describe('Marvice CampaignsService (SQLite, fake bulk sender)', () => {
       const results =
         b.status === BatchStatus.PROCESSING
           ? []
-          : b.dto.messages.map(m => ({
-              chatId: m.chatId,
-              status:
-                b.status === BatchStatus.CANCELLED
-                  ? BatchMessageStatus.CANCELLED
-                  : m.chatId === b.failChat
-                    ? BatchMessageStatus.FAILED
-                    : BatchMessageStatus.SENT,
-              messageId: `wamid-${m.chatId}`,
-              error: m.chatId === b.failChat ? { code: 'SEND_FAILED', message: 'not on WhatsApp' } : undefined,
-            }));
+          : b.dto.messages.map((m, i) => {
+              const limited = b.limitFrom !== undefined && i >= b.limitFrom;
+              const failed = limited || m.chatId === b.failChat;
+              return {
+                chatId: m.chatId,
+                status:
+                  b.status === BatchStatus.CANCELLED
+                    ? BatchMessageStatus.CANCELLED
+                    : failed
+                      ? BatchMessageStatus.FAILED
+                      : BatchMessageStatus.SENT,
+                messageId: `wamid-${m.chatId}`,
+                error: limited
+                  ? { code: SEND_PACING_LIMITED, message: PACING_MESSAGE }
+                  : failed
+                    ? { code: 'SEND_FAILED', message: 'not on WhatsApp' }
+                    : undefined,
+              };
+            });
       return Promise.resolve({ status: b.status, results });
     }),
     cancelBatch: jest.fn((_s: string, id: string) => {
@@ -171,6 +185,50 @@ describe('Marvice CampaignsService (SQLite, fake bulk sender)', () => {
     await expect(service.start('s1', c.id)).rejects.toThrow(/cancelled/);
     await service.remove('s1', c.id);
     await expect(service.get('s1', c.id)).rejects.toThrow(/not found/);
+  });
+
+  it('re-queues pacing refusals, waits, probes with one message, and retries failures on demand', async () => {
+    bulk.createBatch.mockClear();
+    const c = await service.create('s1', { name: 'Capped', listId, message: 'Hi', tag: 'vip', startNow: true });
+    await service.tick();
+    const first = bulk.createBatch.mock.calls[0][1];
+    // 10 go out, the rest are refused by OpenWA's daily cap; one real failure among the sent ones.
+    Object.assign(batches.get(first.batchId as string)!, {
+      status: BatchStatus.COMPLETED,
+      limitFrom: 10,
+      failChat: first.messages[2].chatId,
+    });
+    await service.tick();
+
+    let state = await service.get('s1', c.id);
+    expect(state.status).toBe('running');
+    expect(state.counts).toMatchObject({ sent: 9, failed: 1, pending: state.total - 10 });
+    expect(state.lastError).toMatch(/sending limit.*resumes automatically/i);
+
+    await service.tick(); // held: nothing new is sent
+    expect(bulk.createBatch).toHaveBeenCalledTimes(1);
+
+    const realNow = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(realNow + PACING_RETRY_MS + 1000);
+    try {
+      await service.tick(); // hold expired: probe with a single message
+      expect(bulk.createBatch).toHaveBeenCalledTimes(2);
+      const probe = bulk.createBatch.mock.calls[1][1];
+      expect(probe.messages).toHaveLength(1);
+      finish(probe.batchId as string);
+      await service.tick(); // probe delivered: hold lifted, full chunk again
+      expect(bulk.createBatch.mock.calls[2][1].messages.length).toBeGreaterThan(1);
+    } finally {
+      clock.mockRestore();
+    }
+
+    await service.pause('s1', c.id);
+    await service.tick();
+    state = await service.retryFailed('s1', c.id).then(() => service.get('s1', c.id));
+    expect(state).toMatchObject({ status: 'running', lastError: null });
+    expect(state.counts.failed).toBe(0);
+    await expect(service.retryFailed('s1', c.id)).rejects.toThrow(/no failed/i);
+    await service.cancel('s1', c.id);
   });
 
   it('builds voice notes without text and media with a personalised caption', () => {

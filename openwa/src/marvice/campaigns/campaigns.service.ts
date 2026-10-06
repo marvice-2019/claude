@@ -16,6 +16,7 @@ import { Session, SessionStatus } from '../../modules/session/entities/session.e
 import { BulkMessageService } from '../../modules/message/bulk-message.service';
 import { BatchMessageStatus, BatchStatus } from '../../modules/message/entities/message-batch.entity';
 import { SendBulkMessageDto } from '../../modules/message/dto/bulk-message.dto';
+import { SEND_PACING_LIMITED } from '../../modules/message/send-pacing.service';
 import { createLogger } from '../../common/services/logger.service';
 import { CreateCampaignDto, ListRecipientsQueryDto, PreviewCampaignDto } from './dto/campaigns.dto';
 import { placeholdersOf, recipientVars, renderForRecipient } from './render';
@@ -24,6 +25,8 @@ import { placeholdersOf, recipientVars, renderForRecipient } from './render';
 export const CHUNK_SIZE = 100;
 const TICK_MS = 5000;
 const INSERT_CHUNK = 200;
+/** After a send-pacing refusal (daily cap or failure breaker), wait this long, then probe with one message. */
+export const PACING_RETRY_MS = 15 * 60_000;
 const TERMINAL_BATCH = new Set<string>([BatchStatus.COMPLETED, BatchStatus.CANCELLED, BatchStatus.FAILED]);
 
 export interface CampaignCounts {
@@ -39,6 +42,12 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = createLogger('MarviceCampaigns');
   private timer: NodeJS.Timeout | null = null;
   private ticking = false;
+  /**
+   * Campaigns held back by OpenWA's send pacing. Messages the pacing refused are never charged as
+   * failures: they go back to the queue and the campaign resumes once the allowance frees up. In memory
+   * on purpose — after a restart the next chunk simply asks again and re-learns the hold.
+   */
+  private readonly pacingHolds = new Map<string, { until: number; reason: string }>();
 
   constructor(
     @InjectRepository(Campaign, 'data') private readonly campaigns: Repository<Campaign>,
@@ -156,6 +165,21 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     return this.require(sessionId, id);
   }
 
+  /** Put every failed recipient back in the queue and run the campaign again. */
+  async retryFailed(sessionId: string, id: string): Promise<Campaign> {
+    const c = await this.require(sessionId, id);
+    if (c.status === 'cancelled' || c.status === 'draft') throw new ConflictException(`Campaign is ${c.status}`);
+    const res = await this.recipients.update(
+      { campaignId: c.id, status: 'failed' },
+      { status: 'pending', error: null, batchId: null },
+    );
+    if (!res.affected) throw new BadRequestException('There are no failed messages to retry');
+    this.pacingHolds.delete(c.id);
+    await this.campaigns.update(c.id, { status: 'running', finishedAt: null, lastError: null });
+    await this.refreshCounts(c.id);
+    return this.require(sessionId, id);
+  }
+
   async remove(sessionId: string, id: string): Promise<void> {
     const c = await this.require(sessionId, id);
     if (c.status === 'running' || c.currentBatchId) {
@@ -233,12 +257,20 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    const hold = this.pacingHolds.get(c.id);
+    if (hold && hold.until > Date.now()) {
+      if (c.lastError !== hold.reason) await this.campaigns.update(c.id, { lastError: hold.reason });
+      return;
+    }
+
     const chunk = await this.recipients.find({
       where: { campaignId: c.id, status: 'pending' },
       order: { phone: 'ASC' },
-      take: CHUNK_SIZE,
+      // Coming out of a pacing hold, probe with one message before sending a full chunk again.
+      take: hold ? 1 : CHUNK_SIZE,
     });
     if (!chunk.length) {
+      this.pacingHolds.delete(c.id);
       await this.refreshCounts(c.id);
       await this.campaigns.update(c.id, { status: 'completed', finishedAt: new Date(), lastError: null });
       this.logger.log('Campaign completed', { campaignId: c.id });
@@ -306,14 +338,26 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     } catch {
       batch = null; // vanished (restore, manual cleanup): treat everything queued as not sent
     }
-    if (batch && !TERMINAL_BATCH.has(batch.status)) return false;
+    if (batch && !TERMINAL_BATCH.has(batch.status)) {
+      // Once the pacing starts refusing, every later item in the batch is refused too, each after the
+      // campaign delay. Stop the batch now; the unsent rest goes back to the queue on the next tick.
+      if (batch.results?.some(r => isPacingRefusal(r.error))) await this.cancelCurrentBatch(c);
+      return false;
+    }
 
     const byChat = new Map((batch?.results ?? []).map(r => [r.chatId, r]));
     const queued = await this.recipients.find({ where: { campaignId: c.id, batchId, status: 'queued' } });
     const now = new Date();
+    let sent = 0;
+    let limited: string | null = null;
     for (const r of queued) {
       const res = byChat.get(`${r.phone}@c.us`);
-      if (res?.status === BatchMessageStatus.SENT) {
+      if (res?.status === BatchMessageStatus.FAILED && isPacingRefusal(res.error)) {
+        // Refused by OpenWA's own daily cap / breaker, not by WhatsApp: not a failure, send it later.
+        limited = res.error?.message ?? 'Send limit reached';
+        await this.recipients.update(r.id, { status: 'pending', batchId: null, error: null });
+      } else if (res?.status === BatchMessageStatus.SENT) {
+        sent++;
         await this.recipients.update(r.id, {
           status: 'sent',
           messageId: res.messageId ?? null,
@@ -327,7 +371,15 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
         await this.recipients.update(r.id, { status: 'pending', batchId: null });
       }
     }
-    await this.campaigns.update(c.id, { currentBatchId: null });
+    if (limited) {
+      const reason = `Paused by the WhatsApp sending limit: ${limited}. Sending resumes automatically.`;
+      this.pacingHolds.set(c.id, { until: Date.now() + PACING_RETRY_MS, reason });
+      this.logger.warn('Campaign held by send pacing', { campaignId: c.id, reason: limited });
+      await this.campaigns.update(c.id, { currentBatchId: null, lastError: reason });
+    } else {
+      if (sent) this.pacingHolds.delete(c.id);
+      await this.campaigns.update(c.id, { currentBatchId: null });
+    }
     await this.refreshCounts(c.id);
     return true;
   }
@@ -396,6 +448,10 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     if (!list) throw new NotFoundException(`Contact list '${listId}' not found`);
     return list;
   }
+}
+
+function isPacingRefusal(error: { code?: string } | null | undefined): boolean {
+  return error?.code === SEND_PACING_LIMITED;
 }
 
 function fileNameOf(url: string): string {

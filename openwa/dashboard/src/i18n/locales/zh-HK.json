@@ -1312,7 +1312,8 @@
         "created": "Campaign created",
         "start": "Campaign started",
         "pause": "Campaign paused",
-        "cancel": "Campaign cancelled"
+        "cancel": "Campaign cancelled",
+        "retry": "Failed messages queued again"
       },
       "messageType": "Message type",
       "types": {
@@ -1330,7 +1331,8 @@
       },
       "mediaHint": "Use a direct public link that opens the file itself (your website, Cloudinary, S3). Google Drive / Dropbox share pages will fail.",
       "captionLabel": "Caption",
-      "audioNote": "Voice notes are sent as recorded audio and carry no text. Send a text campaign separately if you need a message."
+      "audioNote": "Voice notes are sent as recorded audio and carry no text. Send a text campaign separately if you need a message.",
+      "retryFailed": "Retry {{count}} failed"
     },
     "profile": {
       "title": "WhatsApp Profile",
