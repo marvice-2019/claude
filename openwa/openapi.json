@@ -26046,21 +26046,23 @@
           },
           "message": {
             "type": "string",
-            "description": "Message body. {{name}}, {{first_name}}, {{phone}} and any imported column ({{requirement}}) are filled per contact.",
+            "description": "Message body (the caption for image / video / document). {{name}}, {{first_name}}, {{phone}} and any imported column ({{requirement}}) are filled per contact. Required unless mediaType is audio: a voice note carries no text.",
             "example": "Hi {{first_name}}, your {{requirement}} is confirmed. Reply STOP to opt out.",
             "maxLength": 4096
           },
           "mediaUrl": {
             "type": "string",
-            "description": "Public https URL of an image, video or document; message becomes its caption"
+            "description": "Public https URL of the image, video, voice note (audio) or document. Required with mediaType."
           },
           "mediaType": {
             "type": "string",
             "enum": [
               "image",
               "video",
+              "audio",
               "document"
-            ]
+            ],
+            "description": "Omit for a text message"
           },
           "delayMs": {
             "type": "number",
@@ -26087,8 +26089,7 @@
         },
         "required": [
           "name",
-          "listId",
-          "message"
+          "listId"
         ]
       },
       "ErrorResponse": {

@@ -173,6 +173,19 @@ describe('Marvice CampaignsService (SQLite, fake bulk sender)', () => {
     await expect(service.get('s1', c.id)).rejects.toThrow(/not found/);
   });
 
+  it('builds voice notes without text and media with a personalised caption', () => {
+    const row = { phone: '919800000001', name: 'Asha', variables: null } as CampaignRecipient;
+    const base = { message: 'Hi {{name}}', mediaUrl: 'https://cdn.example/x' } as Campaign;
+    const voice = service.buildBatch({ ...base, message: '', mediaType: 'audio' } as Campaign, [row], 'b1');
+    expect(voice.messages[0]).toEqual({
+      chatId: '919800000001@c.us',
+      type: 'audio',
+      content: { audio: { url: 'https://cdn.example/x', ptt: true } },
+    });
+    const image = service.buildBatch({ ...base, mediaType: 'image' } as Campaign, [row], 'b2');
+    expect(image.messages[0].content).toEqual({ image: { url: 'https://cdn.example/x' }, caption: 'Hi Asha' });
+  });
+
   it('starts scheduled campaigns when due and rejects empty audiences', async () => {
     const c = await service.create('s1', {
       name: 'Later',

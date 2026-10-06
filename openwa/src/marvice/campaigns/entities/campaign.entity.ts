@@ -3,7 +3,7 @@ import { DateTransformer } from '../../../common/transformers/date.transformer';
 import { dateColumnType } from '../../../common/utils/column-types';
 
 export type CampaignStatus = 'draft' | 'scheduled' | 'running' | 'paused' | 'completed' | 'cancelled';
-export type CampaignMediaType = 'image' | 'video' | 'document';
+export type CampaignMediaType = 'image' | 'video' | 'audio' | 'document';
 
 /** A one-off broadcast to a contact list. Recipients are snapshotted at creation (CampaignRecipient). */
 @Index('IDX_marvice_campaigns_session', ['sessionId', 'createdAt'])

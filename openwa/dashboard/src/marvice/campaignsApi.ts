@@ -12,7 +12,7 @@ export interface Campaign {
   name: string;
   message: string;
   mediaUrl: string | null;
-  mediaType: 'image' | 'video' | 'document' | null;
+  mediaType: 'image' | 'video' | 'audio' | 'document' | null;
   status: CampaignStatus;
   delayMs: number;
   scheduledAt: string | null;
@@ -57,7 +57,7 @@ export interface NewCampaign {
   listId: string;
   message: string;
   mediaUrl?: string;
-  mediaType?: 'image' | 'video' | 'document';
+  mediaType?: 'image' | 'video' | 'audio' | 'document';
   delayMs: number;
   scheduledAt?: string;
   onlyVerified?: boolean;

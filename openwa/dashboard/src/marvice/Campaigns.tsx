@@ -1,7 +1,22 @@
 // Marvice Modules — Campaigns page: create, schedule, track and report on broadcasts to a contact list.
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, Loader2, Megaphone, Pause, Play, Plus, Send, Trash2, XCircle } from 'lucide-react';
+import {
+  Download,
+  FileText,
+  Image as ImageIcon,
+  Loader2,
+  Megaphone,
+  Mic,
+  Pause,
+  Play,
+  Plus,
+  Send,
+  Trash2,
+  Type,
+  Video,
+  XCircle,
+} from 'lucide-react';
 import { useSessionsQuery } from '../hooks/queries';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRole } from '../hooks/useRole';
@@ -30,6 +45,22 @@ const SPEEDS = [
   { ms: 8000, key: 'normal' },
   { ms: 4000, key: 'fast' },
 ] as const;
+
+type MessageType = 'text' | 'image' | 'video' | 'audio' | 'document';
+// The bulk sender handles these five. Location, contact, sticker and poll messages are single-send only.
+const MESSAGE_TYPES: { key: MessageType; Icon: typeof FileText }[] = [
+  { key: 'text', Icon: Type },
+  { key: 'image', Icon: ImageIcon },
+  { key: 'video', Icon: Video },
+  { key: 'audio', Icon: Mic },
+  { key: 'document', Icon: FileText },
+];
+const MEDIA_PLACEHOLDER: Record<Exclude<MessageType, 'text'>, string> = {
+  image: 'https://…/offer.jpg',
+  video: 'https://…/promo.mp4',
+  audio: 'https://…/voice-note.ogg',
+  document: 'https://…/menu.pdf',
+};
 
 const errorMessage = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0);
@@ -442,7 +473,10 @@ function NewCampaignModal({
   const [tag, setTag] = useState('');
   const [onlyVerified, setOnlyVerified] = useState(false);
   const [mediaUrl, setMediaUrl] = useState('');
-  const [mediaType, setMediaType] = useState<'image' | 'video' | 'document'>('image');
+  const [msgType, setMsgType] = useState<MessageType>('text');
+  const isAudio = msgType === 'audio';
+  // A voice note has no caption; the preview still needs a body to count the audience.
+  const previewBody = isAudio ? '🎤' : message;
   const [delayMs, setDelayMs] = useState(8000);
   const [when, setWhen] = useState<'now' | 'later' | 'draft'>('now');
   const [scheduledAt, setScheduledAt] = useState('');
@@ -455,10 +489,10 @@ function NewCampaignModal({
 
   // Live preview: audience size + the message rendered for real contacts.
   useEffect(() => {
-    if (!listId || !message.trim()) return;
+    if (!listId || !previewBody.trim()) return;
     const timer = setTimeout(() => {
       campaignsApi
-        .preview(sessionId, { listId, message, onlyVerified, tag: tag.trim() || undefined })
+        .preview(sessionId, { listId, message: previewBody, onlyVerified, tag: tag.trim() || undefined })
         .then(p => {
           setPreview(p);
           setPreviewError('');
@@ -466,7 +500,7 @@ function NewCampaignModal({
         .catch((err: unknown) => setPreviewError(errorMessage(err, '')));
     }, 400);
     return () => clearTimeout(timer);
-  }, [sessionId, listId, message, onlyVerified, tag]);
+  }, [sessionId, listId, previewBody, onlyVerified, tag]);
 
   const insert = (v: string) => setMessage(prev => `${prev}{{${v}}}`);
 
@@ -474,13 +508,13 @@ function NewCampaignModal({
     const body: NewCampaign = {
       name: name.trim(),
       listId,
-      message,
+      message: isAudio ? '' : message,
       delayMs,
       onlyVerified,
       tag: tag.trim() || undefined,
       startNow: when === 'now',
       scheduledAt: when === 'later' && scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
-      ...(mediaUrl.trim() ? { mediaUrl: mediaUrl.trim(), mediaType } : {}),
+      ...(msgType !== 'text' ? { mediaUrl: mediaUrl.trim(), mediaType: msgType } : {}),
     };
     try {
       const created = await m.create.mutateAsync(body);
@@ -492,7 +526,12 @@ function NewCampaignModal({
   };
 
   const canSubmit =
-    name.trim() && listId && message.trim() && (preview?.recipients ?? 0) > 0 && (when !== 'later' || scheduledAt);
+    name.trim() &&
+    listId &&
+    (isAudio || message.trim()) &&
+    (msgType === 'text' || /^https:\/\/\S+$/.test(mediaUrl.trim())) &&
+    (preview?.recipients ?? 0) > 0 &&
+    (when !== 'later' || scheduledAt);
 
   return (
     <Modal
@@ -554,7 +593,41 @@ function NewCampaignModal({
           </label>
 
           <div className="form-group">
-            <label htmlFor="mcp-message">{t('marvice.campaigns.messageLabel')}</label>
+            <span className="mcp-label">{t('marvice.campaigns.messageType')}</span>
+            <div className="mcp-types" role="radiogroup" aria-label={t('marvice.campaigns.messageType')}>
+              {MESSAGE_TYPES.map(({ key, Icon }) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="radio"
+                  aria-checked={msgType === key}
+                  className={`mcp-type ${msgType === key ? 'active' : ''}`}
+                  onClick={() => setMsgType(key)}
+                >
+                  <Icon size={16} /> {t(`marvice.campaigns.types.${key}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {msgType !== 'text' && (
+            <div className="form-group">
+              <label htmlFor="mcp-media">{t(`marvice.campaigns.mediaLink.${msgType}`)}</label>
+              <input
+                id="mcp-media"
+                type="url"
+                value={mediaUrl}
+                placeholder={MEDIA_PLACEHOLDER[msgType]}
+                onChange={e => setMediaUrl(e.target.value)}
+              />
+              <span className="mc-muted">{t('marvice.campaigns.mediaHint')}</span>
+            </div>
+          )}
+
+          <div className="form-group" hidden={isAudio}>
+            <label htmlFor="mcp-message">
+              {msgType === 'text' ? t('marvice.campaigns.messageLabel') : t('marvice.campaigns.captionLabel')}
+            </label>
             <textarea
               id="mcp-message"
               rows={5}
@@ -576,34 +649,7 @@ function NewCampaignModal({
             )}
           </div>
 
-          <div className="mc-row">
-            <div className="form-group mcp-grow">
-              <label htmlFor="mcp-media">{t('marvice.campaigns.media')}</label>
-              <input
-                id="mcp-media"
-                type="url"
-                value={mediaUrl}
-                placeholder="https://…/offer.jpg"
-                onChange={e => setMediaUrl(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="mcp-media-type">{t('marvice.campaigns.mediaType')}</label>
-              <select
-                id="mcp-media-type"
-                className="mc-select"
-                value={mediaType}
-                disabled={!mediaUrl.trim()}
-                onChange={e => setMediaType(e.target.value as 'image' | 'video' | 'document')}
-              >
-                {(['image', 'video', 'document'] as const).map(v => (
-                  <option key={v} value={v}>
-                    {t(`marvice.campaigns.mediaTypes.${v}`)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          {isAudio && <p className="mc-muted">{t('marvice.campaigns.audioNote')}</p>}
 
           <div className="mc-row">
             <div className="form-group">

@@ -1313,7 +1313,24 @@
         "start": "Campaign started",
         "pause": "Campaign paused",
         "cancel": "Campaign cancelled"
-      }
+      },
+      "messageType": "Message type",
+      "types": {
+        "text": "Text",
+        "image": "Image",
+        "video": "Video",
+        "audio": "Voice note",
+        "document": "Document"
+      },
+      "mediaLink": {
+        "image": "Image link (https)",
+        "video": "Video link (https, MP4)",
+        "audio": "Audio link (https, OGG / MP3 / M4A)",
+        "document": "Document link (https, PDF etc.)"
+      },
+      "mediaHint": "Use a direct public link that opens the file itself (your website, Cloudinary, S3). Google Drive / Dropbox share pages will fail.",
+      "captionLabel": "Caption",
+      "audioNote": "Voice notes are sent as recorded audio and carry no text. Send a text campaign separately if you need a message."
     },
     "profile": {
       "title": "WhatsApp Profile",

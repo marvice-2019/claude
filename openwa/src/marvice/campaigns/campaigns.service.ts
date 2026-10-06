@@ -105,7 +105,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
         sessionId,
         listId: list.id,
         name: dto.name.trim(),
-        message: dto.message,
+        message: dto.mediaType === 'audio' ? '' : dto.message,
         mediaUrl: dto.mediaUrl ?? null,
         mediaType: dto.mediaUrl ? (dto.mediaType ?? null) : null,
         delayMs: dto.delayMs ?? 8000,
@@ -279,6 +279,10 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     const messages = rows.map(r => {
       const text = renderForRecipient(c.message, recipientVars(r));
       const chatId = `${r.phone}@c.us`;
+      if (c.mediaUrl && c.mediaType === 'audio') {
+        // A voice note: WhatsApp shows it as recorded audio and carries no caption.
+        return { chatId, type: 'audio' as const, content: { audio: { url: c.mediaUrl, ptt: true } } };
+      }
       if (c.mediaUrl && c.mediaType) {
         const media =
           c.mediaType === 'document' ? { url: c.mediaUrl, filename: fileNameOf(c.mediaUrl) } : { url: c.mediaUrl };
