@@ -176,13 +176,13 @@ describe('Marvice CampaignsService (SQLite, fake bulk sender)', () => {
   it('builds voice notes without text and media with a personalised caption', () => {
     const row = { phone: '919800000001', name: 'Asha', variables: null } as CampaignRecipient;
     const base = { message: 'Hi {{name}}', mediaUrl: 'https://cdn.example/x' } as Campaign;
-    const voice = service.buildBatch({ ...base, message: '', mediaType: 'audio' } as Campaign, [row], 'b1');
+    const voice = service.buildBatch({ ...base, message: '', mediaType: 'audio' }, [row], 'b1');
     expect(voice.messages[0]).toEqual({
       chatId: '919800000001@c.us',
       type: 'audio',
       content: { audio: { url: 'https://cdn.example/x', ptt: true } },
     });
-    const image = service.buildBatch({ ...base, mediaType: 'image' } as Campaign, [row], 'b2');
+    const image = service.buildBatch({ ...base, mediaType: 'image' }, [row], 'b2');
     expect(image.messages[0].content).toEqual({ image: { url: 'https://cdn.example/x' }, caption: 'Hi Asha' });
   });
 
