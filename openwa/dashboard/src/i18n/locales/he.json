@@ -1246,7 +1246,8 @@
         "overLimit": "Rows over the limit: {{count}}",
         "variables": "Variables",
         "verifying": "Verification queued for {{count}} numbers",
-        "tooLarge": "File is larger than 2 MB. Split it and import in parts."
+        "tooLarge": "File is larger than 2 MB. Split it and import in parts.",
+        "verifySkipped": "Session is not connected, so numbers were not verified. Connect it, then press Verify numbers."
       }
     }
   }

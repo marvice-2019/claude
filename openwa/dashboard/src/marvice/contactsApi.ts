@@ -54,6 +54,7 @@ export interface ImportSummary {
   invalidSamples: string[];
   columns: { phone: string; name: string | null; tags: string | null; variables: string[] };
   verificationQueued: number;
+  verificationSkipped: boolean;
 }
 
 export interface ContactQuery {

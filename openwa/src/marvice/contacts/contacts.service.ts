@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, In, Repository } from 'typeorm';
 import { ContactList } from './entities/contact-list.entity';
 import { Contact } from './entities/contact.entity';
-import { Session } from '../../modules/session/entities/session.entity';
+import { Session, SessionStatus } from '../../modules/session/entities/session.entity';
 import { ContactService } from '../../modules/contact/contact.service';
 import { createLogger } from '../../common/services/logger.service';
 import { isUniqueViolation } from '../../common/utils/db-errors';
@@ -39,6 +39,8 @@ export interface ImportSummary {
   invalidSamples: string[];
   columns: { phone: string; name: string | null; tags: string | null; variables: string[] };
   verificationQueued: number;
+  /** Verification was requested but the session is not connected; numbers stay pending. */
+  verificationSkipped: boolean;
 }
 
 /** Gap between WhatsApp number lookups during verification: bulk lookups put the account at risk. */
@@ -161,7 +163,9 @@ export class ContactsService {
       await this.contacts.save(toSave.slice(i, i + INSERT_CHUNK));
     }
 
-    const queued = dto.verify === false ? 0 : await this.startVerification(sessionId, list.id);
+    // Lookups need a connected session; otherwise every number would land in check_failed for nothing.
+    const sessionReady = await this.isSessionReady(sessionId);
+    const queued = dto.verify === false || !sessionReady ? 0 : await this.startVerification(sessionId, list.id);
     this.logger.log('Contacts imported', { sessionId, listId: list.id, rows: parsed.totalRows, saved: toSave.length });
     return {
       listId: list.id,
@@ -174,6 +178,7 @@ export class ContactsService {
       invalidSamples: parsed.invalidSamples,
       columns: parsed.columns,
       verificationQueued: queued,
+      verificationSkipped: dto.verify !== false && !sessionReady,
     };
   }
 
@@ -182,6 +187,9 @@ export class ContactsService {
   /** Starts (or joins) the background check of every pending / failed contact; returns how many await it. */
   async startVerification(sessionId: string, listId: string): Promise<number> {
     const list = await this.requireList(sessionId, listId);
+    if (!(await this.isSessionReady(sessionId))) {
+      throw new ConflictException('Session is not connected to WhatsApp; connect it, then verify');
+    }
     const waiting = await this.contacts.count({
       where: { listId: list.id, waStatus: In(['pending', 'check_failed']) },
     });
@@ -190,6 +198,10 @@ export class ContactsService {
       void this.runVerification(sessionId, list.id).finally(() => this.verifying.delete(list.id));
     }
     return waiting;
+  }
+
+  private async isSessionReady(sessionId: string): Promise<boolean> {
+    return this.sessions.exists({ where: { id: sessionId, status: SessionStatus.READY } });
   }
 
   isVerifying(listId: string): boolean {

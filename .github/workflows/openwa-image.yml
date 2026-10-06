@@ -1,0 +1,161 @@
+# Builds the Marvice fork of OpenWA (openwa/, vendored via git subtree) into
+# ghcr.io/marvice-2019/openwa-marvice, which whatsapp.marvice.tech runs on Coolify.
+#
+# Every push that touches openwa/ runs the fork's gates (backend, Postgres migrations,
+# dashboard). The image is pushed only when all of them pass. Tags:
+#   sha-<7>  immutable. Coolify pins to this one, so rollback = previous sha tag
+#   latest   moving pointer to the newest green build
+# Emergency rollback to stock upstream: set the image back to ghcr.io/rmyndharis/openwa:latest.
+# The fork's tables are additive (marvice_*), so stock OpenWA boots fine on the same database.
+
+name: OpenWA fork image
+
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths:
+      - "openwa/**"
+      - ".github/workflows/openwa-image.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: openwa-image-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+  IMAGE: ghcr.io/marvice-2019/openwa-marvice
+
+defaults:
+  run:
+    working-directory: openwa
+
+jobs:
+  backend:
+    name: Backend gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: openwa/package-lock.json
+      - run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+      - run: npx tsc --noEmit -p tsconfig.json
+      - run: npx eslint src/marvice src/app.module.ts src/database/data-source.ts src/modules/infra
+      - run: npm run openapi:check
+      - name: Docs/contract lane
+        run: npm run test:docs
+      - name: Fork + touched upstream suites
+        run: npx jest src/marvice src/modules/infra src/common
+
+  postgres:
+    name: Postgres migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: openwa
+          POSTGRES_PASSWORD: openwa
+          POSTGRES_DB: openwa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U openwa"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: openwa/package-lock.json
+      - run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+      - run: npm run build
+      - name: Full migration chain (upstream + fork) on a fresh Postgres
+        run: npm run test:pg-smoke
+        env:
+          DATABASE_TYPE: postgres
+          DATABASE_HOST: localhost
+          DATABASE_PORT: "5432"
+          DATABASE_USERNAME: openwa
+          DATABASE_PASSWORD: openwa
+          DATABASE_NAME: openwa
+
+  dashboard:
+    name: Dashboard gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: openwa/dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: openwa/dashboard/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm run i18n:check
+      - run: npm run test:unit
+      - run: npm run build
+
+  image:
+    name: Build & push image
+    needs: [backend, postgres, dashboard]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=OpenWA (Marvice fork)
+            org.opencontainers.image.vendor=Marvice Media Pvt Ltd
+      - uses: docker/build-push-action@v6
+        with:
+          context: openwa
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Summary
+        working-directory: .
+        run: |
+          echo "### Image pushed" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ steps.meta.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

@@ -17684,9 +17684,6 @@
           }
         ],
         "responses": {
-          "201": {
-            "description": ""
-          },
           "401": {
             "description": "The API key is missing, unknown, revoked, or expired",
             "content": {
@@ -17699,6 +17696,16 @@
           },
           "403": {
             "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The session is not connected to WhatsApp",
             "content": {
               "application/json": {
                 "schema": {

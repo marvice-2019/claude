@@ -450,3 +450,7 @@
     grid-template-columns: 1fr;
   }
 }
+
+.mc-warn {
+  color: var(--warning-text);
+}

@@ -28,7 +28,11 @@ async function main() {
     username: process.env.DATABASE_USERNAME || 'openwa',
     password: process.env.DATABASE_PASSWORD || 'openwa',
     database: process.env.DATABASE_NAME || 'openwa',
-    migrations: [path.join(__dirname, '..', 'dist', 'database', 'migrations', '*.js')],
+    migrations: [
+      path.join(__dirname, '..', 'dist', 'database', 'migrations', '*.js'),
+      // Marvice fork: the fork's own migrations run in the same chain at boot.
+      path.join(__dirname, '..', 'dist', 'marvice', 'migrations', '*.js'),
+    ],
     ...(useCustomSearchPath ? { extra: { options: `-c search_path=${schema},public` } } : {}),
   });
 

@@ -7252,7 +7252,7 @@ Import contacts from CSV text (`,` or `;` delimited, header row required). The p
 
 **Request body** — `ImportContactsDto`: `csv` (string, required), `defaultCountryCode` (digits, default `91`), `consent` (must be `true`), `verify` (boolean, default `true`).
 
-**Response** `201` — `{ listId, totalRows, added, updated, invalid, duplicates, overLimit, invalidSamples, columns, verificationQueued }`.
+**Response** `201` — `{ listId, totalRows, added, updated, invalid, duplicates, overLimit, invalidSamples, columns, verificationQueued, verificationSkipped }`. `verificationSkipped` is `true` when verification was requested but the session is not connected; numbers stay `pending` until **Verify** runs.
 
 **Errors:** `400` no phone column, no valid numbers, or `consent` not `true` · `404` unknown list.
 
@@ -7264,7 +7264,7 @@ Start (or join) the background WhatsApp check of the list's pending and failed n
 
 **Response** `201` — `{ queued }`, the number of contacts awaiting a check.
 
-**Errors:** `404` unknown list.
+**Errors:** `404` unknown list · `409` session not connected to WhatsApp.
 
 #### GET /api/sessions/:sessionId/marvice/contacts/lists/:listId/contacts
 

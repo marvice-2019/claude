@@ -607,6 +607,9 @@ function ImportModal({
             {result.verificationQueued > 0 && (
               <li>{t('marvice.contacts.importDialog.verifying', { count: result.verificationQueued })}</li>
             )}
+            {result.verificationSkipped && (
+              <li className="mc-warn">{t('marvice.contacts.importDialog.verifySkipped')}</li>
+            )}
           </ul>
         </div>
       ) : (

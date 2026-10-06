@@ -52,6 +52,7 @@ export class ContactsController {
   @Post('lists/:listId/verify')
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Check pending / failed numbers on WhatsApp (background, paced)' })
+  @ApiResponse({ status: 409, description: 'The session is not connected to WhatsApp' })
   async verify(@Param('sessionId') sessionId: string, @Param('listId') listId: string) {
     return { queued: await this.contacts.startVerification(sessionId, listId) };
   }

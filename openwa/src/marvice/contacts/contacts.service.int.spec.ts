@@ -113,6 +113,18 @@ describe('Marvice ContactsService (SQLite, real migrations)', () => {
     expect(summary.counts).toMatchObject({ checkFailed: 5, pending: 3 });
   });
 
+  it('only verifies on a connected session', async () => {
+    const list = await service.createList('s1', { name: 'Gate' });
+    const imported = await service.importCsv('s1', list.id, { csv: 'phone\n9100000100', consent: true });
+    expect(imported).toMatchObject({ verificationQueued: 0, verificationSkipped: true });
+    await expect(service.startVerification('s1', list.id)).rejects.toThrow(/not connected/);
+
+    await ds.query(`UPDATE "sessions" SET "status" = 'ready' WHERE "id" = 's1'`);
+    getNumberId.mockReset().mockResolvedValue(null);
+    expect(await service.startVerification('s1', list.id)).toBe(1);
+    await ds.query(`UPDATE "sessions" SET "status" = 'created' WHERE "id" = 's1'`);
+  });
+
   it('cascades contacts away with their list', async () => {
     const lists = await service.listLists('s1');
     for (const l of lists) await service.deleteList('s1', l.id);
