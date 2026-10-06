@@ -7295,3 +7295,95 @@ Delete a contact.
 **Response** `204`
 
 **Errors:** `404` unknown contact on this session.
+
+### Campaigns
+
+Broadcasts to a contact list. Creating a campaign snapshots the list's eligible contacts (opted in, not known to be off WhatsApp; optionally only verified, or only one tag) as recipients. Sending runs in the background through the bulk sender in chunks of 100 at `delayMs` (+0–2 s jitter), waits while the session is disconnected, and re-checks opt-outs before every chunk. `{{name}}`, `{{first_name}}`, `{{phone}}` and every imported CSV column are filled per contact; a placeholder with no value is removed, never sent literally.
+
+#### GET /api/sessions/:sessionId/marvice/campaigns
+
+List campaigns, newest first, with `status` (`draft`, `scheduled`, `running`, `paused`, `completed`, `cancelled`), `total`, `sent`, `failed`, `skipped` and `lastError` (why it is waiting).
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — array of campaigns.
+
+#### POST /api/sessions/:sessionId/marvice/campaigns/preview
+
+Count the audience for `listId` (+ `onlyVerified`, `tag`) and render `message` for the first three contacts. Returns `{ recipients, sample, variables, unknownVariables }`.
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200`
+
+**Errors:** `404` unknown list.
+
+#### POST /api/sessions/:sessionId/marvice/campaigns
+
+Create a campaign. Body: `name`, `listId`, `message`, optional `mediaUrl` (https) + `mediaType` (`image`, `video`, `document`; the message becomes the caption), `delayMs` (3000–60000, default 8000), `scheduledAt` (ISO), `onlyVerified`, `tag`, `startNow`.
+
+**Auth:** API key (OPERATOR)
+
+**Response** `201` — the campaign.
+
+**Errors:** `400` no eligible contacts, or `mediaUrl` without `mediaType` · `404` unknown list.
+
+#### GET /api/sessions/:sessionId/marvice/campaigns/:campaignId
+
+One campaign with `counts` per recipient status (`pending`, `queued`, `sent`, `failed`, `skipped`).
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200`
+
+**Errors:** `404` unknown campaign.
+
+#### DELETE /api/sessions/:sessionId/marvice/campaigns/:campaignId
+
+Delete a campaign and its recipient report.
+
+**Auth:** API key (OPERATOR)
+
+**Response** `204`
+
+**Errors:** `404` unknown campaign · `409` still sending (pause or cancel first).
+
+#### POST /api/sessions/:sessionId/marvice/campaigns/:campaignId/start
+
+Start a draft or scheduled campaign now, or resume a paused one.
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — the campaign.
+
+**Errors:** `404` unknown campaign · `409` already running, completed or cancelled.
+
+#### POST /api/sessions/:sessionId/marvice/campaigns/:campaignId/pause
+
+Pause. The chunk in flight is cancelled and its unsent messages return to the queue for resume.
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — the campaign.
+
+**Errors:** `404` unknown campaign · `409` not running or scheduled.
+
+#### POST /api/sessions/:sessionId/marvice/campaigns/:campaignId/cancel
+
+Cancel for good. Unsent messages are marked `skipped`.
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — the campaign.
+
+**Errors:** `404` unknown campaign · `409` already completed or cancelled.
+
+#### GET /api/sessions/:sessionId/marvice/campaigns/:campaignId/recipients
+
+The delivery report. Query: `page`, `limit` (1–200), `status` (`pending`, `queued`, `sent`, `failed`, `skipped`). Each row has `phone`, `name`, `status`, `messageId`, `error` and `sentAt`.
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — `{ items, total, page, limit }`.
+
+**Errors:** `404` unknown campaign.

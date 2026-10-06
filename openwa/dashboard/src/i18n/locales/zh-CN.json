@@ -65,6 +65,8 @@
     "webhooks": "Webhooks",
     "templates": "模板",
     "contacts": "Contacts",
+    "campaigns": "Campaigns",
+    "profile": "WhatsApp Profile",
     "apiKeys": "API 密钥",
     "messageTester": "消息测试器",
     "infrastructure": "基础设施",
@@ -1235,6 +1237,113 @@
         "verifying": "Verification queued for {{count}} numbers",
         "tooLarge": "File is larger than 2 MB. Split it and import in parts.",
         "verifySkipped": "Session is not connected, so numbers were not verified. Connect it, then press Verify numbers."
+      }
+    },
+    "campaigns": {
+      "title": "Campaigns",
+      "subtitle": "Send personalised WhatsApp broadcasts to a contact list and track every delivery.",
+      "new": "New campaign",
+      "all": "Campaigns",
+      "none": "No campaigns yet.",
+      "startTitle": "Create your first campaign",
+      "startDesc": "Pick a contact list, write the message with the contact name or any imported column, and send now or later.",
+      "sentOf": "{{sent}} / {{total}} sent",
+      "meta": "Started {{started}} · Finished {{finished}} · Delivery rate {{rate}}%",
+      "sendNow": "Send now",
+      "resume": "Resume",
+      "pause": "Pause",
+      "cancel": "Cancel",
+      "exportAll": "Export report",
+      "exportFailed": "Export failed",
+      "messageLabel": "Message",
+      "sentAt": "Sent at",
+      "error": "Reason",
+      "noRows": "No recipients in this view.",
+      "deleteTitle": "Delete campaign",
+      "deleteConfirm": "Delete \"{{name}}\" and its delivery report?",
+      "noLists": "Create a contact list and import contacts first (Contacts page).",
+      "namePlaceholder": "e.g. Diwali weekend offer",
+      "list": "Contact list",
+      "tag": "Only tag (optional)",
+      "tagPlaceholder": "e.g. vip",
+      "onlyVerified": "Only numbers verified on WhatsApp",
+      "unknownVars": "No data for: {{vars}}. These will be left blank.",
+      "media": "Image / video / PDF link (optional)",
+      "mediaType": "Media type",
+      "speed": "Sending speed",
+      "when": "When",
+      "whenNow": "Send now",
+      "whenLater": "Schedule",
+      "whenDraft": "Save as draft",
+      "at": "Send at",
+      "previewTitle": "Preview · {{count}} recipients",
+      "status": {
+        "draft": "Draft",
+        "scheduled": "Scheduled",
+        "running": "Sending",
+        "paused": "Paused",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      },
+      "report": {
+        "total": "All recipients",
+        "sent": "Sent",
+        "failed": "Failed",
+        "skipped": "Skipped",
+        "pending": "Waiting",
+        "queued": "Sending"
+      },
+      "speeds": {
+        "safe": "Safe — ~15 s apart (recommended for new numbers)",
+        "normal": "Normal — ~8 s apart",
+        "fast": "Fast — ~4 s apart (warmed-up numbers only)"
+      },
+      "mediaTypes": {
+        "image": "Image",
+        "video": "Video",
+        "document": "Document"
+      },
+      "submit": {
+        "now": "Send to {{count}}",
+        "later": "Schedule for {{count}}",
+        "draft": "Save draft"
+      },
+      "toasts": {
+        "created": "Campaign created",
+        "start": "Campaign started",
+        "pause": "Campaign paused",
+        "cancel": "Campaign cancelled"
+      }
+    },
+    "profile": {
+      "title": "WhatsApp Profile",
+      "subtitle": "Set the sender name, display picture and About that customers see on your messages.",
+      "notReady": "Connect this session first: profile changes need a live WhatsApp connection.",
+      "picture": "Display picture",
+      "choose": "Choose photo",
+      "savePhoto": "Set as display picture",
+      "removePhoto": "Remove photo",
+      "photoHint": "Square logo works best. The photo is centre-cropped to 640×640 before upload (max 5 MB).",
+      "notImage": "Choose an image file (JPG or PNG).",
+      "tooLarge": "Image is larger than 5 MB.",
+      "identity": "Sender details",
+      "name": "Sender name",
+      "nameHint": "Shown as \"~ Name\" to people who have not saved your number.",
+      "about": "About",
+      "aboutPlaceholder": "e.g. Bookings & offers · Reply STOP to opt out",
+      "visibilityTitle": "Make sure unsaved contacts can see them",
+      "visibilityIntro": "WhatsApp shows the sender name to everyone, but the photo and About follow the privacy settings on the phone linked to this session.",
+      "visibility": {
+        "name": "Sender name: shown automatically next to your number in every new chat, even when the customer has not saved you.",
+        "photo": "Display picture: on the linked phone open Settings → Privacy → Profile photo and choose \"Everyone\". With \"My contacts\" unsaved customers see a blank avatar.",
+        "about": "About: in the same Privacy screen set About to \"Everyone\".",
+        "business": "Best results: use the WhatsApp Business app on that number. Customers then see your business name and logo even before saving the number, plus a \"Business account\" label."
+      },
+      "toasts": {
+        "name": "Sender name updated",
+        "about": "About updated",
+        "photo": "Display picture updated",
+        "removed": "Display picture removed"
       }
     }
   }

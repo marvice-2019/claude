@@ -310,4 +310,6 @@ export const EXPORT_TABLE_EXCLUSIONS: Readonly<Record<string, string>> = {
   // leaves them in place; they are backed up with the database itself (Coolify Postgres backups).
   marvice_contact_lists: 'Marvice fork table, kept across restores and backed up with the database',
   marvice_contacts: 'Marvice fork table, kept across restores and backed up with the database',
+  marvice_campaigns: 'Marvice fork table, kept across restores and backed up with the database',
+  marvice_campaign_recipients: 'Marvice fork table, kept across restores and backed up with the database',
 };

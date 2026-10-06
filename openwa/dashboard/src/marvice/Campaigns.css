@@ -1,0 +1,187 @@
+/* Marvice fork: Campaigns page. Builds on Contacts.css (shared mc- layout); campaign-only rules use mcp-. */
+
+.mc-page .mcp-item {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+}
+
+.mc-page .mcp-item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.mcp-progress {
+  display: flex;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.mcp-progress span {
+  height: 100%;
+  transition: width 0.4s ease;
+}
+
+.mcp-bar-sent {
+  background: var(--primary);
+}
+
+.mcp-bar-failed {
+  background: var(--error-text);
+}
+
+.mcp-bar-skipped {
+  background: var(--warning-text);
+}
+
+.mc-page .mcp-status-draft,
+.mc-page .mcp-status-cancelled {
+  background: var(--bg-light);
+  color: var(--text-muted);
+}
+
+.mc-page .mcp-status-scheduled,
+.mc-page .mcp-status-paused {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning-text);
+}
+
+.mc-page .mcp-status-running {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--text-primary);
+}
+
+.mc-page .mcp-status-completed,
+.mc-page .mcp-r-sent {
+  background: rgba(37, 211, 102, 0.15);
+  color: var(--primary-text);
+}
+
+.mc-page .mcp-r-failed {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--error-text);
+}
+
+.mc-page .mcp-r-skipped {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning-text);
+}
+
+.mc-page .mcp-r-pending,
+.mc-page .mcp-r-queued {
+  background: var(--bg-light);
+  color: var(--text-muted);
+}
+
+.mc-page .mcp-stat-sent .mc-stat-value {
+  color: var(--primary-text);
+}
+
+.mc-page .mcp-stat-failed .mc-stat-value {
+  color: var(--error-text);
+}
+
+.mc-page .mcp-stat-skipped .mc-stat-value {
+  color: var(--warning-text);
+}
+
+.mc-page .mcp-banner {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.mc-page .mcp-message {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.875rem;
+}
+
+.mc-page .mcp-message summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.mc-page .mcp-message p {
+  white-space: pre-wrap;
+  margin: 0.5rem 0 0;
+}
+
+.mc-page .mcp-error-cell {
+  max-width: 320px;
+  color: var(--error-text);
+  font-size: 0.8125rem;
+}
+
+/* New campaign dialog (rendered inside the Modal, so not scoped under .mc-page) */
+.mcp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.mcp-form textarea,
+.mcp-form input:not([type='checkbox']) {
+  width: 100%;
+}
+
+.mcp-grow {
+  flex: 1 1 260px;
+}
+
+.mcp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+
+.mcp-chip {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-light);
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.mcp-chip:hover {
+  border-color: var(--primary);
+  color: var(--text-primary);
+}
+
+.mcp-preview {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: var(--bg-light);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mcp-bubble {
+  align-self: flex-start;
+  max-width: 90%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px 10px 10px 2px;
+  background: var(--primary-soft);
+  border: 1px solid var(--border);
+}
+
+.mcp-bubble p {
+  margin: 0.2rem 0 0;
+  white-space: pre-wrap;
+  font-size: 0.875rem;
+}

@@ -22,6 +22,8 @@ import {
   ChevronRight,
   Languages,
   Users,
+  Megaphone,
+  BadgeCheck,
 } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { useRole, type UserRole } from '../hooks/useRole';
@@ -43,6 +45,8 @@ const allNavItems = [
   { to: '/templates', icon: ClipboardList, key: 'templates' as const, adminOnly: false },
   // Marvice fork: contact lists module.
   { to: '/contacts', icon: Users, key: 'contacts' as const, adminOnly: false },
+  { to: '/campaigns', icon: Megaphone, key: 'campaigns' as const, adminOnly: false },
+  { to: '/profile', icon: BadgeCheck, key: 'profile' as const, adminOnly: false },
   { to: '/api-keys', icon: Key, key: 'apiKeys' as const, adminOnly: true, unscopedOnly: true },
   { to: '/message-tester', icon: Send, key: 'messageTester' as const, adminOnly: false },
   // Backend /infra/* is ADMIN-only; hide the nav item from non-admins (UX + defense-in-depth).

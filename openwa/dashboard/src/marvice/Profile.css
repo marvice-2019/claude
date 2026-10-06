@@ -1,0 +1,91 @@
+/* Marvice fork: WhatsApp Profile page. Reuses Contacts.css panels; profile-only rules use mpf-. */
+
+.mc-page .mpf-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 1.25rem;
+}
+
+.mc-page .mpf-banner {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.mc-page .mpf-photo-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  align-items: center;
+}
+
+.mc-page .mpf-avatar {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-light);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.mc-page .mpf-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mc-page .mpf-photo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+  max-width: 280px;
+}
+
+.mc-page .mpf-inline {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.mc-page .mpf-inline input {
+  flex: 1;
+  min-width: 0;
+}
+
+.mc-page .mpf-checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  font-size: 0.875rem;
+}
+
+.mc-page .mpf-checklist li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.mc-page .mpf-checklist svg {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  color: var(--primary);
+}
+
+.mc-page h2 svg {
+  vertical-align: -3px;
+}
+
+@media (max-width: 860px) {
+  .mc-page .mpf-grid {
+    grid-template-columns: 1fr;
+  }
+}

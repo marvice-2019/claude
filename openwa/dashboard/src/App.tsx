@@ -25,6 +25,8 @@ const Infrastructure = lazy(() => import('./pages/Infrastructure').then(m => ({ 
 const Plugins = lazy(() => import('./pages/Plugins'));
 // Marvice fork modules.
 const Contacts = lazy(() => import('./marvice/Contacts').then(m => ({ default: m.Contacts })));
+const Campaigns = lazy(() => import('./marvice/Campaigns').then(m => ({ default: m.Campaigns })));
+const Profile = lazy(() => import('./marvice/Profile').then(m => ({ default: m.Profile })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -127,6 +129,8 @@ function AppContent() {
               <Route path="webhooks" element={<Webhooks />} />
               <Route path="templates" element={<Templates />} />
               <Route path="contacts" element={<Contacts />} />
+              <Route path="campaigns" element={<Campaigns />} />
+              <Route path="profile" element={<Profile />} />
               {role === 'admin' && !scoped && <Route path="api-keys" element={<ApiKeys />} />}
               {role === 'admin' && <Route path="logs" element={<Logs />} />}
               <Route path="message-tester" element={<MessageTester />} />
