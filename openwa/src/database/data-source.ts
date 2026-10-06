@@ -52,8 +52,12 @@ const dataEntities = [
   sourceGlob('..', 'modules', 'integration', '**', '*.entity{.ts,.js}'),
   sourceGlob('..', 'modules', 'status-store', '**', '*.entity{.ts,.js}'),
   sourceGlob('..', 'modules', 'automation', '**', '*.entity{.ts,.js}'),
+  sourceGlob('..', 'marvice', '**', '*.entity{.ts,.js}'), // Marvice fork
 ];
-const dataMigrations = [sourceGlob('migrations', '*{.ts,.js}')];
+const dataMigrations = [
+  sourceGlob('migrations', '*{.ts,.js}'),
+  sourceGlob('..', 'marvice', 'migrations', '*{.ts,.js}'),
+];
 
 // SQLite configuration
 const sqliteDataSourceOptions: DataSourceOptions = {

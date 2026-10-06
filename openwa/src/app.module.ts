@@ -14,6 +14,7 @@ import { createMainDataSource, mainConnectionOptions, SQLITE_BUSY_TIMEOUT_MS } f
 import { SessionModule } from './modules/session/session.module';
 import { MessageModule } from './modules/message/message.module';
 import { TemplateModule } from './modules/template/template.module';
+import { MarviceModule } from './marvice/marvice.module'; // Marvice fork
 import { WebhookModule } from './modules/webhook/webhook.module';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -157,8 +158,9 @@ if (dashboardServingEnabled && dashboardBuildPresent) {
             __dirname + '/modules/integration/**/*.entity{.ts,.js}',
             __dirname + '/modules/status-store/**/*.entity{.ts,.js}',
             __dirname + '/modules/automation/**/*.entity{.ts,.js}',
+            __dirname + '/marvice/**/*.entity{.ts,.js}', // Marvice fork
           ],
-          migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
+          migrations: [__dirname + '/database/migrations/*{.ts,.js}', __dirname + '/marvice/migrations/*{.ts,.js}'],
           logging: configService.get<boolean>('dataDatabase.logging', false),
         };
 
@@ -302,6 +304,7 @@ if (dashboardServingEnabled && dashboardBuildPresent) {
     ...searchModules, // Global message search (opt-out via SEARCH_ENABLED=false; default ON)
     ...mcpModules, // MCP Streamable-HTTP server (opt-in via MCP_ENABLED=true)
     ...serveStaticModules, // Bundled dashboard SPA (production single-port setup)
+    MarviceModule, // Marvice fork (last, so its routes append to the OpenAPI spec): Contacts, …
   ],
   // Runs after every DataSource has initialized (they initialize eagerly in their provider
   // factories, and onApplicationBootstrap fires after every onModuleInit), tightening the SQLite

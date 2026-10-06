@@ -64,6 +64,7 @@
     "chats": "Chats",
     "webhooks": "Webhooks",
     "templates": "Templates",
+    "contacts": "Contacts",
     "apiKeys": "API Keys",
     "messageTester": "Message Tester",
     "infrastructure": "Infrastructure",
@@ -1165,5 +1166,75 @@
       "current": "This session"
     },
     "loading": "Searching…"
+  },
+  "marvice": {
+    "contacts": {
+      "title": "Contacts",
+      "subtitle": "Upload contact lists, verify WhatsApp numbers and manage opt-outs per session.",
+      "session": "Session",
+      "noSessions": "Create a session first to manage contacts.",
+      "lists": "Lists",
+      "newList": "New list",
+      "forbidden": "Your API key needs the operator role to manage contacts.",
+      "noLists": "No lists yet. Create one to start importing.",
+      "listMeta": "{{total}} contacts · {{on}} on WhatsApp",
+      "startTitle": "Pick or create a list",
+      "startDesc": "Lists hold the contacts you import from CSV. Campaigns send to a list.",
+      "import": "Import CSV",
+      "verify": "Verify numbers",
+      "verifying": "Verifying…",
+      "total": "Total",
+      "searchPlaceholder": "Search phone, name or tag",
+      "filter": "Filter by status",
+      "allStatuses": "All statuses",
+      "optInHint": "Opted-out contacts are skipped by every campaign. Replying STOP opts out, START opts back in.",
+      "noContacts": "No contacts match.",
+      "showing": "{{count}} contacts",
+      "create": "Create",
+      "listNamePlaceholder": "e.g. Diwali offer — Bandra",
+      "description": "Description",
+      "descriptionPlaceholder": "Optional note for your team",
+      "deleteListTitle": "Delete list",
+      "deleteListConfirm": "Delete \"{{name}}\" and its {{count}} contacts? This cannot be undone.",
+      "status": {
+        "on_whatsapp": "On WhatsApp",
+        "not_on_whatsapp": "Not on WhatsApp",
+        "pending": "Unverified",
+        "check_failed": "Check failed",
+        "opted_out": "Opted out"
+      },
+      "col": {
+        "phone": "Phone",
+        "name": "Name",
+        "tags": "Tags",
+        "status": "Status",
+        "optIn": "Opted in",
+        "actions": "Actions"
+      },
+      "toasts": {
+        "verifyStarted": "Verifying {{count}} numbers in the background",
+        "listCreated": "List created",
+        "listDeleted": "List deleted"
+      },
+      "importDialog": {
+        "title": "Import into {{name}}",
+        "help": "CSV with a phone column. Optional: name, tags (comma separated) and any other column, which becomes a template variable. Up to 5,000 rows.",
+        "drop": "Drop a CSV here or click to choose (max 2 MB)",
+        "paste": "Or paste CSV",
+        "countryCode": "Default country code",
+        "verify": "Verify numbers on WhatsApp after import",
+        "consent": "I confirm these contacts agreed to receive WhatsApp messages from us.",
+        "submit": "Import",
+        "done": "Import complete",
+        "saved": "{{added}} added, {{updated}} updated",
+        "rows": "Rows read: {{count}}",
+        "invalid": "Invalid numbers: {{count}}",
+        "duplicates": "Duplicates skipped: {{count}}",
+        "overLimit": "Rows over the limit: {{count}}",
+        "variables": "Variables",
+        "verifying": "Verification queued for {{count}} numbers",
+        "tooLarge": "File is larger than 2 MB. Split it and import in parts."
+      }
+    }
   }
 }

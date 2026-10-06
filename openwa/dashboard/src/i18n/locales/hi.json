@@ -64,6 +64,7 @@
     "chats": "चैट्स",
     "webhooks": "वेबहुक (Webhooks)",
     "templates": "टेम्पलेट्स",
+    "contacts": "संपर्क",
     "apiKeys": "API कुंजियाँ",
     "messageTester": "संदेश परीक्षक",
     "infrastructure": "बुनियादी ढांचा",
@@ -1165,5 +1166,75 @@
       "current": "यह सत्र"
     },
     "loading": "खोजा जा रहा है…"
+  },
+  "marvice": {
+    "contacts": {
+      "title": "संपर्क",
+      "subtitle": "हर सेशन के लिए संपर्क सूचियाँ अपलोड करें, WhatsApp नंबर जाँचें और ऑप्ट-आउट संभालें।",
+      "session": "सेशन",
+      "noSessions": "संपर्क संभालने के लिए पहले एक सेशन बनाएँ।",
+      "lists": "सूचियाँ",
+      "newList": "नई सूची",
+      "forbidden": "संपर्क संभालने के लिए आपकी API कुंजी को ऑपरेटर भूमिका चाहिए।",
+      "noLists": "अभी कोई सूची नहीं है। इम्पोर्ट शुरू करने के लिए एक बनाएँ।",
+      "listMeta": "{{total}} संपर्क · {{on}} WhatsApp पर",
+      "startTitle": "कोई सूची चुनें या बनाएँ",
+      "startDesc": "सूचियों में CSV से इम्पोर्ट किए गए संपर्क रहते हैं। कैंपेन किसी सूची को भेजे जाते हैं।",
+      "import": "CSV इम्पोर्ट करें",
+      "verify": "नंबर जाँचें",
+      "verifying": "जाँच हो रही है…",
+      "total": "कुल",
+      "searchPlaceholder": "फ़ोन, नाम या टैग खोजें",
+      "filter": "स्थिति से फ़िल्टर करें",
+      "allStatuses": "सभी स्थितियाँ",
+      "optInHint": "ऑप्ट-आउट संपर्कों को हर कैंपेन छोड़ देता है। STOP भेजने पर ऑप्ट-आउट, START भेजने पर फिर से ऑप्ट-इन।",
+      "noContacts": "कोई संपर्क मेल नहीं खाता।",
+      "showing": "{{count}} संपर्क",
+      "create": "बनाएँ",
+      "listNamePlaceholder": "जैसे दिवाली ऑफ़र — बांद्रा",
+      "description": "विवरण",
+      "descriptionPlaceholder": "टीम के लिए वैकल्पिक नोट",
+      "deleteListTitle": "सूची हटाएँ",
+      "deleteListConfirm": "\"{{name}}\" और उसके {{count}} संपर्क हटाएँ? यह वापस नहीं होगा।",
+      "status": {
+        "on_whatsapp": "WhatsApp पर",
+        "not_on_whatsapp": "WhatsApp पर नहीं",
+        "pending": "अजाँचा",
+        "check_failed": "जाँच विफल",
+        "opted_out": "ऑप्ट-आउट"
+      },
+      "col": {
+        "phone": "फ़ोन",
+        "name": "नाम",
+        "tags": "टैग",
+        "status": "स्थिति",
+        "optIn": "ऑप्ट-इन",
+        "actions": "कार्रवाइयाँ"
+      },
+      "toasts": {
+        "verifyStarted": "पृष्ठभूमि में {{count}} नंबर जाँचे जा रहे हैं",
+        "listCreated": "सूची बन गई",
+        "listDeleted": "सूची हटा दी गई"
+      },
+      "importDialog": {
+        "title": "{{name}} में इम्पोर्ट करें",
+        "help": "phone कॉलम वाली CSV। वैकल्पिक: name, tags (कॉमा से अलग) और कोई भी अन्य कॉलम, जो टेम्पलेट वेरिएबल बन जाता है। अधिकतम 5,000 पंक्तियाँ।",
+        "drop": "CSV यहाँ छोड़ें या चुनने के लिए क्लिक करें (अधिकतम 2 MB)",
+        "paste": "या CSV पेस्ट करें",
+        "countryCode": "डिफ़ॉल्ट देश कोड",
+        "verify": "इम्पोर्ट के बाद WhatsApp पर नंबर जाँचें",
+        "consent": "मैं पुष्टि करता/करती हूँ कि इन संपर्कों ने हमसे WhatsApp संदेश पाने की सहमति दी है।",
+        "submit": "इम्पोर्ट करें",
+        "done": "इम्पोर्ट पूरा",
+        "saved": "{{added}} जोड़े गए, {{updated}} अपडेट हुए",
+        "rows": "पढ़ी गई पंक्तियाँ: {{count}}",
+        "invalid": "अमान्य नंबर: {{count}}",
+        "duplicates": "छोड़े गए डुप्लिकेट: {{count}}",
+        "overLimit": "सीमा से अधिक पंक्तियाँ: {{count}}",
+        "variables": "वेरिएबल",
+        "verifying": "{{count}} नंबरों की जाँच कतार में",
+        "tooLarge": "फ़ाइल 2 MB से बड़ी है। इसे हिस्सों में बाँटकर इम्पोर्ट करें।"
+      }
+    }
   }
 }

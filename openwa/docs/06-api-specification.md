@@ -7205,3 +7205,93 @@ When the queue is enabled, a non-2xx response, timeout (`WEBHOOK_TIMEOUT`, defau
 ### SSRF guard on registration
 
 Webhook URLs are validated at **registration time**, not just at delivery. When SSRF protection is enabled (the default), creating a webhook, or updating one to a different URL, with a URL that resolves to a private/internal/loopback address is rejected synchronously with `400 Bad Request` instead of failing silently later at delivery. The `SSRF_ALLOWED_HOSTS` escape-hatch applies equally to registration and delivery. Independently of the SSRF flag, a URL embedding credentials (`https://user:pass@host/hook`) is rejected with `400` — such credentials would otherwise be persisted and echoed into delivery logs and dead-letter rows. An update that re-sends the stored URL unchanged skips both checks, so a webhook whose host became blocked can still be deactivated or re-filtered; delivery still applies the SSRF guard. Operator-supplied custom headers that target reserved names (`Content-Type`, `User-Agent` or any `X-OpenWA-*`, in any letter case) are stripped, so a webhook config cannot forge the signature, event, or idempotency headers. A header map with two names that differ only in case is rejected with `400`. The connection-level names the HTTP client owns (`Connection`, `Content-Length`, `Expect`, `Keep-Alive`, `TE`, `Trailer`, `Transfer-Encoding`, `Upgrade`) are stripped as well, since setting one would fail or corrupt the delivery.
+
+## Marvice Modules (fork)
+
+Marvice Media additions, served by this fork only (`src/marvice/`). Every route needs an OPERATOR key, honours `allowedSessions`, and refuses chat-scoped keys like any other unmarked route.
+
+### Contacts
+
+Contact lists per session, CSV import, paced WhatsApp verification and opt-outs. An inbound `STOP` / `UNSUBSCRIBE` (1:1 chat, the whole message) opts the sender out on every list of the session; `START` reverses only a keyword opt-out, never a manual one. The message itself is still delivered to webhooks, plugins and bots.
+
+#### GET /api/sessions/:sessionId/marvice/contacts/lists
+
+List the session's contact lists, newest first, each with `counts` (`total`, `onWhatsapp`, `notOnWhatsapp`, `pending`, `checkFailed`, `optedOut`) and `verifying` (a background check is running in this process).
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — array of lists with counts.
+
+#### POST /api/sessions/:sessionId/marvice/contacts/lists
+
+Create a contact list.
+
+**Auth:** API key (OPERATOR)
+
+**Request body** — `CreateContactListDto`: `name` (string, required, max 100, unique per session), `description` (string, optional, max 500).
+
+**Response** `201` — the saved list.
+
+**Errors:** `404` the session does not exist · `409` a list with that name already exists on the session.
+
+#### DELETE /api/sessions/:sessionId/marvice/contacts/lists/:listId
+
+Delete a list and all its contacts (cascade). Stops a running verification for it.
+
+**Auth:** API key (OPERATOR)
+
+**Response** `204`
+
+**Errors:** `404` unknown list on this session.
+
+#### POST /api/sessions/:sessionId/marvice/contacts/lists/:listId/import
+
+Import contacts from CSV text (`,` or `;` delimited, header row required). The phone column is found by header (`phone`, `mobile`, `whatsapp`, `number`, …); `name` and `tags` are optional; every other column is kept as a snake_cased campaign variable (`Last Order` → `{{last_order}}`). Numbers are normalized to international digits (10-digit and leading-`0` numbers get `defaultCountryCode`), invalid rows and duplicates are skipped, at most 5,000 contacts per call. Re-importing updates contacts in place and never re-opts-in someone who opted out. Unless `verify` is `false`, every pending number is then checked on WhatsApp in the background, one lookup every 1.5 s; five lookup failures in a row (session offline) pause the check until `verify` is called again.
+
+**Auth:** API key (OPERATOR)
+
+**Request body** — `ImportContactsDto`: `csv` (string, required), `defaultCountryCode` (digits, default `91`), `consent` (must be `true`), `verify` (boolean, default `true`).
+
+**Response** `201` — `{ listId, totalRows, added, updated, invalid, duplicates, overLimit, invalidSamples, columns, verificationQueued }`.
+
+**Errors:** `400` no phone column, no valid numbers, or `consent` not `true` · `404` unknown list.
+
+#### POST /api/sessions/:sessionId/marvice/contacts/lists/:listId/verify
+
+Start (or join) the background WhatsApp check of the list's pending and failed numbers.
+
+**Auth:** API key (OPERATOR)
+
+**Response** `201` — `{ queued }`, the number of contacts awaiting a check.
+
+**Errors:** `404` unknown list.
+
+#### GET /api/sessions/:sessionId/marvice/contacts/lists/:listId/contacts
+
+Page through a list. Query: `page` (default 1), `limit` (1–200, default 50), `search` (phone, name or tags), `status` (`pending`, `on_whatsapp`, `not_on_whatsapp`, `check_failed`, `opted_out`).
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — `{ items, total, page, limit }`.
+
+**Errors:** `404` unknown list.
+
+#### PATCH /api/sessions/:sessionId/marvice/contacts/:contactId
+
+Edit a contact: `name`, `tags` (comma-separated), `optedIn` (`false` records a manual opt-out).
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — the updated contact.
+
+**Errors:** `404` unknown contact on this session.
+
+#### DELETE /api/sessions/:sessionId/marvice/contacts/:contactId
+
+Delete a contact.
+
+**Auth:** API key (OPERATOR)
+
+**Response** `204`
+
+**Errors:** `404` unknown contact on this session.
