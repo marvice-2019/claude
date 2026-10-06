@@ -32,10 +32,13 @@ export interface SendPacingConfig {
   breakerCooldownMs: number;
 }
 
-/** A cautious two-week ramp: ~1 message every 3 minutes on day one, ~2/minute by the second week. */
-const DEFAULT_WARMUP_SCHEDULE = [20, 40, 80, 160, 320, 640, 1000];
-/** Deliberately far below the overall ramp: a stranger costs more standing than a reply does. */
-const DEFAULT_COLD_SCHEDULE = [5, 10, 20, 40, 60, 80, 100];
+// Marvice fork: campaign-scale ramps baked into the image, because the Coolify compose does not
+// forward SEND_PACING_* from its UI. Upstream: [20,40,80,160,320,640,1000] and [5,10,20,40,60,80,100].
+// The env vars still override both when they reach the container.
+/** Overall daily ramp by session age; always above the cold ramp so replies are never starved. */
+const DEFAULT_WARMUP_SCHEDULE = [200, 500, 1000, 2000, 5000, 10000];
+/** Daily ramp for first messages to strangers — the traffic that gets numbers banned. */
+const DEFAULT_COLD_SCHEDULE = [100, 250, 500, 1000, 2000, 5000];
 const DEFAULT_BREAKER_THRESHOLD = 5;
 const DEFAULT_BREAKER_COOLDOWN_MS = 15 * 60_000;
 
