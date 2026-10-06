@@ -11,7 +11,9 @@ import { readFileSync } from 'node:fs';
 const PLUGIN = 'chatwoot-adapter';
 const ZIP = 'https://github.com/rmyndharis/OpenWA-plugins/releases/download/chatwoot-adapter-v0.9.10/chatwoot-adapter.zip';
 const OPENWA = `http://127.0.0.1:${process.env.PORT || 2785}/api`;
-const CHATWOOT = process.env.CW_BASE || 'https://inbox.marvice.tech';
+// The adapter accepts the bare origin only: a URL copied from the Chatwoot address bar
+// (https://inbox.marvice.tech/app/accounts/1/...) is cut back to https://inbox.marvice.tech.
+const CHATWOOT = new URL((process.env.CW_BASE || 'https://inbox.marvice.tech').trim()).origin;
 
 const need = name => {
   const v = (process.env[name] || '').trim();
