@@ -1184,7 +1184,7 @@
       "verify": "Verify numbers",
       "verifying": "Verifying…",
       "total": "Total",
-      "searchPlaceholder": "Search phone, name or tag",
+      "searchPlaceholder": "Search phone, name, tag or any field",
       "filter": "Filter by status",
       "allStatuses": "All statuses",
       "optInHint": "Opted-out contacts are skipped by every campaign. Replying STOP opts out, START opts back in.",

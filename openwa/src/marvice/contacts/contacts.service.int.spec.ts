@@ -84,6 +84,8 @@ describe('Marvice ContactsService (SQLite, real migrations)', () => {
     expect(summary.counts.optedOut).toBe(1);
     expect(summary.counts.onWhatsapp).toBe(1); // re-import kept the verification result
 
+    // Extra CSV columns are searchable too (city lives in variables).
+    expect((await service.listContacts('s1', list.id, { search: 'mumbai' })).total).toBe(1);
     const found = await service.listContacts('s1', list.id, { search: 'rahul' });
     expect(found.total).toBe(1);
     expect(found.items[0]).toMatchObject({

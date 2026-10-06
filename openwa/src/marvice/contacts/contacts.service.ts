@@ -267,7 +267,9 @@ export class ContactsService {
           w
             .where('c.phone LIKE :like', { like })
             .orWhere('LOWER(c.name) LIKE :like', { like })
-            .orWhere('c.tags LIKE :like', { like }),
+            .orWhere('c.tags LIKE :like', { like })
+            // Imported extra columns (requirement, city…) live as JSON text; search them too.
+            .orWhere('LOWER(c.variables) LIKE :like', { like }),
         ),
       );
     }

@@ -34,6 +34,34 @@ import './Contacts.css';
 const PAGE_SIZE = 50;
 const STATUS_FILTERS = ['', 'on_whatsapp', 'not_on_whatsapp', 'pending', 'check_failed', 'opted_out'] as const;
 
+/** Imported extra CSV columns (requirement, city, budget…) are stored as a JSON object of strings. */
+function parseVars(raw: string | null): Record<string, string> {
+  if (!raw) return {};
+  try {
+    const v: unknown = JSON.parse(raw);
+    return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+/** `requirement` -> `Requirement`, `pax_count` -> `Pax count`. */
+function humanize(key: string): string {
+  const text = key.replace(/_/g, ' ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** Detail columns shown in the table: every extra field present on this page, in first-seen order (max 6). */
+function detailKeysOf(items: Contact[]): string[] {
+  const keys: string[] = [];
+  for (const c of items) {
+    for (const k of Object.keys(parseVars(c.variables))) {
+      if (!keys.includes(k)) keys.push(k);
+    }
+  }
+  return keys.slice(0, 6);
+}
+
 const errorMessage = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 
 function StatusBadge({ contact }: { contact: Contact }) {
@@ -98,6 +126,7 @@ export function Contacts() {
   );
   const m = useContactsMutations(sessionId);
   const pages = Math.max(1, Math.ceil((contactPage?.total ?? 0) / PAGE_SIZE));
+  const detailKeys = detailKeysOf(contactPage?.items ?? []);
 
   const verifyNow = async () => {
     if (!list) return;
@@ -303,6 +332,9 @@ export function Contacts() {
                       <tr>
                         <th>{t('marvice.contacts.col.phone')}</th>
                         <th>{t('marvice.contacts.col.name')}</th>
+                        {detailKeys.map(k => (
+                          <th key={k}>{humanize(k)}</th>
+                        ))}
                         <th>{t('marvice.contacts.col.tags')}</th>
                         <th>{t('marvice.contacts.col.status')}</th>
                         <th>{t('marvice.contacts.col.optIn')}</th>
@@ -314,6 +346,10 @@ export function Contacts() {
                         <tr key={c.id}>
                           <td className="mc-mono">+{c.phone}</td>
                           <td>{c.name || <span className="mc-muted">—</span>}</td>
+                          {detailKeys.map(k => {
+                            const v = parseVars(c.variables)[k];
+                            return <td key={k}>{v || <span className="mc-muted">—</span>}</td>;
+                          })}
                           <td>
                             {(c.tags ?? '')
                               .split(',')

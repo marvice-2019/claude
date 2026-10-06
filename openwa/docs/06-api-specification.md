@@ -7268,7 +7268,7 @@ Start (or join) the background WhatsApp check of the list's pending and failed n
 
 #### GET /api/sessions/:sessionId/marvice/contacts/lists/:listId/contacts
 
-Page through a list. Query: `page` (default 1), `limit` (1–200, default 50), `search` (phone, name or tags), `status` (`pending`, `on_whatsapp`, `not_on_whatsapp`, `check_failed`, `opted_out`).
+Page through a list. Query: `page` (default 1), `limit` (1–200, default 50), `search` (phone, name, tags or any imported extra column), `status` (`pending`, `on_whatsapp`, `not_on_whatsapp`, `check_failed`, `opted_out`).
 
 **Auth:** API key (OPERATOR)
 
