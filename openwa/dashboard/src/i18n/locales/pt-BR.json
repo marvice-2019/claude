@@ -1338,7 +1338,12 @@
       "mediaHint": "Use a direct public link that opens the file itself (your website, Cloudinary, S3). Google Drive / Dropbox share pages will fail.",
       "captionLabel": "Caption",
       "audioNote": "Voice notes are sent as recorded audio and carry no text. Send a text campaign separately if you need a message.",
-      "retryFailed": "Retry {{count}} failed"
+      "retryFailed": "Retry {{count}} failed",
+      "uploadFile": "Upload file",
+      "uploading": "Uploading…",
+      "uploaded": "Uploaded {{name}}",
+      "uploadedHint": "Using your uploaded file {{name}}. Paste a link instead to replace it.",
+      "uploadTooLarge": "File is larger than 50 MB"
     },
     "profile": {
       "title": "WhatsApp Profile",

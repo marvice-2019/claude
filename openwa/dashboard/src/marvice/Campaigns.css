@@ -184,6 +184,30 @@
   outline-offset: 2px;
 }
 
+.mcp-upload {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.mcp-upload input[type='url'] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mcp-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mcp-upload-btn.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
 .mcp-chips {
   display: flex;
   flex-wrap: wrap;

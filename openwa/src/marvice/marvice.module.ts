@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MarviceContactsModule } from './contacts/contacts.module';
 import { MarviceCampaignsModule } from './campaigns/campaigns.module';
+import { MarviceMediaModule } from './media/media.module';
 
 /**
  * Marvice Modules — Marvice Media's additions to OpenWA. Everything lives under src/marvice/ so
@@ -8,6 +9,6 @@ import { MarviceCampaignsModule } from './campaigns/campaigns.module';
  * migration globs in app.module.ts and database/data-source.ts.
  */
 @Module({
-  imports: [MarviceContactsModule, MarviceCampaignsModule],
+  imports: [MarviceContactsModule, MarviceCampaignsModule, MarviceMediaModule],
 })
 export class MarviceModule {}

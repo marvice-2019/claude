@@ -52,6 +52,17 @@ export interface CampaignPreview {
   unknownVariables: string[];
 }
 
+export interface UploadedMedia {
+  url: string;
+  filename: string;
+  mimetype: string;
+  size: number;
+  mediaType: 'image' | 'video' | 'audio' | 'document';
+}
+
+/** Server-side cap for uploaded campaign files. */
+export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
 export interface NewCampaign {
   name: string;
   listId: string;
@@ -77,6 +88,14 @@ export const campaignsApi = {
   action: (sessionId: string, id: string, action: 'start' | 'pause' | 'cancel' | 'retry') =>
     request<Campaign>(`${base(sessionId)}/${id}/${action}`, { method: 'POST' }),
   remove: (sessionId: string, id: string) => request<void>(`${base(sessionId)}/${id}`, { method: 'DELETE' }),
+  uploadMedia: (sessionId: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<UploadedMedia>(`/sessions/${encodeURIComponent(sessionId)}/marvice/media`, {
+      method: 'POST',
+      body: form,
+    });
+  },
   recipients: (sessionId: string, id: string, q: { page: number; limit: number; status?: string }) => {
     const params = new URLSearchParams({ page: String(q.page), limit: String(q.limit) });
     if (q.status) params.set('status', q.status);

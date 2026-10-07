@@ -15,6 +15,7 @@ import {
   Send,
   Trash2,
   Type,
+  Upload,
   Video,
   XCircle,
 } from 'lucide-react';
@@ -30,6 +31,7 @@ import {
   type CampaignPreview,
   type NewCampaign,
   type RecipientStatus,
+  MAX_UPLOAD_BYTES,
   campaignsApi,
   exportRecipientsCsv,
   useCampaignMutations,
@@ -56,6 +58,13 @@ const MESSAGE_TYPES: { key: MessageType; Icon: typeof FileText }[] = [
   { key: 'audio', Icon: Mic },
   { key: 'document', Icon: FileText },
 ];
+const UPLOAD_ACCEPT: Record<Exclude<MessageType, 'text'>, string> = {
+  image: 'image/jpeg,image/png,image/webp',
+  video: 'video/mp4,video/3gpp,video/quicktime',
+  audio: 'audio/*',
+  document: '*/*',
+};
+
 const MEDIA_PLACEHOLDER: Record<Exclude<MessageType, 'text'>, string> = {
   image: 'https://…/offer.jpg',
   video: 'https://…/promo.mp4',
@@ -484,6 +493,29 @@ function NewCampaignModal({
   const [onlyVerified, setOnlyVerified] = useState(false);
   const [mediaUrl, setMediaUrl] = useState('');
   const [msgType, setMsgType] = useState<MessageType>('text');
+  const [uploading, setUploading] = useState(false);
+  const [uploadedName, setUploadedName] = useState('');
+
+  const uploadFile = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error(t('marvice.campaigns.uploadTooLarge'));
+      return;
+    }
+    setUploading(true);
+    try {
+      const res = await campaignsApi.uploadMedia(sessionId, file);
+      setMediaUrl(res.url);
+      setUploadedName(res.filename);
+      // An upload of a different kind (e.g. a PDF while "Image" is picked) switches the type to match.
+      if (msgType !== 'text' && res.mediaType !== msgType) setMsgType(res.mediaType);
+      toast.success(t('marvice.campaigns.uploaded', { name: res.filename }));
+    } catch (err) {
+      toast.error(errorMessage(err, t('common.unknownError')));
+    } finally {
+      setUploading(false);
+    }
+  };
   const isAudio = msgType === 'audio';
   // A voice note has no caption; the preview still needs a body to count the audience.
   const previewBody = isAudio ? '🎤' : message;
@@ -623,14 +655,38 @@ function NewCampaignModal({
           {msgType !== 'text' && (
             <div className="form-group">
               <label htmlFor="mcp-media">{t(`marvice.campaigns.mediaLink.${msgType}`)}</label>
-              <input
-                id="mcp-media"
-                type="url"
-                value={mediaUrl}
-                placeholder={MEDIA_PLACEHOLDER[msgType]}
-                onChange={e => setMediaUrl(e.target.value)}
-              />
-              <span className="mc-muted">{t('marvice.campaigns.mediaHint')}</span>
+              <div className="mcp-upload">
+                <input
+                  id="mcp-media"
+                  type="url"
+                  value={mediaUrl}
+                  placeholder={MEDIA_PLACEHOLDER[msgType]}
+                  onChange={e => {
+                    setMediaUrl(e.target.value);
+                    setUploadedName('');
+                  }}
+                />
+                <label className={`btn-secondary mcp-upload-btn ${uploading ? 'disabled' : ''}`}>
+                  {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}{' '}
+                  {uploading ? t('marvice.campaigns.uploading') : t('marvice.campaigns.uploadFile')}
+                  <input
+                    type="file"
+                    hidden
+                    aria-label={t('marvice.campaigns.uploadFile')}
+                    accept={UPLOAD_ACCEPT[msgType]}
+                    disabled={uploading}
+                    onChange={e => {
+                      void uploadFile(e.target.files?.[0]);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+              </div>
+              <span className="mc-muted">
+                {uploadedName
+                  ? t('marvice.campaigns.uploadedHint', { name: uploadedName })
+                  : t('marvice.campaigns.mediaHint')}
+              </span>
             </div>
           )}
 

@@ -18550,6 +18550,151 @@
           "marvice-campaigns"
         ]
       }
+    },
+    "/api/sessions/{sessionId}/marvice/media": {
+      "post": {
+        "operationId": "MarviceMediaController_upload",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Stored: { url, filename, mimetype, size, mediaType }"
+          },
+          "400": {
+            "description": "No file, or the file is empty",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "File larger than 50 MB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Upload a file for a campaign and get back its public https link",
+        "tags": [
+          "marvice-media"
+        ]
+      }
+    },
+    "/api/marvice/media/{id}/{name}": {
+      "get": {
+        "operationId": "MarviceMediaController_download",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "File id (32 hex characters)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "description": "File name (informational)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file"
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown file",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Download an uploaded campaign file (public, unguessable link)",
+        "tags": [
+          "marvice-media"
+        ]
+      }
     }
   },
   "info": {

@@ -7388,6 +7388,26 @@ Put every `failed` recipient back in the queue and set the campaign running agai
 
 **Errors:** `400` no failed messages · `404` unknown campaign · `409` draft or cancelled.
 
+#### POST /api/sessions/:sessionId/marvice/media
+
+Upload a file (multipart field `file`, up to 50 MB) for a campaign. It is stored on the data volume and the response carries a public https `url` to use as a campaign's `mediaUrl`, plus `filename`, `mimetype`, `size` and the suggested `mediaType` (`image`, `video`, `audio` or `document`).
+
+**Auth:** API key (OPERATOR)
+
+**Response** `201` — `{ url, filename, mimetype, size, mediaType }`.
+
+**Errors:** `400` no file or empty file · `413` larger than 50 MB.
+
+#### GET /api/marvice/media/:id/:name
+
+Download an uploaded campaign file. Public, so WhatsApp's media fetch needs no key; the 32-hex-character `id` is random and unguessable. `name` is informational.
+
+**Auth:** none
+
+**Response** `200` — the file, with its original content type.
+
+**Errors:** `404` unknown file.
+
 #### GET /api/sessions/:sessionId/marvice/campaigns/:campaignId/recipients
 
 The delivery report. Query: `page`, `limit` (1–200), `status` (`pending`, `queued`, `sent`, `failed`, `skipped`). Each row has `phone`, `name`, `status`, `messageId`, `error` and `sentAt`.
