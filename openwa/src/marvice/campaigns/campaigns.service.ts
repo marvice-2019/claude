@@ -20,6 +20,7 @@ import { SEND_PACING_LIMITED } from '../../modules/message/send-pacing.service';
 import { createLogger } from '../../common/services/logger.service';
 import { CreateCampaignDto, ListRecipientsQueryDto, PreviewCampaignDto } from './dto/campaigns.dto';
 import { placeholdersOf, recipientVars, renderForRecipient } from './render';
+import { sendableMediaUrl } from '../media/media-store';
 
 /** Upstream bulk batches hold at most 100 messages; a campaign feeds them through one at a time. */
 export const CHUNK_SIZE = 100;
@@ -296,7 +297,9 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     const seq = c.batchSeq + 1;
     const batchId = `mc_${c.id.slice(0, 8)}_${seq}`;
     try {
-      await this.bulk.createBatch(c.sessionId, this.buildBatch(c, send, batchId));
+      // Uploaded campaign files live on this server: send them from its loopback port.
+      const sendFrom = c.mediaUrl ? { ...c, mediaUrl: await sendableMediaUrl(c.mediaUrl) } : c;
+      await this.bulk.createBatch(c.sessionId, this.buildBatch(sendFrom, send, batchId));
     } catch (err) {
       // Session not started yet, or too many batches in flight: try again next tick.
       await this.campaigns.update(c.id, { lastError: err instanceof Error ? err.message : String(err) });

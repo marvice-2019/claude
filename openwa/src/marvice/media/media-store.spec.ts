@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { mediaBlobPath, mediaTypeOf, readMediaMeta, safeFilename, saveMedia } from './media-store';
+import { mediaBlobPath, mediaTypeOf, readMediaMeta, safeFilename, saveMedia, sendableMediaUrl } from './media-store';
 import { publicOrigin } from './media.controller';
 
 describe('Marvice campaign media store', () => {
@@ -48,6 +48,25 @@ describe('Marvice campaign media store', () => {
   it('rejects malformed or unknown ids without touching the filesystem outside the store', async () => {
     expect(await readMediaMeta('../../etc')).toBeNull();
     expect(await readMediaMeta('a'.repeat(32))).toBeNull();
+  });
+
+  it('sends uploaded files from the loopback port and leaves other links alone', async () => {
+    process.env.PORT = '2785';
+    delete process.env.SSRF_ALLOWED_HOSTS;
+    const meta = await saveMedia(
+      { originalname: 'menu.pdf', mimetype: 'application/pdf', buffer: Buffer.from('%PDF') },
+      'https://wa.example.com',
+    );
+    const publicLink = `https://wa.example.com/api/marvice/media/${meta.id}/menu.pdf`;
+    expect(await sendableMediaUrl(publicLink)).toBe(`http://127.0.0.1:2785/api/marvice/media/${meta.id}/menu.pdf`);
+    expect(process.env.SSRF_ALLOWED_HOSTS).toBe('127.0.0.1');
+    await sendableMediaUrl(publicLink);
+    expect(process.env.SSRF_ALLOWED_HOSTS).toBe('127.0.0.1'); // not duplicated
+
+    const external = 'https://cdn.example.com/menu.pdf';
+    expect(await sendableMediaUrl(external)).toBe(external);
+    const unknownUpload = `https://wa.example.com/api/marvice/media/${'b'.repeat(32)}/x.pdf`;
+    expect(await sendableMediaUrl(unknownUpload)).toBe(unknownUpload);
   });
 
   it('builds public links from BASE_URL, else from the forwarded host', () => {

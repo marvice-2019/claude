@@ -48,8 +48,9 @@ export class MarviceMediaController {
     @Req() req: Request,
   ) {
     if (!file?.buffer?.length) throw new BadRequestException('Choose a file to upload');
-    const meta = await saveMedia(file);
-    const url = `${publicOrigin(req)}/api/marvice/media/${meta.id}/${encodeURIComponent(meta.filename)}`;
+    const origin = publicOrigin(req);
+    const meta = await saveMedia(file, origin);
+    const url = `${origin}/api/marvice/media/${meta.id}/${encodeURIComponent(meta.filename)}`;
     return { url, filename: meta.filename, mimetype: meta.mimetype, size: meta.size, mediaType: meta.mediaType };
   }
 
